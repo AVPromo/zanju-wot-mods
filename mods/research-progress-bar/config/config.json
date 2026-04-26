@@ -1,0 +1,11 @@
+{
+    "_comment": "Config for com.zanju.researchprogressbar. Place at: mods/configs/research-progress-bar/config.json",
+    "configVersion": 1,
+    "enabled": true,
+    "showTechTree": true,
+    "showEliteProgress": true,
+    "showFieldMods": true,
+    "showPrestige": true,
+    "_displayMode_comment": "Options: 'log' (structured python.log output) | 'ui' (Phase 2: overlay panel)",
+    "displayMode": "log"
+}

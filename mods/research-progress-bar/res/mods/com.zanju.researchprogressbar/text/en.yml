@@ -1,0 +1,15 @@
+# English localisation for com.zanju.researchprogressbar
+
+MOD_NAME: "Research Progress Bar"
+MOD_DESCRIPTION: "Shows XP progress toward next unlock, elite status, field mods, and prestige."
+
+# Progress bar labels
+LABEL_TECH_TREE: "Research"
+LABEL_ELITE_PROGRESS: "Elite Modules"
+LABEL_FIELD_MODS: "Field Mods"
+LABEL_PRESTIGE: "Prestige"
+
+# Status strings
+STATUS_COMPLETE: "Complete"
+STATUS_NO_UNLOCKS: "No available unlocks"
+STATUS_PHASE2_PENDING: "Detailed breakdown coming in Phase 2"

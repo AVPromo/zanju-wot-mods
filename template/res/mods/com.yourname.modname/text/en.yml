@@ -1,0 +1,14 @@
+# English localisation for com.yourname.modname
+# Format: key: "Display string"
+# Keys referenced from Python via I18n or direct lookup.
+
+MOD_NAME: "Your Mod Name"
+MOD_DESCRIPTION: "Short description displayed in-game."
+
+# Settings panel labels (if using ModsSettingsAPI)
+SETTINGS_ENABLED: "Enable mod"
+SETTINGS_ENABLED_TOOLTIP: "Toggle the mod on or off without uninstalling."
+
+# Status / notification strings
+MSG_INITIALIZED: "Mod initialized."
+MSG_DISABLED: "Mod is disabled via config."
