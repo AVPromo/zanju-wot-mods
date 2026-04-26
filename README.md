@@ -30,6 +30,27 @@ python build.py research-progress-bar  # build one mod
 
 Requires Python 3.6+ (tested on 3.14.4). No third-party packages needed.
 
+## Dev Commands
+
+Set `WOT_GAME_DIR` in `.env` first (example in `.env.example`).
+
+```powershell
+# Build + deploy all mods (default)
+python dev_test_deploy.py
+
+# Remove deployed package + config for all mods
+python dev_test_cleanup.py
+
+# Preview cleanup targets without deleting
+python dev_test_cleanup.py --dry-run
+
+# Fast local iteration: cleanup + deploy
+python dev_test_cycle.py
+
+# Target one mod only
+python dev_test_cycle.py research-progress-bar
+```
+
 ## Start Here
 
 1. Read `docs/01-mod-architecture.md`

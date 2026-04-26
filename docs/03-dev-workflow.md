@@ -7,6 +7,36 @@
   Download from https://python.org/downloads — tick "Add to PATH" during setup.
 - No third-party packages needed; `build.py` uses standard library only.
 
+## 0.1 Local Development Scripts
+
+These scripts are meant for fast local iteration against your installed game client.
+
+Before using them, configure `.env` in repo root:
+
+- `WOT_GAME_DIR=C:\Games\World_of_Tanks_EU`
+
+Scripts:
+
+- `python build.py`
+  - Builds all mods under `mods/` into `dist/*.wotmod`.
+  - Use `python build.py <mod-name>` to build one mod.
+- `python dev_test_deploy.py`
+  - Builds target mods, then deploys package + config to `WOT_GAME_DIR`.
+  - Default target is all mods under `mods/`.
+- `python dev_test_cleanup.py`
+  - Removes deployed package + config for target mods from `WOT_GAME_DIR`.
+  - Supports safe preview mode: `python dev_test_cleanup.py --dry-run`.
+- `python dev_test_cycle.py`
+  - Runs cleanup, then deploy (quick full refresh loop).
+  - Supports dry-run: `python dev_test_cycle.py --dry-run` (cleanup preview only).
+
+Recommended daily loop:
+
+1. `python dev_test_cycle.py <mod-name>`
+2. Launch WoT and load hangar/battle scenario
+3. Check `C:\Games\World_of_Tanks_EU\python.log`
+4. Repeat
+
 ## 1. Choose Mod Type First
 
 Pick one:

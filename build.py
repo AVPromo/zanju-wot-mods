@@ -56,7 +56,9 @@ def build_mod(mod_name):
     os.makedirs(DIST_DIR, exist_ok=True)
     output_path = os.path.join(DIST_DIR, output_name)
 
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+    # WoT's package loader rejects compressed entries in some client versions.
+    # Use store-only zip members for maximum compatibility.
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_STORED) as zf:
         # meta.xml at archive root
         zf.write(os.path.join(mod_dir, 'meta.xml'), 'meta.xml')
 
