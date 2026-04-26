@@ -47,6 +47,9 @@ python dev_test_cleanup.py --dry-run
 # Fast local iteration: cleanup + deploy
 python dev_test_cycle.py
 
+# Fast local iteration with clean python.log (no archive, opt-in)
+python dev_test_cycle.py --fresh-log
+
 # Target one mod only
 python dev_test_cycle.py research-progress-bar
 ```

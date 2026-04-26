@@ -22,13 +22,17 @@ Scripts:
   - Use `python build.py <mod-name>` to build one mod.
 - `python dev_test_deploy.py`
   - Builds target mods, then deploys package + config to `WOT_GAME_DIR`.
+  - Also deploys loose `src/*.py` files to `res_mods/<version>/scripts/client/gui/mods/` for development runtime testing.
   - Default target is all mods under `mods/`.
 - `python dev_test_cleanup.py`
   - Removes deployed package + config for target mods from `WOT_GAME_DIR`.
   - Supports safe preview mode: `python dev_test_cleanup.py --dry-run`.
 - `python dev_test_cycle.py`
   - Runs cleanup, then deploy (quick full refresh loop).
+  - If WoT is running, package file replacement may be skipped as "in use"; config/source deployment still proceeds.
   - Supports dry-run: `python dev_test_cycle.py --dry-run` (cleanup preview only).
+  - Supports fresh log mode: `python dev_test_cycle.py --fresh-log` (truncates `python.log`, no archive).
+  - `--fresh-log` requires WoT to be closed.
 
 Recommended daily loop:
 

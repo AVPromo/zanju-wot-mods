@@ -6,6 +6,7 @@ What it does:
 2. Resolves mod package names and WoT version from mods/<name>/meta.xml.
 3. Removes deployed .wotmod files from <WOT_GAME_DIR>/mods/<wot_client_version>/.
 4. Removes deployed config directories from <WOT_GAME_DIR>/mods/configs/<mod-name>/.
+5. Removes dev-deployed loose Python source files from res_mods.
 
 Usage:
     python dev_test_cleanup.py
@@ -80,12 +81,16 @@ def remove_path(path, dry_run):
         print('DRY-RUN remove: {}'.format(path))
         return True
 
-    if os.path.isdir(path):
-        shutil.rmtree(path)
-    else:
-        os.remove(path)
-    print('Removed: {}'.format(path))
-    return True
+    try:
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+        print('Removed: {}'.format(path))
+        return True
+    except PermissionError:
+        print('SKIP (in use): {}'.format(path))
+        return False
 
 
 def cleanup_mod(game_dir, mod_name, dry_run):
@@ -102,10 +107,25 @@ def cleanup_mod(game_dir, mod_name, dry_run):
     package_name = '{}_{}.wotmod'.format(mod_id, version)
     package_path = os.path.join(game_dir, 'mods', wot_version, package_name)
     config_dir = os.path.join(game_dir, 'mods', 'configs', mod_name)
+    scripts_dir = os.path.join(
+        game_dir,
+        'res_mods',
+        wot_version,
+        'scripts',
+        'client',
+        'gui',
+        'mods',
+    )
 
     removed_any = False
     removed_any |= remove_path(package_path, dry_run)
     removed_any |= remove_path(config_dir, dry_run)
+
+    src_dir = os.path.join(MODS_DIR, mod_name, 'src')
+    if os.path.isdir(src_dir):
+        for filename in sorted(os.listdir(src_dir)):
+            if filename.endswith('.py'):
+                removed_any |= remove_path(os.path.join(scripts_dir, filename), dry_run)
 
     if not removed_any:
         print('Nothing to remove for mod: {}'.format(mod_name))

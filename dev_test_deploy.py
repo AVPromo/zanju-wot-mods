@@ -6,6 +6,7 @@ What it does:
 2. Builds mods via build.py (all mods by default, or selected mods via args).
 3. Deploys each .wotmod to <WOT_GAME_DIR>/mods/<wot_client_version>/.
 4. Deploys config files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
+5. Deploys loose Python source files to res_mods for development runtime testing.
 
 Usage:
     python dev_test_deploy.py
@@ -98,14 +99,45 @@ def deploy_mod(game_dir, mod_name):
     dst_mods_dir = os.path.join(game_dir, 'mods', wot_version)
     os.makedirs(dst_mods_dir, exist_ok=True)
     dst_archive = os.path.join(dst_mods_dir, archive_name)
-    shutil.copy2(src_archive, dst_archive)
-    print('Deployed package: {}'.format(dst_archive))
+    try:
+        shutil.copy2(src_archive, dst_archive)
+        print('Deployed package: {}'.format(dst_archive))
+    except PermissionError:
+        print('SKIP package (in use): {}'.format(dst_archive))
 
     src_config_dir = os.path.join(MODS_DIR, mod_name, 'config')
     if os.path.isdir(src_config_dir):
         dst_config_dir = os.path.join(game_dir, 'mods', 'configs', mod_name)
         copy_tree_contents(src_config_dir, dst_config_dir)
         print('Deployed config:  {}'.format(dst_config_dir))
+
+    # Development path: also deploy loose source to res_mods so Python scripts
+    # are picked up during local iteration even when .wotmod script loading is
+    # limited to compiled artifacts.
+    src_dir = os.path.join(MODS_DIR, mod_name, 'src')
+    if os.path.isdir(src_dir):
+        dst_scripts_dir = os.path.join(
+            game_dir,
+            'res_mods',
+            wot_version,
+            'scripts',
+            'client',
+            'gui',
+            'mods',
+        )
+        os.makedirs(dst_scripts_dir, exist_ok=True)
+        deployed = 0
+        for filename in sorted(os.listdir(src_dir)):
+            if filename.endswith('.py'):
+                src_path = os.path.join(src_dir, filename)
+                dst_path = os.path.join(dst_scripts_dir, filename)
+                try:
+                    shutil.copy2(src_path, dst_path)
+                    deployed += 1
+                except PermissionError:
+                    print('SKIP dev script (in use): {}'.format(dst_path))
+        if deployed:
+            print('Deployed dev scripts: {} file(s) -> {}'.format(deployed, dst_scripts_dir))
 
 
 def main():
