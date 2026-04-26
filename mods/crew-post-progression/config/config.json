@@ -1,0 +1,6 @@
+{
+    "_comment": "Config for zanju.crewpostprogression. Place at: mods/configs/crew-post-progression/config.json",
+    "configVersion": 1,
+    "enabled": true,
+    "logLevel": "INFO"
+}

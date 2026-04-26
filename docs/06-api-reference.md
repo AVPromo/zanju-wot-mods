@@ -156,6 +156,12 @@ class MyMod(object):
         max_tier = stats.getMaxResearchedLevel(nationID)    # int, default = MIN_VEHICLE_LEVEL
 ```
 
+Operational note:
+
+- `stats.postProgressionXP` is an account-level pool value, not a per-vehicle next-step cost.
+- In live WoT 2.2.1.1 testing for this repository, deep post-progression traversal in scheduled hangar updates can hard-crash the client (no traceback).
+- Prefer staged probe escalation and keep production defaults on safer modes.
+
 ### `Vehicle` properties (GUI item, from `gui.shared.gui_items.Vehicle`)
 
 ```python
@@ -447,6 +453,11 @@ pp.getVehType()                # VehicleType
 pp.setState(state)
 pp.clone()                     # deep copy
 ```
+
+Operational safety note for this repo:
+
+- `pp.getFirstPurchasableStep(balance)` ID extraction is stable in safer probe modes.
+- XP extraction from runtime step objects is unstable in this client build and should be treated as experimental only.
 
 ### `PostProgressionAvailability` enum values
 

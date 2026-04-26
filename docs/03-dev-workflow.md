@@ -85,6 +85,18 @@ At minimum:
 - Guard every hook with null checks and exception handling.
 - Keep per-mode feature toggles (event modes often break assumptions).
 
+### 5.1 Probe Escalation Rule (Post-Progression Data)
+
+For any new field-mod/post-progression introspection, escalate in small steps and verify stability between each step:
+
+1. completion-only
+2. steps-only
+3. state-only
+4. next-step-only
+5. full (only if all previous steps remain stable)
+
+If a hard crash appears (no traceback, log stops mid-update), immediately roll back one probe level and re-test.
+
 ## 6. Release Checklist
 
 - Works on current patch version

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-    <id>com.zanju.researchprogressbar</id>
+    <id>zanju.researchprogressbar</id>
     <name>Research Progress Bar</name>
     <version>0.1.0.0</version>
     <description>Shows XP progress toward next module/vehicle unlock, field modification progress, and prestige milestones for the currently selected vehicle.</description>

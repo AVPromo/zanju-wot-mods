@@ -1,11 +1,17 @@
 {
-    "_comment": "Config for com.zanju.researchprogressbar. Place at: mods/configs/research-progress-bar/config.json",
+    "_comment": "Config for zanju.researchprogressbar. Place at: mods/configs/research-progress-bar/config.json",
     "configVersion": 1,
     "enabled": true,
     "showTechTree": true,
     "showEliteProgress": true,
     "showFieldMods": true,
-    "showPrestige": true,
-    "_displayMode_comment": "Options: 'log' (structured python.log output) | 'ui' (Phase 2: overlay panel)",
-    "displayMode": "log"
+    "debugFieldMods": true,
+    "extractNextStepXPLightweight": false,
+    "_fieldModsProbeMode_comment": "off | flags-only | completion-only | steps-only | state-only | next-step-only | full",
+    "fieldModsProbeMode": "next-step-only",
+    "_displayMode_comment": "Options: 'log' (structured python.log output) | 'ui' (persistent hangar overlay panel)",
+    "displayMode": "ui",
+    "_panelPos_comment": "Normalized coordinates. Move right/up by increasing values.",
+    "panelPosX": 0.0,
+    "panelPosY": 0.0
 }

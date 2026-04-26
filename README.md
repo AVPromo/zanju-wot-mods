@@ -68,3 +68,4 @@ python dev_test_cycle.py research-progress-bar
 - Always re-check fair play policy before shipping a mod update.
 - Treat external examples as patterns, not guaranteed up-to-date APIs.
 - Test every patch cycle (especially micro-patches) before release.
+- For research-progress-bar crash boundaries and safe probe settings, see `docs/05-debugging-and-compatibility.md` section 8.

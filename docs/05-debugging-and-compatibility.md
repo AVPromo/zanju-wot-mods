@@ -52,3 +52,22 @@ When a mod breaks after a patch:
 - No broken UI panel lifecycle (create/destroy loops)
 - Config auto-repair or migration works
 - Clear uninstall path and rollback note
+
+## 8. Research Progress Bar Crash Boundary (WoT 2.2.1.1)
+
+Confirmed during live testing:
+
+- `fieldModsProbeMode=full` is unstable and can hard-crash the client.
+- `extractNextStepXPLightweight=true` can also reintroduce crashes, even with `fieldModsProbeMode=next-step-only`.
+- Crash signature: `python.log` stops shortly after `Running scheduled research update` with no Python traceback.
+
+Known-safe baseline:
+
+- `fieldModsProbeMode=next-step-only`
+- `extractNextStepXPLightweight=false`
+- Immediate deferred scheduling (`BigWorld.callback(0.0, ...)`) is validated as stable.
+- `displayMode=ui` is validated with automatic fallback to log mode if GUI panel init/update fails.
+
+Future safety rule:
+
+- Do not add deep post-progression object traversal in the scheduled update path unless tested in staged probe modes first (`completion-only` -> `steps-only` -> `state-only` -> `next-step-only`), with stability checks at each step.
