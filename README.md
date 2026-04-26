@@ -33,6 +33,7 @@ Requires Python 3.6+ (tested on 3.14.4). No third-party packages needed.
 ## Dev Commands
 
 Set `WOT_GAME_DIR` in `.env` first (example in `.env.example`).
+Set `WOT_PYTHON2_EXE` as well; it is required in this repo's current stack so build output includes Python 2 `.pyc` scripts.
 
 ```powershell
 # Build + deploy all mods (default)

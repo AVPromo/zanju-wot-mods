@@ -5,6 +5,8 @@
 - **Python 3.6+** required for the build script (`build.py`).
   Verified working on **Python 3.14.4** (current install on this machine).
   Download from https://python.org/downloads — tick "Add to PATH" during setup.
+- **Python 2.7** required for this repository's current WoT mod stack runtime compatibility.
+  It is used to compile `src/*.py` to Python 2 `.pyc` that ScriptLoader PRO actually executes.
 - No third-party packages needed; `build.py` uses standard library only.
 
 ## 0.1 Local Development Scripts
@@ -14,22 +16,23 @@ These scripts are meant for fast local iteration against your installed game cli
 Before using them, configure `.env` in repo root:
 
 - `WOT_GAME_DIR=C:\Games\World_of_Tanks_EU`
+- `WOT_PYTHON2_EXE=C:\Python27\python.exe` (required in this repo's current stack)
 
 Scripts:
 
 - `python build.py`
   - Builds all mods under `mods/` into `dist/*.wotmod`.
+  - `WOT_PYTHON2_EXE` is used to compile `src/*.py` to Python 2 `.pyc` before packaging.
   - Use `python build.py <mod-name>` to build one mod.
 - `python dev_test_deploy.py`
   - Builds target mods, then deploys package + config to `WOT_GAME_DIR`.
-  - Also deploys loose `src/*.py` files to `res_mods/<version>/scripts/client/gui/mods/` for development runtime testing.
   - Default target is all mods under `mods/`.
 - `python dev_test_cleanup.py`
   - Removes deployed package + config for target mods from `WOT_GAME_DIR`.
   - Supports safe preview mode: `python dev_test_cleanup.py --dry-run`.
 - `python dev_test_cycle.py`
   - Runs cleanup, then deploy (quick full refresh loop).
-  - If WoT is running, package file replacement may be skipped as "in use"; config/source deployment still proceeds.
+  - If WoT is running, package file replacement may be skipped as "in use".
   - Supports dry-run: `python dev_test_cycle.py --dry-run` (cleanup preview only).
   - Supports fresh log mode: `python dev_test_cycle.py --fresh-log` (truncates `python.log`, no archive).
   - `--fresh-log` requires WoT to be closed.
