@@ -97,6 +97,12 @@ For any new field-mod/post-progression introspection, escalate in small steps an
 
 If a hard crash appears (no traceback, log stops mid-update), immediately roll back one probe level and re-test.
 
+Before escalating into deeper runtime step probes, check whether the same value is already materialized by an existing UI presenter/view-model path.
+
+- For Tier XI skill trees in WoT 2.2.1.1, the Vehicle Hub upgrades UI can safely materialize node prices through the presenter/model layer.
+- That path is still UI-scoped: if the player has not opened the relevant upgrades UI in the current session, the garage-side code does not have those real prices yet.
+- Treat presenter-derived values as a safe validation/opportunistic cache path, not as proof that the underlying step method is safe to call from scheduled hangar updates.
+
 ## 6. Release Checklist
 
 - Works on current patch version

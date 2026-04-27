@@ -60,6 +60,8 @@ Confirmed during live testing:
 - `fieldModsProbeMode=full` is unstable and can hard-crash the client.
 - `extractNextStepXPLightweight=true` can also reintroduce crashes, even with `fieldModsProbeMode=next-step-only`.
 - Crash signature: `python.log` stops shortly after `Running scheduled research update` with no Python traceback.
+- In scheduled hangar updates, `PostProgressionStepItem.getType()` remained stable and useful for Tier XI bucket classification.
+- In scheduled hangar updates, `PostProgressionStepItem.getPrice()` remained crash-prone and should still be treated as unsafe.
 
 Known-safe baseline:
 
@@ -68,6 +70,14 @@ Known-safe baseline:
 - Immediate deferred scheduling (`BigWorld.callback(0.0, ...)`) is validated as stable.
 - `displayMode=ui` is validated with automatic fallback to log mode if GUI panel init/update fails.
 
+Validated UI bridge finding:
+
+- Opening the Tier XI Vehicle Hub upgrades UI (`mono/vehicle_hub/main`) triggers the presenter path that fills node view-models with real prices.
+- Hooking the presenter-side fill step and reading the already-populated node view-model price was stable in live testing; the mod logged `Tier-11 UI cache captured` for all 26 nodes and then switched to `source=veh_skill_tree_vm`.
+- This is not a default garage data source. If the relevant upgrades UI has not been opened in the current client session, there is no presenter-populated price data to reuse from the garage.
+- Treat this presenter path as a safe validation or session-cache source, not as a full replacement for an always-available garage-side API.
+
 Future safety rule:
 
 - Do not add deep post-progression object traversal in the scheduled update path unless tested in staged probe modes first (`completion-only` -> `steps-only` -> `state-only` -> `next-step-only`), with stability checks at each step.
+- If real data already exists in a UI model, prefer observing that model population over calling deeper runtime methods from the scheduled update path.

@@ -458,6 +458,22 @@ Operational safety note for this repo:
 
 - `pp.getFirstPurchasableStep(balance)` ID extraction is stable in safer probe modes.
 - XP extraction from runtime step objects is unstable in this client build and should be treated as experimental only.
+- `PostProgressionStepItem.getType()` was validated as stable in scheduled hangar updates for Tier XI node classification in this repo.
+- `PostProgressionStepItem.getPrice()` should still be treated as unsafe from scheduled hangar updates, even though the client uses it internally in the Vehicle Hub presenter path.
+
+### Vehicle Hub skill-tree presenter bridge (validated in WoT 2.2.1.1)
+
+Static package tracing plus live testing in this repository identified a safe UI-side price path for Tier XI skill trees:
+
+- `scripts/client/gui/impl/lobby/vehicle_hub/sub_presenters/veh_skill_tree/tree_presenter.pyc` calls `fillNodeModel(...)`.
+- `scripts/client/gui/impl/lobby/vehicle_hub/sub_presenters/veh_skill_tree/utils.pyc` populates the generated node view-model and sets price via `nodeVM.setPrice(step.getPrice().xp)`.
+- The generated model is `gui.impl.gen.view_models.views.lobby.vehicle_hub.views.sub_models.veh_skill_tree.node_model.NodeModel`, which exposes `getPrice()` / `setPrice()`.
+
+Practical consequence:
+
+- If `mono/vehicle_hub/main` has not been opened in the current client session, the garage-side code does not yet have these UI-materialized prices.
+- After the player opens the Tier XI upgrades UI, the presenter path can be observed safely and the resulting prices can be cached/reused during that session.
+- This makes the presenter/model bridge useful for validation and opportunistic caching, but not sufficient by itself for a default hangar feature that must work before the upgrades UI is opened.
 
 ### `PostProgressionAvailability` enum values
 
