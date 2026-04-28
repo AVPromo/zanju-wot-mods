@@ -16,6 +16,8 @@
     "fieldModsProbeMode": "next-step-only",
     "_displayMode_comment": "Options: 'log' (structured python.log output) | 'ui' (persistent hangar overlay panel)",
     "displayMode": "ui",
+    "_scaleformPrototypeEnabled_comment": "Custom SWF garage panel path. Keep enabled for the working AbstractView-based garage widget while the Python overlay remains as debug UI.",
+    "scaleformPrototypeEnabled": true,
     "_panelPos_comment": "Normalized coordinates. Move right/up by increasing values.",
     "panelPosX": 0.0,
     "panelPosY": 0.0

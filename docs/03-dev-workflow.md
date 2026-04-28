@@ -7,9 +7,37 @@
   Download from https://python.org/downloads — tick "Add to PATH" during setup.
 - **Python 2.7** required for this repository's current WoT mod stack runtime compatibility.
   It is used to compile `src/*.py` to Python 2 `.pyc` that ScriptLoader PRO actually executes.
-- No third-party packages needed; `build.py` uses standard library only.
+- No third-party Python packages needed; `build.py` uses standard library only.
+- **Java** is required for SWF/UI development with the free ActionScript toolchain.
+- **Apache Flex SDK** is required when building `.swf` UI assets from ActionScript sources (`mxmlc`).
+- **FFDec** is required for inspecting existing WoT/mod `.swf` files and reverse-engineering view structure.
 
-## 0.1 Local Development Scripts
+Current machine status:
+
+- `java -help` works
+- `mxmlc -help` works
+- `ffdec-cli.exe -help` works
+- `JAVA_HOME`, `ANT_HOME`, and `FLEX_HOME` are present in the environment
+
+## 0.1 UI Tooling Paths
+
+For garage/battle UI work there are two practical paths:
+
+- **Code-first free path**: Java + Apache Flex SDK + FFDec + a text editor.
+- **Visual authoring path**: Adobe Animate/Flash Professional (optional, paid).
+
+Current repo direction:
+
+- Prefer the free code-first ActionScript 3 path for new UI work.
+- Use FFDec to inspect existing WoT or third-party SWFs.
+- Keep authored SWFs under `mods/<mod-name>/res/gui/flash/` so `build.py` can package them unchanged.
+- Keep Python/AS3 integration logic in `mods/<mod-name>/src/`.
+- For garage widgets that should behave like real WoT lobby UI, prefer a custom Scaleform window over `GUIFlash`.
+- A custom lobby `.swf` loaded through `ViewSettings(..., WindowLayer.WINDOW, ...)` must use a WoT `IView`-compatible AS3 root such as `net.wg.infrastructure.base.AbstractView`; a plain `Sprite` root is rejected by the loader.
+- Cross-check against the installed working mod `tv.lebwa.gunmarks_1.3.07.wotmod`: WoT loads `GunMarksLebwaLobby` as an `SFWindow`, the SWF root extends `AbstractView`, and that root injects a draggable panel MovieClip into the lobby/hangar display tree.
+- For local compilation without bundled WG source/SWCs, a tiny external compile-time stub SWC is sufficient for `mxmlc`; WoT still provides the real runtime implementation.
+
+## 0.2 Local Development Scripts
 
 These scripts are meant for fast local iteration against your installed game client.
 
@@ -23,6 +51,7 @@ Scripts:
 - `python build.py`
   - Builds all mods under `mods/` into `dist/*.wotmod`.
   - `WOT_PYTHON2_EXE` is used to compile `src/*.py` to Python 2 `.pyc` before packaging.
+  - Any files placed under `mods/<mod-name>/res/` are copied into the archive as-is, including `.swf` assets.
   - Use `python build.py <mod-name>` to build one mod.
 - `python dev_test_deploy.py`
   - Builds target mods, then deploys package + config to `WOT_GAME_DIR`.
@@ -44,6 +73,14 @@ Recommended daily loop:
 3. Check `C:\Games\World_of_Tanks_EU\python.log`
 4. Repeat
 
+For UI work, extend the loop:
+
+1. Build or update the `.swf` with `mxmlc`
+2. Place the generated `.swf` under `mods/<mod-name>/res/gui/flash/`
+3. Run `python dev_test_cycle.py <mod-name>`
+4. Launch WoT, open the target screen, inspect `python.log`
+5. Repeat
+
 ## 1. Choose Mod Type First
 
 Pick one:
@@ -54,6 +91,7 @@ Pick one:
 - Hybrid mod (Python + UI + config)
 
 Start with a small Python mod or config mod for first iteration.
+For custom draggable garage widgets, treat the work as a hybrid mod even if the first prototype is UI-heavy.
 
 ## 2. Set Up Safe Test Loop
 
@@ -72,6 +110,13 @@ At minimum:
 - `meta.xml`
 - compiled script(s) under `res/scripts/client/...`
 - any assets under `res/gui/...` or `res/mods/<namespace>/...`
+
+For ActionScript-based UI mods:
+
+- author `.as` source outside the packaged `res/` tree if desired
+- compile to `.swf` with `mxmlc`
+- ship only the resulting `.swf` under `res/gui/flash/`
+- keep raw source/assets in the repo, not inside the game install
 
 ## 4. Config Strategy
 
@@ -117,5 +162,19 @@ Before escalating into deeper runtime step probes, check whether the same value 
 2. Recreate tiny no-op logger mod
 3. Add one safe hook + log marker
 4. Add simple config read/write
-5. Add optional UI element
-6. Add version migration and release notes
+5. Inspect a working UI `.swf` in FFDec and note view names, symbols, and data flow
+6. Build one minimal ActionScript 3 `.swf` with `mxmlc`
+7. Load one optional UI element in WoT
+8. Add version migration and release notes
+
+## 8. Pretty UI Next Steps
+
+For the current research-progress-bar direction, the next steps are:
+
+1. Remove or hide remaining Tier XI debug-style text from the current Python text overlay.
+2. Create a new garage UI prototype as a hybrid mod: Python data provider + garage UI layer.
+3. Use a custom lobby SWF loaded through `ViewSettings(..., WindowLayer.WINDOW, ...)` with an `AbstractView` root.
+4. Keep the old Python `GUI.Text` overlay active as debug UI until the SWF path is stable.
+5. Start with a minimal panel that proves three things only: draggable container, text fields updating from Python, and a graphical progress bar updating from Python.
+6. After that works, add icon slots, minimize/show behavior, and polish.
+7. Only then replace the current plain `GUI.Text` overlay as the default UI path.

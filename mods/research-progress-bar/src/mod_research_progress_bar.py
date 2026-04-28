@@ -16,7 +16,13 @@ from numbers import Integral
 
 import BigWorld
 from CurrentVehicle import g_currentVehicle
+from frameworks.wulf import WindowLayer
+from gui.Scaleform.framework import ScopeTemplates, ViewSettings, g_entitiesFactories
+from gui.Scaleform.framework.entities.View import View
+from gui.Scaleform.framework.managers.loaders import SFViewLoadParams
+from gui.shared.personality import ServicesLocator
 from helpers import dependency
+from skeletons.gui.app_loader import GuiGlobalSpaceID as SPACE_ID
 from skeletons.gui.game_control import IVehiclePostProgressionController
 from skeletons.gui.shared import IItemsCache
 
@@ -24,6 +30,8 @@ _logger = logging.getLogger('zanju.researchprogressbar')
 
 MOD_ID = 'zanju.researchprogressbar'
 MOD_VERSION = '0.1.0.0'
+SCALEFORM_VIEW_ALIAS = 'ResearchProgressBarLobby'
+SCALEFORM_FILE_NAME = 'research-progress-bar-lobby.swf'
 
 # ---------------------------------------------------------------------------
 # Config defaults — overridden by _load_config() at startup
@@ -61,6 +69,7 @@ _config = {
     # Approximate normalized screen position for the UI text widget.
     'panelPosX': 0.0,
     'panelPosY': 0.0,
+    'scaleformPrototypeEnabled': True,
 }
 
 
@@ -85,6 +94,17 @@ def _load_config():
             _logger.info('Config loaded from %s', path)
     except Exception:
         _logger.exception('Failed to load config, using defaults')
+
+
+def _get_parent_window():
+    try:
+        from skeletons.gui.impl import IGuiLoader
+        ui_loader = dependency.instance(IGuiLoader)
+        if ui_loader and getattr(ui_loader, 'windowsManager', None):
+            return ui_loader.windowsManager.getMainWindow()
+    except Exception:
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -1094,6 +1114,7 @@ class _OverlayPanel(object):
                 return False
 
             self._text = text
+
             _logger.info('Overlay panel attached')
             return True
         except Exception:
@@ -1115,15 +1136,43 @@ class _OverlayPanel(object):
             return False
 
     def destroy(self):
-        if self._text is None or self._gui is None:
+        if self._gui is None:
             return
         try:
-            self._detach_root(self._text)
+            if self._text is not None:
+                self._detach_root(self._text)
         except Exception:
             _logger.exception('Failed to detach overlay panel')
         finally:
             self._text = None
             self._gui = None
+
+
+class _ScaleformPrototypeView(View):
+    def as_setContextS(self, data):
+        if self._isDAAPIInited():
+            return self.flashObject.as_setContext(data)
+        return None
+
+    def as_setProgressS(self, value):
+        if self._isDAAPIInited():
+            return self.flashObject.as_setProgress(value)
+        return None
+
+    def as_pingS(self):
+        if self._isDAAPIInited():
+            return self.flashObject.as_ping()
+        return None
+
+    def _populate(self):
+        super(_ScaleformPrototypeView, self)._populate()
+        if _mod is not None:
+            _mod._on_scaleform_view_populated(self)
+
+    def _dispose(self):
+        if _mod is not None:
+            _mod._on_scaleform_view_disposed(self)
+        super(_ScaleformPrototypeView, self)._dispose()
 
 
 # ---------------------------------------------------------------------------
@@ -1141,6 +1190,11 @@ class ResearchProgressBar(object):
         self._pending_update_callback = None
         self._update_in_progress = False
         self._t11_method_probe_offsets = {}
+        self._scaleform_view = None
+        self._scaleform_payload = None
+        self._scaleform_view_requested = False
+        self._scaleform_settings_registered = False
+        self._scaleform_hooks_registered = False
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -1148,6 +1202,7 @@ class ResearchProgressBar(object):
         self._active = True
         self._ui_failed = False
         self._panel = _OverlayPanel()
+        self._start_scaleform_prototype()
         g_currentVehicle.onChanged += self._on_vehicle_changed
         # Avoid running heavy collection during early login/loading phase.
         # First update is triggered by onChanged once hangar vehicle selection settles.
@@ -1155,10 +1210,201 @@ class ResearchProgressBar(object):
     def stop(self):
         self._active = False
         self._cancel_pending_update()
+        self._stop_scaleform_prototype()
         if self._panel is not None:
             self._panel.destroy()
             self._panel = None
         g_currentVehicle.onChanged -= self._on_vehicle_changed
+
+    def _start_scaleform_prototype(self):
+        if not _config.get('scaleformPrototypeEnabled', True):
+            return
+
+        try:
+            if not self._scaleform_settings_registered:
+                g_entitiesFactories.addSettings(
+                    ViewSettings(
+                        SCALEFORM_VIEW_ALIAS,
+                        _ScaleformPrototypeView,
+                        SCALEFORM_FILE_NAME,
+                        WindowLayer.WINDOW,
+                        None,
+                        ScopeTemplates.GLOBAL_SCOPE,
+                    )
+                )
+                self._scaleform_settings_registered = True
+
+            if not self._scaleform_hooks_registered:
+                ServicesLocator.appLoader.onGUISpaceEntered += self._on_gui_space_entered
+                ServicesLocator.appLoader.onGUISpaceLeft += self._on_gui_space_left
+                self._scaleform_hooks_registered = True
+
+            self._try_load_scaleform_view('start')
+        except Exception:
+            _logger.exception('Failed to start scaleform prototype view')
+
+    def _stop_scaleform_prototype(self):
+        self._scaleform_view_requested = False
+        self._scaleform_payload = None
+
+        if self._scaleform_view is not None:
+            try:
+                self._scaleform_view.destroy()
+            except Exception:
+                _logger.exception('Failed to destroy scaleform prototype view')
+            finally:
+                self._scaleform_view = None
+
+        if self._scaleform_hooks_registered:
+            try:
+                ServicesLocator.appLoader.onGUISpaceEntered -= self._on_gui_space_entered
+                ServicesLocator.appLoader.onGUISpaceLeft -= self._on_gui_space_left
+            except Exception:
+                _logger.exception('Failed to detach scaleform prototype hooks')
+            finally:
+                self._scaleform_hooks_registered = False
+
+        if self._scaleform_settings_registered:
+            try:
+                g_entitiesFactories.removeSettings(SCALEFORM_VIEW_ALIAS)
+            except Exception:
+                _logger.exception('Failed to unregister scaleform prototype view settings')
+            finally:
+                self._scaleform_settings_registered = False
+
+    def _try_load_scaleform_view(self, reason):
+        if not self._active or not _config.get('scaleformPrototypeEnabled', True):
+            return
+        if self._scaleform_view is not None or self._scaleform_view_requested:
+            return
+
+        try:
+            app_loader = ServicesLocator.appLoader
+            app = None
+            if hasattr(app_loader, 'getDefLobbyApp'):
+                app = app_loader.getDefLobbyApp()
+            if app is None and hasattr(app_loader, 'getApp'):
+                app = app_loader.getApp()
+            if app is None:
+                return
+
+            parent_window = _get_parent_window()
+            if parent_window is not None:
+                params = SFViewLoadParams(SCALEFORM_VIEW_ALIAS, parent=parent_window)
+            else:
+                params = SFViewLoadParams(SCALEFORM_VIEW_ALIAS)
+
+            app.loadView(params)
+            self._scaleform_view_requested = True
+            _logger.info('Requested scaleform prototype view load (%s)', reason)
+        except Exception:
+            self._scaleform_view_requested = False
+            _logger.exception('Failed to request scaleform prototype view load (%s)', reason)
+
+    def _on_gui_space_entered(self, space_id):
+        if not self._active:
+            return
+        if space_id == SPACE_ID.LOBBY:
+            self._try_load_scaleform_view('lobby_entered')
+
+    def _on_gui_space_left(self, space_id):
+        if space_id != SPACE_ID.LOBBY:
+            return
+
+        self._scaleform_view_requested = False
+        if self._scaleform_view is not None:
+            try:
+                self._scaleform_view.destroy()
+            except Exception:
+                _logger.exception('Failed to dispose scaleform prototype view on lobby exit')
+            finally:
+                self._scaleform_view = None
+
+    def _on_scaleform_view_populated(self, view):
+        self._scaleform_view_requested = False
+        self._scaleform_view = view
+        try:
+            ping_value = view.as_pingS()
+            _logger.info('Scaleform prototype view populated (%s)', ping_value)
+        except Exception:
+            _logger.exception('Scaleform prototype ping failed')
+        self._push_scaleform_payload()
+
+    def _on_scaleform_view_disposed(self, view):
+        if self._scaleform_view is view:
+            self._scaleform_view = None
+        self._scaleform_view_requested = False
+        _logger.info('Scaleform prototype view disposed')
+
+    def _build_scaleform_payload(self, vehicle, data):
+        name = getattr(vehicle, 'userName', str(vehicle.intCD))
+        tier = data.get('vehicle', {}).get('tier')
+        if tier is not None:
+            vehicle_label = '{0} (Tier {1})'.format(name, tier)
+        else:
+            vehicle_label = '{0} (Tier unknown)'.format(name)
+
+        tt = data['tech_tree']
+        el = data['elite']
+        fm = data['field_mods']
+
+        if tt['is_fully_elite']:
+            summary = 'Tech tree complete'
+            progress = 100
+            right_metric = 'Elite vehicle'
+        elif tt['next_cost']:
+            summary = 'Tech tree: {0}% toward next unlock'.format(tt['pct'])
+            progress = tt['pct']
+            if tt['can_research_with_total_xp']:
+                right_metric = 'Researchable now'
+            else:
+                right_metric = 'Next unlock: {0} XP'.format(tt['next_cost'])
+        else:
+            summary = 'Tech tree: no available unlocks'
+            progress = 0
+            right_metric = 'No unlocks found'
+
+        if fm['exists'] and fm['is_veh_skill_tree'] and fm['total_steps'] > 0:
+            detail = 'Field mods: {0}/{1} steps unlocked'.format(
+                fm['unlocked_steps'],
+                fm['total_steps'],
+            )
+        elif fm['exists'] and fm['unique_level_count'] > 0:
+            detail = 'Field mods: {0}/{1} levels unlocked'.format(
+                fm['unique_unlocked_level_count'],
+                fm['unique_level_count'],
+            )
+        elif el['total'] > 0:
+            detail = 'Elite mods: {0}/{1} unlocked'.format(el['unlocked'], el['total'])
+        else:
+            detail = 'Free XP available: {0}'.format(tt['free_xp'])
+
+        return {
+            'title': 'Research Progress',
+            'vehicle': vehicle_label,
+            'summary': summary,
+            'detail': detail,
+            'progress': progress,
+            'leftMetric': 'Vehicle XP: {0}'.format(tt['vehicle_xp']),
+            'rightMetric': right_metric,
+        }
+
+    def _push_scaleform_payload(self):
+        if self._scaleform_view is None or self._scaleform_payload is None:
+            return
+
+        try:
+            self._scaleform_view.as_setContextS(self._scaleform_payload)
+            self._scaleform_view.as_setProgressS(self._scaleform_payload.get('progress', 0))
+        except Exception:
+            _logger.exception('Failed to push data to scaleform prototype view')
+
+    def _render_scaleform_prototype(self, vehicle, data):
+        if not _config.get('scaleformPrototypeEnabled', True):
+            return
+        self._scaleform_payload = self._build_scaleform_payload(vehicle, data)
+        self._try_load_scaleform_view('data_update')
+        self._push_scaleform_payload()
 
     def _cancel_pending_update(self):
         callback_id = self._pending_update_callback
@@ -1450,6 +1696,7 @@ class ResearchProgressBar(object):
         Phase 1: structured log output.
         Phase 2: persistent overlay panel in hangar.
         """
+        self._render_scaleform_prototype(vehicle, data)
         if _config.get('displayMode') == 'ui':
             self._render_ui(vehicle, data)
         else:

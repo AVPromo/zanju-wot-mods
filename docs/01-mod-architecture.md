@@ -41,6 +41,26 @@ Patterns seen across active mods and public repos:
 - `GUIFlash` or custom UI glue for scaleform/gameface widgets
 - XVM/XFW integration for macro/config-driven workflows (optional)
 
+Verified garage-window pattern from the installed working reference mod:
+
+- `tv.lebwa.gunmarks_1.3.07.wotmod` loads `GunMarksLebwaLobby` as an `SFWindow` in the lobby.
+- Its lobby SWF root extends `net.wg.infrastructure.base.AbstractView`, not plain `Sprite`.
+- The root view creates and injects a draggable panel MovieClip into the real `LobbyPage`/`Hangar` display tree.
+- This is the preferred reference pattern for custom draggable garage widgets in this repo.
+
+Authoring and inspection tools used in this repo:
+
+- `Python 2.7` to produce WoT-compatible `.pyc`
+- `Python 3.x` to run repo build/deploy scripts
+- `Java` + `Apache Flex SDK` (`mxmlc`) for free code-first ActionScript 3 `.swf` authoring
+- `FFDec` for `.swf` inspection and reverse-engineering
+
+Important distinction:
+
+- WoT provides the runtime that loads `.swf` UI assets.
+- Our local toolchain is only for authoring, compiling, packaging, and inspection.
+- A minimal external stub SWC can be used locally for compile-time typing against WoT base classes such as `AbstractView`; the real implementation still comes from WoT at runtime.
+
 ## 4. Patch-Resilience Patterns
 
 From changelogs and ecosystem behavior:
