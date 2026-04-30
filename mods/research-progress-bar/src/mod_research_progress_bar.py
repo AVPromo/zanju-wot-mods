@@ -140,13 +140,14 @@ def _make_text_bar(pct, width=20):
     return '[{0}{1}] {2}%'.format('=' * filled, '-' * (width - filled), pct)
 
 
-def _next_available_unlock(vehicle, unlocks_set):
+def _next_available_unlock(vehicle, unlocks_set, available_unlocks=None):
     """
     Returns (xp_cost, intCD) for the most expensive currently researchable
     unlock whose prerequisites are met and which is not researched yet,
     or (None, None) if none.
     """
-    available_unlocks = _collect_available_unlocks(vehicle, unlocks_set)
+    if available_unlocks is None:
+        available_unlocks = _collect_available_unlocks(vehicle, unlocks_set)
     if not available_unlocks:
         return None, None
     item = available_unlocks[-1]
@@ -168,32 +169,91 @@ def _resolve_unlock_item_type(intcd):
     return _UNLOCK_MARKER_TYPE_BY_GUI_NAME.get(gui_type_name, 'unknown')
 
 
-def _build_available_unlock(xp_cost, intcd):
+def _resolve_unlock_display_name(intcd, items=None):
+    """Best-effort localized unlock name resolver for tooltip display."""
+    if items is None:
+        return None
+
+    try:
+        item = items.getItemByCD(intcd)
+    except Exception:
+        return None
+
+    if item is None:
+        return None
+
+    for attr in ('userName', 'shortUserName', 'name'):
+        value = getattr(item, attr, None)
+        if value:
+            return value
+
+    return None
+
+
+def _build_unlock_marker_ref(intcd, items=None):
+    item_type = _resolve_unlock_item_type(intcd)
+    return {
+        'intcd': intcd,
+        'item_type': item_type,
+        'name': _resolve_unlock_display_name(intcd, items),
+        'label': _UNLOCK_MARKER_LABEL_BY_TYPE.get(item_type, '?'),
+    }
+
+
+def _resolve_unlock_display_names(intcds, items=None):
+    names = []
+    for intcd in intcds:
+        name = _resolve_unlock_display_name(intcd, items)
+        if name is None:
+            name = 'item {0}'.format(intcd)
+        names.append(name)
+    return names
+
+
+def _build_unlock_marker(xp_cost, intcd, items=None, is_available=True, missing_prereq_intcds=()):
     item_type = _resolve_unlock_item_type(intcd)
     return {
         'xp_cost': xp_cost,
         'intcd': intcd,
         'item_type': item_type,
+        'name': _resolve_unlock_display_name(intcd, items),
+        'is_available': is_available,
+        'missing_prereq_names': _resolve_unlock_display_names(missing_prereq_intcds, items),
+        'missing_prereqs': [_build_unlock_marker_ref(prereq_intcd, items) for prereq_intcd in missing_prereq_intcds],
         'label': _UNLOCK_MARKER_LABEL_BY_TYPE.get(item_type, '?'),
     }
 
 
-def _collect_available_unlocks(vehicle, unlocks_set):
-    """Returns sorted unlock dicts for currently researchable items."""
-    available = []
+def _collect_visible_unlocks(vehicle, unlocks_set, items=None):
+    """Returns sorted unlock dicts for all not-yet-researched tech-tree items."""
+    visible = []
     for _idx, xp_cost, intcd, prereqs in vehicle.getUnlocksDescrs():
         if intcd in unlocks_set:
-            continue
-        if any(p not in unlocks_set for p in prereqs):
             continue
         try:
             cost = int(xp_cost)
         except Exception:
             continue
-        available.append(_build_available_unlock(cost, intcd))
+        missing_prereqs = sorted([p for p in prereqs if p not in unlocks_set])
+        visible.append(
+            _build_unlock_marker(
+                cost,
+                intcd,
+                items=items,
+                is_available=not missing_prereqs,
+                missing_prereq_intcds=missing_prereqs,
+            )
+        )
 
-    available.sort(key=lambda item: (item['xp_cost'], item['intcd']))
-    return available
+    visible.sort(key=lambda item: (item['xp_cost'], item['intcd']))
+    return visible
+
+
+def _collect_available_unlocks(vehicle, unlocks_set, items=None, visible_unlocks=None):
+    """Returns sorted unlock dicts for currently researchable items."""
+    if visible_unlocks is None:
+        visible_unlocks = _collect_visible_unlocks(vehicle, unlocks_set, items)
+    return [item for item in visible_unlocks if item.get('is_available')]
 
 
 def _get_vehicle_tier(vehicle):
@@ -1598,9 +1658,11 @@ class ResearchProgressBar(object):
 
         tt = data['tech_tree']
         available_unlocks = tt.get('available_unlocks', [])
+        visible_unlocks = tt.get('visible_unlocks', available_unlocks)
+        locked_unlock_count = int(tt.get('locked_unlock_count', 0) or 0)
 
-        if available_unlocks:
-            max_requirement_xp = max(1, max(item['xp_cost'] for item in available_unlocks))
+        if visible_unlocks:
+            max_requirement_xp = max(1, max(item['xp_cost'] for item in visible_unlocks))
         elif tt['is_fully_elite']:
             max_requirement_xp = 1
         else:
@@ -1617,14 +1679,30 @@ class ResearchProgressBar(object):
             free_xp = min(tt['free_xp'], max(0, max_requirement_xp - combat_xp))
 
             if available_unlocks:
-                summary = 'Basic research: {0}% toward most expensive available item'.format(
-                    min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
-                )
-                detail = '{0} research markers on bar'.format(len(available_unlocks))
-                if tt['can_research_with_total_xp']:
-                    right_metric = 'Next unlock: available now'
+                if locked_unlock_count > 0:
+                    summary = 'Basic research: {0}% toward furthest shown unlock'.format(
+                        min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
+                    )
+                    detail = '{0} research markers on bar ({1} locked)'.format(
+                        len(visible_unlocks),
+                        locked_unlock_count,
+                    )
                 else:
-                    right_metric = 'Max item: {0} XP'.format(max_requirement_xp)
+                    summary = 'Basic research: {0}% toward most expensive available item'.format(
+                        min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
+                    )
+                    detail = '{0} research markers on bar'.format(len(available_unlocks))
+                if tt['can_research_with_total_xp']:
+                    right_metric = 'Next available: ready now'
+                else:
+                    if locked_unlock_count > 0:
+                        right_metric = 'Furthest marker: {0} XP'.format(max_requirement_xp)
+                    else:
+                        right_metric = 'Max item: {0} XP'.format(max_requirement_xp)
+            elif visible_unlocks:
+                summary = 'Basic research: locked behind prerequisites'
+                detail = '{0} locked research markers on bar'.format(len(visible_unlocks))
+                right_metric = 'Unlock prerequisites first'
             else:
                 summary = 'Basic research: no available unlocks'
                 detail = 'Bar scoped to tech-tree research only'
@@ -1632,11 +1710,15 @@ class ResearchProgressBar(object):
 
         progress = min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
         markers = []
-        for item in available_unlocks:
+        for item in visible_unlocks:
             markers.append({
                 'id': 'unlock_{0}'.format(item['intcd']),
                 'costXp': item['xp_cost'],
                 'itemType': item['item_type'],
+                'isAvailable': item.get('is_available', True),
+                'missingPrereqNames': item.get('missing_prereq_names', []),
+                'missingPrereqs': item.get('missing_prereqs', []),
+                'name': item.get('name'),
                 'label': item['label'],
             })
 
@@ -1787,14 +1869,20 @@ class ResearchProgressBar(object):
         unlocks_set = stats.unlocks
         vehicle_tier = _get_vehicle_tier(vehicle)
         probe_offset = self._t11_method_probe_offsets.get(vehicle.intCD, 0)
-        available_unlocks = _collect_available_unlocks(vehicle, unlocks_set)
+        visible_unlocks = _collect_visible_unlocks(vehicle, unlocks_set, self.itemsCache.items)
+        available_unlocks = _collect_available_unlocks(
+            vehicle,
+            unlocks_set,
+            self.itemsCache.items,
+            visible_unlocks=visible_unlocks,
+        )
 
         # --- Tech tree XP progress ---
         veh_xp = stats.vehiclesXPs.get(vehicle.intCD, 0)
         free_xp = max(0, stats.freeXP)
         total_xp = veh_xp + free_xp
 
-        next_cost, next_intcd = _next_available_unlock(vehicle, unlocks_set)
+        next_cost, next_intcd = _next_available_unlock(vehicle, unlocks_set, available_unlocks)
         if next_cost and next_cost > 0:
             tt_pct = min(100, int(total_xp * 100 / next_cost))
         else:
@@ -1848,6 +1936,8 @@ class ResearchProgressBar(object):
                 'can_research_with_total_xp': can_research_with_total_xp,
                 'is_elite': vehicle.isElite,
                 'is_fully_elite': vehicle.isFullyElite,
+                'visible_unlocks': visible_unlocks,
+                'locked_unlock_count': len(visible_unlocks) - len(available_unlocks),
                 'available_unlocks': available_unlocks,
             },
             'elite': {

@@ -7,6 +7,10 @@ Usage:
 
 Output: dist/<mod-id>_<version>.wotmod
 
+Optional prebuild hooks:
+- If mods/<name>/ui-src/compile_ui.py exists, it is run before packaging that mod.
+- This keeps embedded SWFs in sync for build.py and any workflows that call it.
+
 Internal .wotmod layout:
     meta.xml
     res/scripts/client/gui/mods/<file>.pyc  (compiled from mods/<name>/src/)
@@ -59,6 +63,16 @@ def compile_py2_to_pyc(py2_exe, src_path, out_pyc_path):
     subprocess.check_call(cmd)
 
 
+def run_optional_prebuild(mod_dir):
+    hook_path = os.path.join(mod_dir, 'ui-src', 'compile_ui.py')
+    if not os.path.isfile(hook_path):
+        return
+
+    cmd = [sys.executable, hook_path]
+    print('Running: {}'.format(' '.join(cmd)))
+    subprocess.check_call(cmd)
+
+
 def read_meta(mod_dir):
     meta_path = os.path.join(mod_dir, 'meta.xml')
     tree = ET.parse(meta_path)
@@ -74,6 +88,8 @@ def build_mod(mod_name, py2_exe):
     if not os.path.isdir(mod_dir):
         print('ERROR: mod directory not found: {}'.format(mod_dir))
         return False
+
+    run_optional_prebuild(mod_dir)
 
     meta = read_meta(mod_dir)
     mod_id = meta['id']

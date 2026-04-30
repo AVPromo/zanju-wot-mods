@@ -173,7 +173,7 @@ Before escalating into deeper runtime step probes, check whether the same value 
 
 For the current research-progress-bar direction, the stable baseline is:
 
-1. Build the SWF with `compile_ui.ps1` before `dev_test_cycle.py` whenever the ActionScript changes.
+1. Use `compile_ui.py` as the canonical SWF compiler. `build.py research-progress-bar` and `dev_test_cycle.py research-progress-bar` run it automatically before packaging, so manual UI builds are only needed for SWF-only iteration.
 2. Keep the SWF root on a WoT `IView`-compatible class such as `AbstractView`.
 3. Load the bar as an `SFWindow` and let WoT attach it to the main window automatically.
 4. Keep that window persistent and toggle SWF visibility for hide/show cases instead of destroying and reloading it for transient popups.

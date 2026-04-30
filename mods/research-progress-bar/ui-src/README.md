@@ -12,10 +12,10 @@ Current scope:
 - default-garage-only visibility, with hiding for loadout/setup screens and other non-default hangar routes
 - public ActionScript callbacks for Python view wiring
 
-Build the SWF with:
+Canonical UI build entrypoint:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\mods\research-progress-bar\ui-src\compile_ui.ps1
+python .\mods\research-progress-bar\ui-src\compile_ui.py
 ```
 
 Output path:
@@ -25,6 +25,7 @@ Output path:
 Notes:
 
 - The live in-game garage widget uses this custom SWF path.
+- `build.py research-progress-bar` and `dev_test_cycle.py research-progress-bar` now invoke `ui-src/compile_ui.py` automatically before packaging, so manual UI builds are mainly for faster SWF-only iteration.
 - The Python side keeps the `SFWindow` loaded and toggles SWF visibility for supported hide/show cases instead of destroying and reloading it for transient popups.
 - Runtime toggles live in `mods/research-progress-bar/config/config.json`.
 - `scaleformPrototypeEnabled` controls the active custom SWF path.
