@@ -15,23 +15,40 @@ import re
 from numbers import Integral
 
 import BigWorld
-from CurrentVehicle import g_currentVehicle
+from CurrentVehicle import g_currentPreviewVehicle, g_currentVehicle
 from frameworks.wulf import WindowLayer
+from gui.Scaleform.daapi.settings.views import VIEW_ALIAS
 from gui.Scaleform.framework import ScopeTemplates, ViewSettings, g_entitiesFactories
 from gui.Scaleform.framework.entities.View import View
 from gui.Scaleform.framework.managers.loaders import SFViewLoadParams
+from gui.shared.gui_items import GUI_ITEM_TYPE_NAMES
 from gui.shared.personality import ServicesLocator
 from helpers import dependency
+from items import getTypeOfCompactDescr
 from skeletons.gui.app_loader import GuiGlobalSpaceID as SPACE_ID
 from skeletons.gui.game_control import IVehiclePostProgressionController
 from skeletons.gui.shared import IItemsCache
 
 _logger = logging.getLogger('zanju.researchprogressbar')
+_lobby_state_logger = logging.getLogger('gui.lobby_state_machine.lobby_state_machine')
 
 MOD_ID = 'zanju.researchprogressbar'
 MOD_VERSION = '0.1.0.0'
 SCALEFORM_VIEW_ALIAS = 'ResearchProgressBarLobby'
 SCALEFORM_FILE_NAME = 'research-progress-bar-lobby.swf'
+_VISIBILITY_PROBE_DELAY = 0.25
+_VISIBLE_ROUTE_PREFIX = 'Visible route changed to: '
+_NAVIGATING_ROUTE_PREFIX = 'Navigating to '
+
+_HANGAR_VIEW_ALIASES = frozenset((VIEW_ALIAS.LOBBY_HANGAR, VIEW_ALIAS.LEGACY_LOBBY_HANGAR))
+_WINDOW_LAYER_NAMES = {
+    WindowLayer.VIEW: 'VIEW',
+    WindowLayer.SUB_VIEW: 'SUB_VIEW',
+    WindowLayer.TOP_SUB_VIEW: 'TOP_SUB_VIEW',
+    WindowLayer.WINDOW: 'WINDOW',
+    WindowLayer.TOP_WINDOW: 'TOP_WINDOW',
+    WindowLayer.OVERLAY: 'OVERLAY',
+}
 
 # ---------------------------------------------------------------------------
 # Config defaults — overridden by _load_config() at startup
@@ -41,8 +58,9 @@ _config = {
     'showTechTree': True,
     'showEliteProgress': True,
     'showFieldMods': True,
-    # Emits extra field-mod internals to python.log for parser tuning.
-    'debugFieldMods': True,
+    # Emits verbose field-mod internals to python.log for parser tuning.
+    # Keep disabled for normal use and enable only for targeted diagnostics.
+    'debugFieldMods': False,
     # Crash-isolation mode for field-mod collection.
     #   off: skip postProgression API access, keep vehicle-level flags only
     #   flags-only: read only vehicle-level availability/active flags
@@ -64,14 +82,8 @@ _config = {
     'tier11MethodProbeEnabled': False,
     'tier11MethodProbeName': 'getType',
     'tier11MethodProbeMaxStepsPerUpdate': 1,
-    # Options: log | ui
-    'displayMode': 'log',
-    # Approximate normalized screen position for the UI text widget.
-    'panelPosX': 0.0,
-    'panelPosY': 0.0,
     'scaleformPrototypeEnabled': True,
 }
-
 
 _TIER_FIELD_MOD_RULES = {
     6: {'max_level': 5, 'xp_per_level': 3500},
@@ -80,6 +92,28 @@ _TIER_FIELD_MOD_RULES = {
     9: {'max_level': 7, 'xp_per_level': 20000},
     10: {'max_level': 8, 'xp_per_level': 28000},
 }
+
+
+_UNLOCK_MARKER_TYPE_BY_GUI_NAME = {
+    'vehicleGun': 'gun',
+    'vehicleTurret': 'turret',
+    'vehicleEngine': 'engine',
+    'vehicleChassis': 'suspension',
+    'vehicleRadio': 'radio',
+    'vehicle': 'vehicle',
+}
+
+_UNLOCK_MARKER_LABEL_BY_TYPE = {
+    'gun': 'G',
+    'turret': 'T',
+    'engine': 'E',
+    'suspension': 'S',
+    'radio': 'R',
+    'vehicle': 'V',
+    'unknown': '?',
+}
+
+_ROUTE_PATH_RE = re.compile(r'\((subScope/[^)]*)\)')
 
 
 def _load_config():
@@ -94,17 +128,6 @@ def _load_config():
             _logger.info('Config loaded from %s', path)
     except Exception:
         _logger.exception('Failed to load config, using defaults')
-
-
-def _get_parent_window():
-    try:
-        from skeletons.gui.impl import IGuiLoader
-        ui_loader = dependency.instance(IGuiLoader)
-        if ui_loader and getattr(ui_loader, 'windowsManager', None):
-            return ui_loader.windowsManager.getMainWindow()
-    except Exception:
-        pass
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -123,17 +146,54 @@ def _next_available_unlock(vehicle, unlocks_set):
     unlock whose prerequisites are met and which is not researched yet,
     or (None, None) if none.
     """
-    best_cost = None
-    best_intcd = None
+    available_unlocks = _collect_available_unlocks(vehicle, unlocks_set)
+    if not available_unlocks:
+        return None, None
+    item = available_unlocks[-1]
+    return item['xp_cost'], item['intcd']
+
+
+def _resolve_unlock_item_type(intcd):
+    """Maps an unlock compact descriptor to a stable research item type name."""
+    try:
+        gui_type_id = int(getTypeOfCompactDescr(intcd))
+    except Exception:
+        return 'unknown'
+
+    try:
+        gui_type_name = GUI_ITEM_TYPE_NAMES[gui_type_id]
+    except Exception:
+        return 'unknown'
+
+    return _UNLOCK_MARKER_TYPE_BY_GUI_NAME.get(gui_type_name, 'unknown')
+
+
+def _build_available_unlock(xp_cost, intcd):
+    item_type = _resolve_unlock_item_type(intcd)
+    return {
+        'xp_cost': xp_cost,
+        'intcd': intcd,
+        'item_type': item_type,
+        'label': _UNLOCK_MARKER_LABEL_BY_TYPE.get(item_type, '?'),
+    }
+
+
+def _collect_available_unlocks(vehicle, unlocks_set):
+    """Returns sorted unlock dicts for currently researchable items."""
+    available = []
     for _idx, xp_cost, intcd, prereqs in vehicle.getUnlocksDescrs():
         if intcd in unlocks_set:
             continue
         if any(p not in unlocks_set for p in prereqs):
             continue
-        if best_cost is None or xp_cost > best_cost:
-            best_cost = xp_cost
-            best_intcd = intcd
-    return best_cost, best_intcd
+        try:
+            cost = int(xp_cost)
+        except Exception:
+            continue
+        available.append(_build_available_unlock(cost, intcd))
+
+    available.sort(key=lambda item: (item['xp_cost'], item['intcd']))
+    return available
 
 
 def _get_vehicle_tier(vehicle):
@@ -1056,102 +1116,15 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
     return data
 
 
-class _OverlayPanel(object):
-    """Minimal persistent overlay text panel in hangar."""
-
-    def __init__(self):
-        self._gui = None
-        self._text = None
-        self._failed = False
-
-    def _attach_root(self, comp):
-        if hasattr(self._gui, 'addRoot'):
-            self._gui.addRoot(comp)
-            return True
-        return False
-
-    def _detach_root(self, comp):
-        if hasattr(self._gui, 'delRoot'):
-            self._gui.delRoot(comp)
-            return True
-        if hasattr(self._gui, 'removeRoot'):
-            self._gui.removeRoot(comp)
-            return True
-        return False
-
-    def ensure(self):
-        if self._failed:
-            return False
-        if self._text is not None:
-            return True
-
-        try:
-            import GUI
-            self._gui = GUI
-
-            if not hasattr(GUI, 'Text'):
-                _logger.error('GUI.Text is unavailable in this client')
-                self._failed = True
-                return False
-
-            text = GUI.Text('')
-            text.visible = True
-            text.multiline = True
-            text.wrap = True
-            text.colourFormatting = False
-            text.text = ''
-            text.horizontalAnchor = 'LEFT'
-            text.verticalAnchor = 'TOP'
-            text.position = (
-                float(_config.get('panelPosX', 0.0)),
-                float(_config.get('panelPosY', 0.0)),
-                0.3,
-            )
-
-            if not self._attach_root(text):
-                _logger.error('Unable to attach overlay panel to GUI root')
-                self._failed = True
-                return False
-
-            self._text = text
-
-            _logger.info('Overlay panel attached')
-            return True
-        except Exception:
-            self._failed = True
-            _logger.exception('Failed to initialize overlay panel')
-            return False
-
-    def update_lines(self, lines):
-        if not self.ensure():
-            return False
-        try:
-            header = 'Research Progress'
-            body = '\n'.join(lines)
-            self._text.text = '{0}\n{1}'.format(header, body)
-            return True
-        except Exception:
-            self._failed = True
-            _logger.exception('Failed to update overlay panel text')
-            return False
-
-    def destroy(self):
-        if self._gui is None:
-            return
-        try:
-            if self._text is not None:
-                self._detach_root(self._text)
-        except Exception:
-            _logger.exception('Failed to detach overlay panel')
-        finally:
-            self._text = None
-            self._gui = None
-
-
-class _ScaleformPrototypeView(View):
+class _ScaleformGarageView(View):
     def as_setContextS(self, data):
         if self._isDAAPIInited():
             return self.flashObject.as_setContext(data)
+        return None
+
+    def as_setVisibleS(self, is_visible):
+        if self._isDAAPIInited():
+            return self.flashObject.as_setVisible(is_visible)
         return None
 
     def as_setProgressS(self, value):
@@ -1165,14 +1138,25 @@ class _ScaleformPrototypeView(View):
         return None
 
     def _populate(self):
-        super(_ScaleformPrototypeView, self)._populate()
+        super(_ScaleformGarageView, self)._populate()
         if _mod is not None:
             _mod._on_scaleform_view_populated(self)
 
     def _dispose(self):
         if _mod is not None:
             _mod._on_scaleform_view_disposed(self)
-        super(_ScaleformPrototypeView, self)._dispose()
+        super(_ScaleformGarageView, self)._dispose()
+
+
+class _LobbyStateRouteLogHandler(logging.Handler):
+    def emit(self, record):
+        if _mod is None:
+            return
+        try:
+            message = record.getMessage()
+        except Exception:
+            return
+        _mod._on_lobby_route_log(message)
 
 
 # ---------------------------------------------------------------------------
@@ -1185,9 +1169,8 @@ class ResearchProgressBar(object):
 
     def __init__(self):
         self._active = False
-        self._panel = None
-        self._ui_failed = False
         self._pending_update_callback = None
+        self._visibility_probe_callback = None
         self._update_in_progress = False
         self._t11_method_probe_offsets = {}
         self._scaleform_view = None
@@ -1195,28 +1178,34 @@ class ResearchProgressBar(object):
         self._scaleform_view_requested = False
         self._scaleform_settings_registered = False
         self._scaleform_hooks_registered = False
+        self._scaleform_container_manager = None
+        self._scaleform_view_visible = None
+        self._lobby_route_log_handler = None
+        self._current_lobby_route_path = None
+        self._last_context_log_key = None
+        self._last_seen_sub_view_alias = None
 
     # -- lifecycle -----------------------------------------------------------
 
     def start(self):
         self._active = True
-        self._ui_failed = False
-        self._panel = _OverlayPanel()
-        self._start_scaleform_prototype()
+        self._attach_lobby_route_log_handler()
+        self._start_scaleform_view()
         g_currentVehicle.onChanged += self._on_vehicle_changed
+        g_currentPreviewVehicle.onChanged += self._on_preview_vehicle_changed
         # Avoid running heavy collection during early login/loading phase.
         # First update is triggered by onChanged once hangar vehicle selection settles.
 
     def stop(self):
         self._active = False
         self._cancel_pending_update()
-        self._stop_scaleform_prototype()
-        if self._panel is not None:
-            self._panel.destroy()
-            self._panel = None
+        self._cancel_visibility_probe()
+        self._detach_lobby_route_log_handler()
+        g_currentPreviewVehicle.onChanged -= self._on_preview_vehicle_changed
+        self._stop_scaleform_view()
         g_currentVehicle.onChanged -= self._on_vehicle_changed
 
-    def _start_scaleform_prototype(self):
+    def _start_scaleform_view(self):
         if not _config.get('scaleformPrototypeEnabled', True):
             return
 
@@ -1225,7 +1214,7 @@ class ResearchProgressBar(object):
                 g_entitiesFactories.addSettings(
                     ViewSettings(
                         SCALEFORM_VIEW_ALIAS,
-                        _ScaleformPrototypeView,
+                        _ScaleformGarageView,
                         SCALEFORM_FILE_NAME,
                         WindowLayer.WINDOW,
                         None,
@@ -1239,28 +1228,34 @@ class ResearchProgressBar(object):
                 ServicesLocator.appLoader.onGUISpaceLeft += self._on_gui_space_left
                 self._scaleform_hooks_registered = True
 
-            self._try_load_scaleform_view('start')
+            self._attach_scaleform_container_hooks()
+            self._sync_scaleform_view('start')
         except Exception:
-            _logger.exception('Failed to start scaleform prototype view')
+            _logger.exception('Failed to start scaleform garage view')
 
-    def _stop_scaleform_prototype(self):
+    def _stop_scaleform_view(self):
+        self._detach_scaleform_container_hooks()
         self._scaleform_view_requested = False
         self._scaleform_payload = None
+        self._current_lobby_route_path = None
+        self._last_seen_sub_view_alias = None
+        self._cancel_visibility_probe()
 
         if self._scaleform_view is not None:
             try:
                 self._scaleform_view.destroy()
             except Exception:
-                _logger.exception('Failed to destroy scaleform prototype view')
+                _logger.exception('Failed to destroy scaleform garage view')
             finally:
                 self._scaleform_view = None
+                self._scaleform_view_visible = None
 
         if self._scaleform_hooks_registered:
             try:
                 ServicesLocator.appLoader.onGUISpaceEntered -= self._on_gui_space_entered
                 ServicesLocator.appLoader.onGUISpaceLeft -= self._on_gui_space_left
             except Exception:
-                _logger.exception('Failed to detach scaleform prototype hooks')
+                _logger.exception('Failed to detach scaleform garage view hooks')
             finally:
                 self._scaleform_hooks_registered = False
 
@@ -1268,9 +1263,267 @@ class ResearchProgressBar(object):
             try:
                 g_entitiesFactories.removeSettings(SCALEFORM_VIEW_ALIAS)
             except Exception:
-                _logger.exception('Failed to unregister scaleform prototype view settings')
+                _logger.exception('Failed to unregister scaleform garage view settings')
             finally:
                 self._scaleform_settings_registered = False
+
+    def _get_lobby_app(self):
+        app_loader = ServicesLocator.appLoader
+        app = None
+        if hasattr(app_loader, 'getDefLobbyApp'):
+            app = app_loader.getDefLobbyApp()
+        if app is None and hasattr(app_loader, 'getApp'):
+            app = app_loader.getApp()
+        return app
+
+    def _attach_lobby_route_log_handler(self):
+        if self._lobby_route_log_handler is not None:
+            return
+
+        try:
+            handler = _LobbyStateRouteLogHandler()
+            handler.setLevel(logging.INFO)
+            _lobby_state_logger.addHandler(handler)
+            self._lobby_route_log_handler = handler
+        except Exception:
+            self._lobby_route_log_handler = None
+            _logger.exception('Failed to attach lobby route log handler')
+
+    def _detach_lobby_route_log_handler(self):
+        handler = self._lobby_route_log_handler
+        self._lobby_route_log_handler = None
+        self._current_lobby_route_path = None
+        if handler is None:
+            return
+
+        try:
+            _lobby_state_logger.removeHandler(handler)
+        except Exception:
+            _logger.exception('Failed to detach lobby route log handler')
+
+    def _extract_route_path(self, message):
+        if message.startswith(_NAVIGATING_ROUTE_PREFIX):
+            return message[len(_NAVIGATING_ROUTE_PREFIX):].strip()
+
+        if message.startswith(_VISIBLE_ROUTE_PREFIX):
+            match = _ROUTE_PATH_RE.search(message)
+            if match is not None:
+                return match.group(1)
+
+        return None
+
+    def _is_default_hangar_route(self, route_path):
+        return route_path in ('subScope/subLayer/hangar', 'subScope/subLayer/hangar/{root}')
+
+    def _on_lobby_route_log(self, message):
+        route_path = self._extract_route_path(message)
+        if route_path is None or route_path == self._current_lobby_route_path:
+            return
+
+        self._current_lobby_route_path = route_path
+        if self._active:
+            self._schedule_update('lobby_route_changed')
+
+    def _attach_scaleform_container_hooks(self):
+        app = self._get_lobby_app()
+        container_manager = getattr(app, 'containerManager', None) if app is not None else None
+        if container_manager is self._scaleform_container_manager:
+            return
+
+        self._detach_scaleform_container_hooks()
+        if container_manager is None:
+            return
+
+        try:
+            container_manager.onViewAddedToContainer += self._on_view_added_to_container
+            self._scaleform_container_manager = container_manager
+        except Exception:
+            self._scaleform_container_manager = None
+            _logger.exception('Failed to attach scaleform container hooks')
+
+    def _detach_scaleform_container_hooks(self):
+        if self._scaleform_container_manager is None:
+            return
+
+        try:
+            self._scaleform_container_manager.onViewAddedToContainer -= self._on_view_added_to_container
+        except Exception:
+            _logger.exception('Failed to detach scaleform container hooks')
+        finally:
+            self._scaleform_container_manager = None
+
+    def _get_active_view_alias(self, layer):
+        container_manager = self._scaleform_container_manager
+        if container_manager is None:
+            app = self._get_lobby_app()
+            container_manager = getattr(app, 'containerManager', None) if app is not None else None
+        if container_manager is None:
+            return None
+
+        try:
+            container = container_manager.getContainer(layer)
+            if container is None:
+                return None
+            get_topmost_view = getattr(container, 'getTopmostView', None)
+            if callable(get_topmost_view):
+                view = get_topmost_view()
+            else:
+                view = None
+                num_children = getattr(container, 'numChildren', 0)
+                if callable(num_children):
+                    num_children = num_children()
+                get_child_at = getattr(container, 'getChildAt', None)
+                if view is None and callable(get_child_at) and num_children:
+                    view = get_child_at(num_children - 1)
+            if view is None:
+                return None
+            return self._get_view_alias(view)
+        except Exception:
+            _logger.exception('Failed to resolve active lobby view alias for layer=%s', layer)
+            return None
+
+    def _get_view_alias(self, view):
+        if view is None:
+            return None
+
+        alias = getattr(view, 'alias', None)
+        if alias is None or isinstance(alias, Integral):
+            config = getattr(view, 'as_config', None)
+            if config is not None:
+                config_alias = getattr(config, 'alias', None)
+                if config_alias is not None:
+                    alias = config_alias
+        return alias
+
+    def _get_scaleform_context(self, incoming_view=None):
+        active_sub_view_alias = self._get_active_view_alias(WindowLayer.SUB_VIEW)
+        if active_sub_view_alias is None:
+            active_sub_view_alias = self._last_seen_sub_view_alias
+
+        return {
+            'active_sub_view_alias': active_sub_view_alias,
+            'active_top_sub_view_alias': self._get_active_view_alias(WindowLayer.TOP_SUB_VIEW),
+            'active_window_alias': self._get_active_view_alias(WindowLayer.WINDOW),
+            'active_top_window_alias': self._get_active_view_alias(WindowLayer.TOP_WINDOW),
+            'preview_present': g_currentPreviewVehicle.isPresent(),
+            'vehicle_present': g_currentVehicle.item is not None,
+            'incoming_alias': self._get_view_alias(incoming_view),
+            'incoming_layer': getattr(incoming_view, 'layer', None) if incoming_view is not None else None,
+        }
+
+    def _get_scaleform_block_reason(self, context):
+        if not self._active:
+            return 'inactive'
+        if not _config.get('scaleformPrototypeEnabled', True):
+            return 'scaleform_disabled'
+        if context['preview_present']:
+            return 'preview_vehicle_present'
+        if not context['vehicle_present']:
+            return 'no_current_vehicle'
+        if self._current_lobby_route_path is not None and not self._is_default_hangar_route(self._current_lobby_route_path):
+            return 'lobby_route={0}'.format(self._current_lobby_route_path)
+
+        incoming_alias = context['incoming_alias']
+        incoming_layer = context['incoming_layer']
+        effective_sub_view_alias = context['active_sub_view_alias']
+        effective_top_sub_view_alias = context['active_top_sub_view_alias']
+        if incoming_layer == WindowLayer.SUB_VIEW and incoming_alias is not None:
+            effective_sub_view_alias = incoming_alias
+        if incoming_layer == WindowLayer.TOP_SUB_VIEW and incoming_alias is not None:
+            effective_top_sub_view_alias = incoming_alias
+
+        if incoming_layer == WindowLayer.SUB_VIEW:
+            if incoming_alias not in _HANGAR_VIEW_ALIASES and incoming_alias != SCALEFORM_VIEW_ALIAS:
+                return 'incoming_sub_view={0}'.format(incoming_alias)
+        if incoming_layer == WindowLayer.TOP_SUB_VIEW and incoming_alias != SCALEFORM_VIEW_ALIAS:
+            return 'incoming_top_sub_view={0}'.format(incoming_alias)
+
+        if effective_sub_view_alias not in _HANGAR_VIEW_ALIASES:
+            return 'sub_view={0}'.format(effective_sub_view_alias)
+        if effective_top_sub_view_alias not in (None, SCALEFORM_VIEW_ALIAS):
+            return 'top_sub_view={0}'.format(effective_top_sub_view_alias)
+        return None
+
+    def _evaluate_scaleform_visibility(self, reason=None, incoming_view=None):
+        context = self._get_scaleform_context(incoming_view)
+        block_reason = self._get_scaleform_block_reason(context)
+        if reason is not None:
+            self._log_scaleform_context(reason, context, block_reason)
+        return context, block_reason
+
+    def _needs_visibility_probe(self, context, block_reason):
+        if block_reason is None:
+            return False
+
+        incoming_layer = context['incoming_layer']
+        if incoming_layer == WindowLayer.TOP_SUB_VIEW:
+            return True
+        if context['active_top_sub_view_alias'] not in (None, SCALEFORM_VIEW_ALIAS):
+            return True
+        return False
+
+    def _log_scaleform_context(self, reason, context, block_reason):
+        log_key = (
+            block_reason is None,
+            block_reason,
+            self._current_lobby_route_path,
+            context['active_sub_view_alias'],
+            context['active_top_sub_view_alias'],
+            context['preview_present'],
+            context['vehicle_present'],
+        )
+        if log_key == self._last_context_log_key:
+            return
+
+        self._last_context_log_key = log_key
+        _logger.info(
+            'Garage view gate[%s]: visible=%s reason=%s route=%s sub=%s topSub=%s preview=%s vehicle=%s',
+            reason,
+            block_reason is None,
+            block_reason or 'none',
+            self._current_lobby_route_path,
+            context['active_sub_view_alias'],
+            context['active_top_sub_view_alias'],
+            context['preview_present'],
+            context['vehicle_present'],
+        )
+
+    def _should_show_scaleform_view(self, reason=None, incoming_view=None):
+        _, block_reason = self._evaluate_scaleform_visibility(reason, incoming_view)
+        return block_reason is None
+
+    def _set_scaleform_view_visible(self, is_visible, reason):
+        if self._scaleform_view is None:
+            return
+        if self._scaleform_view_visible is is_visible:
+            return
+
+        try:
+            self._scaleform_view.as_setVisibleS(is_visible)
+            self._scaleform_view_visible = is_visible
+            _logger.info('Scaleform garage view visibility -> %s (%s)', is_visible, reason)
+        except Exception:
+            _logger.exception('Failed to set scaleform garage view visibility=%s (%s)', is_visible, reason)
+
+    def _sync_scaleform_view(self, reason, incoming_view=None):
+        context, block_reason = self._evaluate_scaleform_visibility(reason, incoming_view)
+        if block_reason is None:
+            self._cancel_visibility_probe()
+            self._try_load_scaleform_view(reason)
+            if self._scaleform_view is not None and self._scaleform_payload is not None:
+                self._push_scaleform_payload()
+                self._set_scaleform_view_visible(True, reason)
+            return True
+
+        if self._needs_visibility_probe(context, block_reason):
+            self._schedule_visibility_probe(reason)
+        else:
+            self._cancel_visibility_probe()
+
+        if self._scaleform_view is not None:
+            self._set_scaleform_view_visible(False, reason)
+
+        return False
 
     def _try_load_scaleform_view(self, reason):
         if not self._active or not _config.get('scaleformPrototypeEnabled', True):
@@ -1279,62 +1532,61 @@ class ResearchProgressBar(object):
             return
 
         try:
-            app_loader = ServicesLocator.appLoader
-            app = None
-            if hasattr(app_loader, 'getDefLobbyApp'):
-                app = app_loader.getDefLobbyApp()
-            if app is None and hasattr(app_loader, 'getApp'):
-                app = app_loader.getApp()
+            app = self._get_lobby_app()
             if app is None:
                 return
 
-            parent_window = _get_parent_window()
-            if parent_window is not None:
-                params = SFViewLoadParams(SCALEFORM_VIEW_ALIAS, parent=parent_window)
-            else:
-                params = SFViewLoadParams(SCALEFORM_VIEW_ALIAS)
-
+            params = SFViewLoadParams(SCALEFORM_VIEW_ALIAS)
             app.loadView(params)
             self._scaleform_view_requested = True
-            _logger.info('Requested scaleform prototype view load (%s)', reason)
+            _logger.info('Requested scaleform garage view load (%s)', reason)
         except Exception:
             self._scaleform_view_requested = False
-            _logger.exception('Failed to request scaleform prototype view load (%s)', reason)
+            _logger.exception('Failed to request scaleform garage view load (%s)', reason)
 
     def _on_gui_space_entered(self, space_id):
         if not self._active:
             return
         if space_id == SPACE_ID.LOBBY:
-            self._try_load_scaleform_view('lobby_entered')
+            self._attach_scaleform_container_hooks()
+            self._sync_scaleform_view('lobby_entered')
 
     def _on_gui_space_left(self, space_id):
         if space_id != SPACE_ID.LOBBY:
             return
 
+        self._detach_scaleform_container_hooks()
         self._scaleform_view_requested = False
         if self._scaleform_view is not None:
             try:
                 self._scaleform_view.destroy()
             except Exception:
-                _logger.exception('Failed to dispose scaleform prototype view on lobby exit')
+                _logger.exception('Failed to dispose scaleform garage view on lobby exit')
             finally:
                 self._scaleform_view = None
+                self._scaleform_view_visible = None
 
     def _on_scaleform_view_populated(self, view):
         self._scaleform_view_requested = False
         self._scaleform_view = view
+        self._scaleform_view_visible = None
+        if not self._should_show_scaleform_view('populated', view):
+            self._sync_scaleform_view('populated_outside_hangar', view)
+            return
         try:
             ping_value = view.as_pingS()
-            _logger.info('Scaleform prototype view populated (%s)', ping_value)
+            _logger.info('Scaleform garage view populated (%s)', ping_value)
         except Exception:
-            _logger.exception('Scaleform prototype ping failed')
+            _logger.exception('Scaleform garage view ping failed')
         self._push_scaleform_payload()
+        self._set_scaleform_view_visible(True, 'populated')
 
     def _on_scaleform_view_disposed(self, view):
         if self._scaleform_view is view:
             self._scaleform_view = None
+            self._scaleform_view_visible = None
         self._scaleform_view_requested = False
-        _logger.info('Scaleform prototype view disposed')
+        _logger.info('Scaleform garage view disposed')
 
     def _build_scaleform_payload(self, vehicle, data):
         name = getattr(vehicle, 'userName', str(vehicle.intCD))
@@ -1345,39 +1597,48 @@ class ResearchProgressBar(object):
             vehicle_label = '{0} (Tier unknown)'.format(name)
 
         tt = data['tech_tree']
-        el = data['elite']
-        fm = data['field_mods']
+        available_unlocks = tt.get('available_unlocks', [])
+
+        if available_unlocks:
+            max_requirement_xp = max(1, max(item['xp_cost'] for item in available_unlocks))
+        elif tt['is_fully_elite']:
+            max_requirement_xp = 1
+        else:
+            max_requirement_xp = max(1, tt.get('next_cost') or 0)
 
         if tt['is_fully_elite']:
-            summary = 'Tech tree complete'
-            progress = 100
+            combat_xp = max_requirement_xp
+            free_xp = 0
+            summary = 'Basic research complete'
+            detail = 'All currently reachable tech-tree research is unlocked'
             right_metric = 'Elite vehicle'
-        elif tt['next_cost']:
-            summary = 'Tech tree: {0}% toward next unlock'.format(tt['pct'])
-            progress = tt['pct']
-            if tt['can_research_with_total_xp']:
-                right_metric = 'Researchable now'
-            else:
-                right_metric = 'Next unlock: {0} XP'.format(tt['next_cost'])
         else:
-            summary = 'Tech tree: no available unlocks'
-            progress = 0
-            right_metric = 'No unlocks found'
+            combat_xp = min(tt['vehicle_xp'], max_requirement_xp)
+            free_xp = min(tt['free_xp'], max(0, max_requirement_xp - combat_xp))
 
-        if fm['exists'] and fm['is_veh_skill_tree'] and fm['total_steps'] > 0:
-            detail = 'Field mods: {0}/{1} steps unlocked'.format(
-                fm['unlocked_steps'],
-                fm['total_steps'],
-            )
-        elif fm['exists'] and fm['unique_level_count'] > 0:
-            detail = 'Field mods: {0}/{1} levels unlocked'.format(
-                fm['unique_unlocked_level_count'],
-                fm['unique_level_count'],
-            )
-        elif el['total'] > 0:
-            detail = 'Elite mods: {0}/{1} unlocked'.format(el['unlocked'], el['total'])
-        else:
-            detail = 'Free XP available: {0}'.format(tt['free_xp'])
+            if available_unlocks:
+                summary = 'Basic research: {0}% toward most expensive available item'.format(
+                    min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
+                )
+                detail = '{0} research markers on bar'.format(len(available_unlocks))
+                if tt['can_research_with_total_xp']:
+                    right_metric = 'Next unlock: available now'
+                else:
+                    right_metric = 'Max item: {0} XP'.format(max_requirement_xp)
+            else:
+                summary = 'Basic research: no available unlocks'
+                detail = 'Bar scoped to tech-tree research only'
+                right_metric = 'No unlocks found'
+
+        progress = min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
+        markers = []
+        for item in available_unlocks:
+            markers.append({
+                'id': 'unlock_{0}'.format(item['intcd']),
+                'costXp': item['xp_cost'],
+                'itemType': item['item_type'],
+                'label': item['label'],
+            })
 
         return {
             'title': 'Research Progress',
@@ -1385,8 +1646,12 @@ class ResearchProgressBar(object):
             'summary': summary,
             'detail': detail,
             'progress': progress,
-            'leftMetric': 'Vehicle XP: {0}'.format(tt['vehicle_xp']),
+            'leftMetric': 'Combat XP: {0}'.format(tt['vehicle_xp']),
             'rightMetric': right_metric,
+            'maxRequirementXp': max_requirement_xp,
+            'combatXp': combat_xp,
+            'freeXp': free_xp,
+            'markers': markers,
         }
 
     def _push_scaleform_payload(self):
@@ -1397,14 +1662,14 @@ class ResearchProgressBar(object):
             self._scaleform_view.as_setContextS(self._scaleform_payload)
             self._scaleform_view.as_setProgressS(self._scaleform_payload.get('progress', 0))
         except Exception:
-            _logger.exception('Failed to push data to scaleform prototype view')
+            _logger.exception('Failed to push data to scaleform garage view')
 
-    def _render_scaleform_prototype(self, vehicle, data):
+    def _render_scaleform_view(self, vehicle, data):
         if not _config.get('scaleformPrototypeEnabled', True):
             return
         self._scaleform_payload = self._build_scaleform_payload(vehicle, data)
-        self._try_load_scaleform_view('data_update')
-        self._push_scaleform_payload()
+        if self._sync_scaleform_view('data_update'):
+            self._push_scaleform_payload()
 
     def _cancel_pending_update(self):
         callback_id = self._pending_update_callback
@@ -1416,6 +1681,37 @@ class ResearchProgressBar(object):
         except Exception:
             pass
 
+    def _cancel_visibility_probe(self):
+        callback_id = self._visibility_probe_callback
+        self._visibility_probe_callback = None
+        if callback_id is None:
+            return
+        try:
+            BigWorld.cancelCallback(callback_id)
+        except Exception:
+            pass
+
+    def _schedule_visibility_probe(self, reason):
+        if not self._active or self._visibility_probe_callback is not None:
+            return
+
+        self._visibility_probe_callback = BigWorld.callback(
+            _VISIBILITY_PROBE_DELAY,
+            self._run_visibility_probe,
+        )
+
+    def _run_visibility_probe(self):
+        self._visibility_probe_callback = None
+        if not self._active:
+            return
+
+        if self._sync_scaleform_view('visibility_probe'):
+            if self._scaleform_view is not None and self._scaleform_payload is not None:
+                self._push_scaleform_payload()
+            return
+
+        self._schedule_visibility_probe('visibility_probe_retry')
+
     def _schedule_update(self, reason):
         if not self._active:
             return
@@ -1423,7 +1719,6 @@ class ResearchProgressBar(object):
         self._cancel_pending_update()
 
         # Keep deferred execution and callback coalescing, but run immediately.
-        _logger.info('Scheduling research update immediately (%s)', reason)
         self._pending_update_callback = BigWorld.callback(0.0, self._deferred_update)
 
     # -- event handlers ------------------------------------------------------
@@ -1433,12 +1728,30 @@ class ResearchProgressBar(object):
             return
         self._schedule_update('vehicle_changed')
 
+    def _on_preview_vehicle_changed(self):
+        if not self._active:
+            return
+        self._schedule_update('preview_vehicle_changed')
+
+    def _on_view_added_to_container(self, _container, view):
+        if not self._active:
+            return
+
+        if getattr(view, 'layer', None) == WindowLayer.SUB_VIEW:
+            self._last_seen_sub_view_alias = self._get_view_alias(view)
+
+        if getattr(view, 'alias', None) == SCALEFORM_VIEW_ALIAS:
+            return
+        if self._should_show_scaleform_view('view_added_to_container', view):
+            self._schedule_update('view_added_to_container')
+        else:
+            self._sync_scaleform_view('view_added_to_container', view)
+
     def _deferred_update(self):
         """Runs deferred work outside critical hangar-load callbacks."""
         self._pending_update_callback = None
         if self._active:
             try:
-                _logger.info('Running scheduled research update')
                 self._update()
             except Exception:
                 _logger.exception('Error in _deferred_update')
@@ -1448,8 +1761,9 @@ class ResearchProgressBar(object):
     def _update(self):
         if not _config.get('enabled'):
             return
+        if not self._sync_scaleform_view('update_precheck'):
+            return
         if self._update_in_progress:
-            _logger.info('Skipping research update because one is already in progress')
             return
 
         self._update_in_progress = True
@@ -1473,6 +1787,7 @@ class ResearchProgressBar(object):
         unlocks_set = stats.unlocks
         vehicle_tier = _get_vehicle_tier(vehicle)
         probe_offset = self._t11_method_probe_offsets.get(vehicle.intCD, 0)
+        available_unlocks = _collect_available_unlocks(vehicle, unlocks_set)
 
         # --- Tech tree XP progress ---
         veh_xp = stats.vehiclesXPs.get(vehicle.intCD, 0)
@@ -1533,6 +1848,7 @@ class ResearchProgressBar(object):
                 'can_research_with_total_xp': can_research_with_total_xp,
                 'is_elite': vehicle.isElite,
                 'is_fully_elite': vehicle.isFullyElite,
+                'available_unlocks': available_unlocks,
             },
             'elite': {
                 'unlocked': elite_unlocked,
@@ -1693,131 +2009,12 @@ class ResearchProgressBar(object):
 
     def _render(self, vehicle, data):
         """
-        Phase 1: structured log output.
-        Phase 2: persistent overlay panel in hangar.
+        Emit the active Scaleform garage UI and structured python.log output.
         """
-        self._render_scaleform_prototype(vehicle, data)
-        if _config.get('displayMode') == 'ui':
-            self._render_ui(vehicle, data)
-        else:
-            self._render_log(vehicle, data)
+        self._render_scaleform_view(vehicle, data)
+        self._render_log(vehicle, data)
 
     def _render_log(self, vehicle, data):
-        name = getattr(vehicle, 'userName', str(vehicle.intCD))
-        tier = data.get('vehicle', {}).get('tier')
-        if tier is not None:
-            _logger.info('--- Research Progress: %s (Tier %s) ---', name, tier)
-        else:
-            _logger.info('--- Research Progress: %s (Tier unknown) ---', name)
-
-        tt = data['tech_tree']
-        if _config.get('showTechTree'):
-            if tt['is_fully_elite']:
-                _logger.info('  Tech tree:  COMPLETE (fully elite)')
-            elif tt['next_cost']:
-                _logger.info(
-                    '  Tech tree:  %s  (%d / %d XP, free XP: %d)',
-                    _make_text_bar(tt['pct']),
-                    tt['total_xp'], tt['next_cost'], tt['free_xp'],
-                )
-                _logger.info(
-                    '  Tech tree (max unlock): can(vehicleXP)=%s, can(vehicle+freeXP)=%s',
-                    tt['can_research_with_vehicle_xp'],
-                    tt['can_research_with_total_xp'],
-                )
-            else:
-                _logger.info('  Tech tree:  no available unlocks found')
-
-        el = data['elite']
-        if _config.get('showEliteProgress') and el['total'] > 0:
-            _logger.info(
-                '  Elite mods: %s  (%d / %d modules)',
-                _make_text_bar(el['pct']),
-                el['unlocked'], el['total'],
-            )
-
-        fm = data['field_mods']
-        if _config.get('showFieldMods'):
-            if not fm['exists']:
-                _logger.info('  Field mods: not available for this vehicle')
-            else:
-                # Tier-11 skill trees keep step-based view; classic field mods use level-based progress.
-                if fm['is_veh_skill_tree']:
-                    total_units = fm['total_steps']
-                    unlocked_units = fm['unlocked_steps']
-                    unit_label = 'steps'
-                else:
-                    total_units = fm['unique_level_count']
-                    unlocked_units = fm['unique_unlocked_level_count']
-                    unit_label = 'levels'
-
-                if total_units > 0:
-                    pct = int(unlocked_units * 100 / total_units)
-                    _logger.info(
-                        '  Field mods: %s  (%d / %d %s, completion=%s, active=%s)',
-                        _make_text_bar(pct),
-                        unlocked_units,
-                        total_units,
-                        unit_label,
-                        fm['completion_name'],
-                        fm['active'],
-                    )
-                else:
-                    _logger.info(
-                        '  Field mods: available but no steps resolved (completion=%s, active=%s)',
-                        fm['completion_name'],
-                        fm['active'],
-                    )
-
-                if fm['next_purchasable_step_id'] is not None:
-                    if fm['next_purchasable_step_xp'] is not None:
-                        _logger.info(
-                            '  Field mods: next purchasable step id=%s level=%s xp=%s source=%s',
-                            fm['next_purchasable_step_id'],
-                            fm['next_purchasable_step_level'],
-                            fm['next_purchasable_step_xp'],
-                            fm['next_purchasable_step_xp_source'],
-                        )
-                    else:
-                        _logger.info(
-                            '  Field mods: next purchasable step id=%s level=%s kind=%s',
-                            fm['next_purchasable_step_id'],
-                            fm['next_purchasable_step_level'],
-                            fm['next_purchasable_step_kind'],
-                        )
-
-                self._log_field_mods_debug(vehicle, fm)
-
-            tier_plan = fm.get('tier_plan') or {}
-            if tier_plan.get('enabled'):
-                if tier_plan.get('next_level') is not None:
-                    _logger.info(
-                        '  Field mods (tier rules): level %d/%d, next=%d, cost=%d XP, can(vehicleXP)=%s, can(vehicle+freeXP)=%s',
-                        tier_plan.get('current_level'),
-                        tier_plan.get('max_level'),
-                        tier_plan.get('next_level'),
-                        tier_plan.get('next_level_xp_cost'),
-                        tier_plan.get('can_research_with_vehicle_xp'),
-                        tier_plan.get('can_research_with_total_xp'),
-                    )
-                else:
-                    _logger.info(
-                        '  Field mods (tier rules): level %d/%d COMPLETE',
-                        tier_plan.get('current_level'),
-                        tier_plan.get('max_level'),
-                    )
-            elif tier_plan.get('reason') == 'no-field-mods':
-                _logger.info('  Field mods (tier rules): unavailable for this tier')
-            elif tier_plan.get('reason') == 'tier-11-skill-tree':
-                _logger.info('  Field mods (tier rules): skipped for tier-11 skill tree mode')
-
-    def _render_ui(self, vehicle, data):
-        if self._ui_failed:
-            self._render_log(vehicle, data)
-            return
-
-        if self._panel is None:
-            self._panel = _OverlayPanel()
 
         name = getattr(vehicle, 'userName', str(vehicle.intCD))
         tier = data.get('vehicle', {}).get('tier')
@@ -1918,11 +2115,6 @@ class ResearchProgressBar(object):
                     )
             elif tier_plan.get('reason') == 'no-field-mods':
                 lines.append('Tier rules: no field mods for this tier')
-
-        if not self._panel.update_lines(lines):
-            self._ui_failed = True
-            _logger.error('UI panel unavailable, falling back to log mode')
-            self._render_log(vehicle, data)
 
 
 # ---------------------------------------------------------------------------

@@ -48,6 +48,15 @@ Verified garage-window pattern from the installed working reference mod:
 - The root view creates and injects a draggable panel MovieClip into the real `LobbyPage`/`Hangar` display tree.
 - This is the preferred reference pattern for custom draggable garage widgets in this repo.
 
+Current repo baseline for the research-progress-bar garage UI:
+
+- `ResearchProgressBarLobby` is loaded as a persistent `SFWindow` at `WindowLayer.WINDOW`.
+- Let WoT attach that window to the main window automatically; the explicit-parent load path was not needed.
+- Keep the window alive and toggle SWF visibility for transient hide/show cases. Destroying and reloading the window during ordinary popups caused flashing and could close focus-sensitive game UI.
+- Use container-layer signals for real `SUB_VIEW` / `TOP_SUB_VIEW` changes, but also track the lobby route for hangar-local overlays.
+- `hangar/loadout/*` screens can stay inside the hangar flow and only announce themselves through lobby-state-machine route changes.
+- Ordinary `WINDOW` / `TOP_WINDOW` popups like chat, contacts, session statistics, and lobby menu should rely on correct z-order instead of forcing the bar to hide.
+
 Authoring and inspection tools used in this repo:
 
 - `Python 2.7` to produce WoT-compatible `.pyc`

@@ -5,7 +5,8 @@
     "showTechTree": true,
     "showEliteProgress": true,
     "showFieldMods": true,
-    "debugFieldMods": true,
+    "_debugFieldMods_comment": "Verbose field-mod internals for development and parser tuning. Keep disabled for normal use.",
+    "debugFieldMods": false,
     "extractNextStepXPLightweight": false,
     "parseNextStepXPFromSettings": false,
     "parseNextStepXPFromRawTree": false,
@@ -14,11 +15,6 @@
     "tier11MethodProbeMaxStepsPerUpdate": 26,
     "_fieldModsProbeMode_comment": "off | flags-only | completion-only | steps-only | state-only | next-step-only | full",
     "fieldModsProbeMode": "next-step-only",
-    "_displayMode_comment": "Options: 'log' (structured python.log output) | 'ui' (persistent hangar overlay panel)",
-    "displayMode": "ui",
-    "_scaleformPrototypeEnabled_comment": "Custom SWF garage panel path. Keep enabled for the working AbstractView-based garage widget while the Python overlay remains as debug UI.",
-    "scaleformPrototypeEnabled": true,
-    "_panelPos_comment": "Normalized coordinates. Move right/up by increasing values.",
-    "panelPosX": 0.0,
-    "panelPosY": 0.0
+    "_scaleformPrototypeEnabled_comment": "Custom SWF garage bar path. Legacy key name kept for compatibility; keep enabled for the active AbstractView-based garage widget.",
+    "scaleformPrototypeEnabled": true
 }

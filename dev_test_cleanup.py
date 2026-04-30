@@ -3,9 +3,10 @@ Development/test cleanup helper for WoT mods.
 
 What it does:
 1. Reads WOT_GAME_DIR from .env in repo root.
-2. Resolves mod package names and WoT version from mods/<name>/meta.xml.
-3. Removes deployed .wotmod files from <WOT_GAME_DIR>/mods/<wot_client_version>/.
-4. Removes deployed config directories from <WOT_GAME_DIR>/mods/configs/<mod-name>/.
+2. Resolves mod package names from mods/<name>/meta.xml.
+3. Detects the newest installed WoT version folder under <WOT_GAME_DIR>/mods/.
+4. Removes deployed .wotmod files from <WOT_GAME_DIR>/mods/<latest_version>/.
+5. Removes deployed config directories from <WOT_GAME_DIR>/mods/configs/<mod-name>/.
 
 Usage:
     python dev_test_cleanup.py
@@ -61,6 +62,36 @@ def discover_mods():
     )
 
 
+def parse_version_key(name):
+    parts = name.split('.')
+    if not parts or any(not part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def resolve_latest_mods_version(game_dir):
+    mods_root = os.path.join(game_dir, 'mods')
+    if not os.path.isdir(mods_root):
+        raise RuntimeError('WoT mods directory not found: {}'.format(mods_root))
+
+    version_dirs = []
+    for name in os.listdir(mods_root):
+        version_key = parse_version_key(name)
+        if version_key is None:
+            continue
+
+        version_path = os.path.join(mods_root, name)
+        if os.path.isdir(version_path):
+            version_dirs.append((version_key, name))
+
+    if not version_dirs:
+        raise RuntimeError(
+            'No WoT version folders found under {}'.format(mods_root)
+        )
+
+    return max(version_dirs, key=lambda item: item[0])[1]
+
+
 def parse_args(argv):
     dry_run = False
     targets = []
@@ -92,19 +123,16 @@ def remove_path(path, dry_run):
         return False
 
 
-def cleanup_mod(game_dir, mod_name, dry_run):
+def cleanup_mod(game_dir, mod_name, dry_run, target_wot_version):
     meta = read_meta(mod_name)
     mod_id = meta['id']
     version = meta['version']
-    wot_version = meta['wot_client_version']
 
-    if not mod_id or not wot_version:
-        raise RuntimeError(
-            'meta.xml for {} is missing id or wot_client_version'.format(mod_name)
-        )
+    if not mod_id:
+        raise RuntimeError('meta.xml for {} is missing id'.format(mod_name))
 
     package_name = '{}_{}.wotmod'.format(mod_id, version)
-    package_path = os.path.join(game_dir, 'mods', wot_version, package_name)
+    package_path = os.path.join(game_dir, 'mods', target_wot_version, package_name)
     config_dir = os.path.join(game_dir, 'mods', 'configs', mod_name)
 
     removed_any = False
@@ -138,8 +166,11 @@ def main():
         if not os.path.isdir(mod_dir):
             raise RuntimeError('Mod directory not found: {}'.format(mod_dir))
 
+    target_wot_version = resolve_latest_mods_version(game_dir)
+    print('Target WoT mods version: {}'.format(target_wot_version))
+
     for mod_name in mod_names:
-        cleanup_mod(game_dir, mod_name, dry_run)
+        cleanup_mod(game_dir, mod_name, dry_run, target_wot_version)
 
     mode = 'DRY-RUN' if dry_run else 'APPLIED'
     print('Cleanup {} for {} mod(s).'.format(mode, len(mod_names)))

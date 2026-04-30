@@ -55,9 +55,11 @@ Scripts:
   - Use `python build.py <mod-name>` to build one mod.
 - `python dev_test_deploy.py`
   - Builds target mods, then deploys package + config to `WOT_GAME_DIR`.
+  - Auto-detects the newest numeric folder under `WOT_GAME_DIR/mods/` and deploys there.
   - Default target is all mods under `mods/`.
 - `python dev_test_cleanup.py`
   - Removes deployed package + config for target mods from `WOT_GAME_DIR`.
+  - Auto-detects the newest numeric folder under `WOT_GAME_DIR/mods/` before removing deployed packages.
   - Supports safe preview mode: `python dev_test_cleanup.py --dry-run`.
 - `python dev_test_cycle.py`
   - Runs cleanup, then deploy (quick full refresh loop).
@@ -96,7 +98,7 @@ For custom draggable garage widgets, treat the work as a hybrid mod even if the 
 ## 2. Set Up Safe Test Loop
 
 1. Keep clean backups of `mods/` and `res_mods/`.
-2. Test in one dedicated game version folder (`mods/2.2.1.1`).
+2. Test against the newest installed game version folder under `mods/`.
 3. Deploy only your changed files each run.
 4. Launch client, reproduce scenario, inspect `python.log`.
 5. Repeat quickly.
@@ -167,14 +169,14 @@ Before escalating into deeper runtime step probes, check whether the same value 
 7. Load one optional UI element in WoT
 8. Add version migration and release notes
 
-## 8. Pretty UI Next Steps
+## 8. Research Progress Bar UI Baseline
 
-For the current research-progress-bar direction, the next steps are:
+For the current research-progress-bar direction, the stable baseline is:
 
-1. Remove or hide remaining Tier XI debug-style text from the current Python text overlay.
-2. Create a new garage UI prototype as a hybrid mod: Python data provider + garage UI layer.
-3. Use a custom lobby SWF loaded through `ViewSettings(..., WindowLayer.WINDOW, ...)` with an `AbstractView` root.
-4. Keep the old Python `GUI.Text` overlay active as debug UI until the SWF path is stable.
-5. Start with a minimal panel that proves three things only: draggable container, text fields updating from Python, and a graphical progress bar updating from Python.
-6. After that works, add icon slots, minimize/show behavior, and polish.
-7. Only then replace the current plain `GUI.Text` overlay as the default UI path.
+1. Build the SWF with `compile_ui.ps1` before `dev_test_cycle.py` whenever the ActionScript changes.
+2. Keep the SWF root on a WoT `IView`-compatible class such as `AbstractView`.
+3. Load the bar as an `SFWindow` and let WoT attach it to the main window automatically.
+4. Keep that window persistent and toggle SWF visibility for hide/show cases instead of destroying and reloading it for transient popups.
+5. Treat only the default hangar route as visible. Use both container hooks and lobby-route tracking because `hangar/loadout/*` screens do not always emit a separate container view.
+6. Use correct z-order for ordinary popup windows like chat, contacts, session statistics, and lobby menu rather than hiding the bar.
+7. Keep structured `python.log` lines during visibility tuning; remove or reduce them only after the behavior is stable.

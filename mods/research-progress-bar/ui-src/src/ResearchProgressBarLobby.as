@@ -1,34 +1,62 @@
 package
 {
+    import flash.display.Bitmap;
     import flash.display.Shape;
     import flash.display.Sprite;
-    import flash.events.MouseEvent;
-    import flash.geom.Rectangle;
+    import flash.events.Event;
     import flash.text.TextField;
     import flash.text.TextFormat;
+    import flash.text.TextFormatAlign;
     import net.wg.infrastructure.base.AbstractView;
 
-    [SWF(width="420", height="180", frameRate="30", backgroundColor="#000000")]
+    [SWF(width="1920", height="220", frameRate="30", backgroundColor="#000000")]
     public class ResearchProgressBarLobby extends AbstractView
     {
-        private static const PANEL_WIDTH:Number = 420;
-        private static const PANEL_HEIGHT:Number = 180;
-        private static const HEADER_HEIGHT:Number = 34;
-        private static const BAR_WIDTH:Number = 372;
-        private static const BAR_HEIGHT:Number = 16;
+        [Embed(source="../assets/progress_bar_base.png")]
+        private static const ProgressBarBaseAsset:Class;
 
-        private var background:Shape;
-        private var header:Sprite;
-        private var headerTitle:TextField;
-        private var vehicleLabel:TextField;
-        private var summaryLabel:TextField;
-        private var detailLabel:TextField;
-        private var progressTrack:Shape;
-        private var progressFill:Shape;
-        private var progressLabel:TextField;
-        private var metricLeft:TextField;
-        private var metricRight:TextField;
-        private var iconStrip:Sprite;
+        [Embed(source="../assets/progress_bar_green.png")]
+        private static const ProgressBarGreenAsset:Class;
+
+        [Embed(source="../assets/progress_bar_yellow.png")]
+        private static const ProgressBarYellowAsset:Class;
+
+        [Embed(source="../assets/marker_default.png")]
+        private static const MarkerDefaultAsset:Class;
+
+        [Embed(source="../assets/marker_green.png")]
+        private static const MarkerGreenAsset:Class;
+
+        [Embed(source="../assets/marker_yellow.png")]
+        private static const MarkerYellowAsset:Class;
+
+        private static const SIDE_MARGIN:Number = 600;
+        private static const TOP_MARGIN:Number = 100;
+        private static const MIN_BAR_WIDTH:Number = 80;
+        private static const BAR_HEIGHT:Number = 8;
+        private static const LABEL_COLOR:uint = 0xF4F0E8;
+        private static const COUNTER_GAP:Number = 14;
+        private static const COUNTER_VALUE_WIDTH:Number = 36;
+        private static const COUNTER_TEXT_GAP:Number = 4;
+        private static const COUNTER_CAPTION_WIDTH:Number = 68;
+        private static const MARKER_VALUE_COLOR:uint = 0xAAA69A;
+        private static const MARKER_VALUE_WIDTH:Number = 44;
+        private static const MARKER_VALUE_ROW_STEP:Number = 13;
+        private static const MARKER_VALUE_MIN_GAP:Number = 4;
+
+        private var combatPercentLabel:TextField;
+        private var combatPercentCaption:TextField;
+        private var totalPercentLabel:TextField;
+        private var totalPercentCaption:TextField;
+        private var baseBar:Bitmap;
+        private var combatBar:Bitmap;
+        private var freeBar:Bitmap;
+        private var combatMaskShape:Shape;
+        private var freeMaskShape:Shape;
+        private var markersContainer:Sprite;
+        private var _context:Object;
+        private var _barWidth:Number = MIN_BAR_WIDTH;
+        private var _isReady:Boolean = false;
 
         public function ResearchProgressBarLobby()
         {
@@ -38,84 +66,75 @@ package
         override protected function configUI():void
         {
             super.configUI();
-            mouseEnabled = true;
-            mouseChildren = true;
+            mouseEnabled = false;
+            mouseChildren = false;
             build();
-            applyContext({
-                title: "Research Progress",
-                vehicle: "TVP T 50/51",
-                summary: "Tech tree: 72% toward next unlock",
-                detail: "Field mods: 3/6 steps unlocked",
-                progress: 72,
-                leftMetric: "32,450 XP",
-                rightMetric: "Next unlock: 45,000 XP"
-            });
+
+            if (stage != null)
+            {
+                stage.addEventListener(Event.RESIZE, onStageResize);
+            }
         }
 
         override protected function onDispose():void
         {
-            if (header != null)
-            {
-                header.removeEventListener(MouseEvent.MOUSE_DOWN, onHeaderMouseDown);
-            }
             if (stage != null)
             {
-                stage.removeEventListener(MouseEvent.MOUSE_UP, onStageMouseUp);
+                stage.removeEventListener(Event.RESIZE, onStageResize);
             }
             super.onDispose();
         }
 
+        override protected function nextFrameAfterPopulateHandler():void
+        {
+            super.nextFrameAfterPopulateHandler();
+            _isReady = true;
+            layoutFromStage();
+            updateBarFromContext();
+        }
+
         private function build():void
         {
-            background = new Shape();
-            addChild(background);
+            combatPercentLabel = makeCounterField();
+            addChild(combatPercentLabel);
 
-            header = new Sprite();
-            header.buttonMode = true;
-            header.useHandCursor = true;
-            header.addEventListener(MouseEvent.MOUSE_DOWN, onHeaderMouseDown);
-            addChild(header);
+            combatPercentCaption = makeCounterCaptionField("Vehicle XP");
+            addChild(combatPercentCaption);
 
-            headerTitle = makeTextField(18, 8, 220, 20, 0xF4F0E8, 16, true);
-            header.addChild(headerTitle);
+            totalPercentLabel = makeCounterField();
+            addChild(totalPercentLabel);
 
-            vehicleLabel = makeTextField(24, 48, 372, 20, 0xF4F0E8, 18, true);
-            addChild(vehicleLabel);
+            totalPercentCaption = makeCounterCaptionField("Total XP");
+            addChild(totalPercentCaption);
 
-            summaryLabel = makeTextField(24, 74, 372, 18, 0xD7D2C7, 13, false);
-            addChild(summaryLabel);
+            baseBar = createBitmap(ProgressBarBaseAsset);
+            addChild(baseBar);
 
-            detailLabel = makeTextField(24, 96, 372, 18, 0xAAA69A, 12, false);
-            addChild(detailLabel);
+            combatBar = createBitmap(ProgressBarGreenAsset);
+            addChild(combatBar);
 
-            progressTrack = new Shape();
-            progressTrack.x = 24;
-            progressTrack.y = 124;
-            addChild(progressTrack);
+            freeBar = createBitmap(ProgressBarYellowAsset);
+            addChild(freeBar);
 
-            progressFill = new Shape();
-            progressFill.x = 24;
-            progressFill.y = 124;
-            addChild(progressFill);
+            combatMaskShape = new Shape();
+            combatMaskShape.visible = false;
+            addChild(combatMaskShape);
 
-            progressLabel = makeTextField(24, 144, 100, 18, 0xF4F0E8, 12, true);
-            addChild(progressLabel);
+            freeMaskShape = new Shape();
+            freeMaskShape.visible = false;
+            addChild(freeMaskShape);
 
-            metricLeft = makeTextField(24, 144, 160, 18, 0xD7D2C7, 12, false);
-            addChild(metricLeft);
+            combatBar.mask = combatMaskShape;
+            freeBar.mask = freeMaskShape;
 
-            metricRight = makeTextField(200, 144, 196, 18, 0xD7D2C7, 12, false);
-            metricRight.autoSize = "right";
-            metricRight.x = 200;
-            addChild(metricRight);
+            markersContainer = new Sprite();
+            addChild(markersContainer);
+        }
 
-            iconStrip = new Sprite();
-            iconStrip.x = 320;
-            iconStrip.y = 14;
-            addChild(iconStrip);
-
-            drawIcons();
-            drawChrome();
+        private function onStageResize(event:Event):void
+        {
+            layoutFromStage();
+            updateBarFromContext();
         }
 
         public function as_setContext(data:Object):void
@@ -125,12 +144,25 @@ package
 
         public function as_setProgress(value:Number):void
         {
-            updateProgress(value);
+            if (_context == null)
+            {
+                _context = {};
+            }
+            _context.progress = Number(value);
+            if (_isReady)
+            {
+                updateBarFromContext();
+            }
         }
 
         public function as_ping():String
         {
             return "research-progress-bar-lobby-ready";
+        }
+
+        public function as_setVisible(value:Boolean):void
+        {
+            visible = value;
         }
 
         private function applyContext(data:Object):void
@@ -140,146 +172,365 @@ package
                 return;
             }
 
-            if (data.title !== undefined)
-            {
-                headerTitle.text = String(data.title);
-            }
-            if (data.vehicle !== undefined)
-            {
-                vehicleLabel.text = String(data.vehicle);
-            }
-            if (data.summary !== undefined)
-            {
-                summaryLabel.text = String(data.summary);
-            }
-            if (data.detail !== undefined)
-            {
-                detailLabel.text = String(data.detail);
-            }
-            if (data.leftMetric !== undefined)
-            {
-                metricLeft.text = String(data.leftMetric);
-            }
-            if (data.rightMetric !== undefined)
-            {
-                metricRight.text = String(data.rightMetric);
-            }
-            if (data.progress !== undefined)
-            {
-                updateProgress(Number(data.progress));
-            }
-        }
+            _context = data;
 
-        private function updateProgress(value:Number):void
-        {
-            var clamped:Number = Math.max(0, Math.min(100, value));
-
-            progressFill.graphics.clear();
-            progressFill.graphics.beginFill(0xC38C39, 1.0);
-            progressFill.graphics.drawRoundRect(0, 0, BAR_WIDTH * clamped / 100.0, BAR_HEIGHT, 8, 8);
-            progressFill.graphics.endFill();
-
-            progressLabel.text = int(clamped).toString() + "%";
-        }
-
-        private function drawChrome():void
-        {
-            background.graphics.clear();
-            background.graphics.beginFill(0x171411, 0.92);
-            background.graphics.drawRoundRect(0, 0, PANEL_WIDTH, PANEL_HEIGHT, 14, 14);
-            background.graphics.endFill();
-
-            background.graphics.lineStyle(1, 0x4D4032, 1.0);
-            background.graphics.drawRoundRect(0.5, 0.5, PANEL_WIDTH - 1, PANEL_HEIGHT - 1, 14, 14);
-
-            header.graphics.clear();
-            header.graphics.beginFill(0x2A221A, 0.98);
-            header.graphics.drawRoundRect(0, 0, PANEL_WIDTH, HEADER_HEIGHT, 14, 14);
-            header.graphics.endFill();
-
-            header.graphics.beginFill(0x2A221A, 0.98);
-            header.graphics.drawRect(0, HEADER_HEIGHT - 14, PANEL_WIDTH, 14);
-            header.graphics.endFill();
-
-            progressTrack.graphics.clear();
-            progressTrack.graphics.beginFill(0x0F0D0B, 1.0);
-            progressTrack.graphics.drawRoundRect(0, 0, BAR_WIDTH, BAR_HEIGHT, 8, 8);
-            progressTrack.graphics.endFill();
-
-            progressTrack.graphics.lineStyle(1, 0x5B4E3F, 1.0);
-            progressTrack.graphics.drawRoundRect(0, 0, BAR_WIDTH, BAR_HEIGHT, 8, 8);
-        }
-
-        private function drawIcons():void
-        {
-            var colors:Array = [0xC38C39, 0x8AA7B1, 0x6C9B5C];
-            var index:int;
-            for (index = 0; index < colors.length; index++)
-            {
-                var dot:Shape = new Shape();
-                dot.graphics.beginFill(colors[index], 1.0);
-                dot.graphics.drawCircle(0, 0, 7);
-                dot.graphics.endFill();
-                dot.x = index * 22;
-                dot.y = 7;
-                iconStrip.addChild(dot);
-            }
-        }
-
-        private function onHeaderMouseDown(event:MouseEvent):void
-        {
-            if (stage == null)
+            if (!_isReady)
             {
                 return;
             }
 
-            startDrag(false, getDragBounds());
-            stage.addEventListener(MouseEvent.MOUSE_UP, onStageMouseUp);
+            layoutFromStage();
+            updateBarFromContext();
         }
 
-        private function onStageMouseUp(event:MouseEvent):void
+        private function updateBarFromContext():void
         {
-            stopDrag();
-            if (stage != null)
+            var maxRequirementXp:Number;
+            var combatXp:Number;
+            var freeXp:Number;
+            var combatWidth:Number;
+            var freeWidth:Number;
+            var combatPercent:int;
+            var totalPercent:int;
+
+            if (!_isReady || _context == null)
             {
-                stage.removeEventListener(MouseEvent.MOUSE_UP, onStageMouseUp);
+                return;
+            }
+
+            if (baseBar == null || combatBar == null || freeBar == null || markersContainer == null)
+            {
+                return;
+            }
+
+            layoutFromStage();
+
+            maxRequirementXp = Math.max(1, numberValue(_context.maxRequirementXp, 1));
+            combatXp = clamp(numberValue(_context.combatXp, 0), 0, maxRequirementXp);
+            freeXp = clamp(numberValue(_context.freeXp, 0), 0, maxRequirementXp - combatXp);
+            combatWidth = Math.round(_barWidth * combatXp / maxRequirementXp);
+            freeWidth = Math.round(_barWidth * freeXp / maxRequirementXp);
+
+            combatPercent = int(Math.min(100, combatXp * 100 / maxRequirementXp));
+            totalPercent = int(Math.min(100, (combatXp + freeXp) * 100 / maxRequirementXp));
+            combatPercentLabel.text = combatPercent.toString() + "%";
+            totalPercentLabel.text = totalPercent.toString() + "%";
+
+            baseBar.x = SIDE_MARGIN;
+            baseBar.y = TOP_MARGIN;
+            baseBar.width = _barWidth;
+            baseBar.height = BAR_HEIGHT;
+
+            combatBar.x = SIDE_MARGIN;
+            combatBar.y = TOP_MARGIN;
+            combatBar.width = _barWidth;
+            combatBar.height = BAR_HEIGHT;
+
+            freeBar.x = SIDE_MARGIN;
+            freeBar.y = TOP_MARGIN;
+            freeBar.width = _barWidth;
+            freeBar.height = BAR_HEIGHT;
+
+            drawMask(combatMaskShape, SIDE_MARGIN, TOP_MARGIN, combatWidth, BAR_HEIGHT);
+            drawMask(freeMaskShape, SIDE_MARGIN + combatWidth, TOP_MARGIN, freeWidth, BAR_HEIGHT);
+
+            rebuildMarkers(maxRequirementXp, combatXp, freeXp);
+            positionLabels();
+        }
+
+        private function rebuildMarkers(maxRequirementXp:Number, combatXp:Number, freeXp:Number):void
+        {
+            var marker:Object;
+            var markerCostXp:Number;
+            var markerX:Number;
+            var markerDisplay:Sprite;
+            var markerValueRowRightEdges:Array = [-1000000, -1000000, -1000000];
+
+            while (markersContainer.numChildren > 0)
+            {
+                markersContainer.removeChildAt(0);
+            }
+
+            if (!(_context.markers is Array))
+            {
+                return;
+            }
+
+            for each (marker in _context.markers)
+            {
+                markerCostXp = clamp(numberValue(marker.costXp, 0), 0, maxRequirementXp);
+                markerX = Math.round(_barWidth * markerCostXp / maxRequirementXp);
+                markerDisplay = createMarkerDisplay(marker, markerCostXp, combatXp, freeXp);
+                markerDisplay.x = SIDE_MARGIN + markerX;
+                markerDisplay.y = TOP_MARGIN;
+                layoutMarkerValueLabel(markerDisplay, markerValueRowRightEdges);
+                markersContainer.addChild(markerDisplay);
             }
         }
 
-        private function getDragBounds():Rectangle
+        private function createMarkerDisplay(marker:Object, markerCostXp:Number, combatXp:Number, freeXp:Number):Sprite
         {
+            var markerSprite:Sprite = new Sprite();
+            var markerBitmap:Bitmap = createMarkerBitmap(markerCostXp, combatXp, freeXp);
+            var markerLabel:TextField;
+            var markerValueLabel:TextField;
+            var markerLabelText:String = marker != null && marker.label !== undefined ? String(marker.label) : "";
+
+            markerBitmap.x = -Math.round(markerBitmap.width / 2);
+            markerBitmap.y = -Math.round((markerBitmap.height - BAR_HEIGHT) / 2);
+            markerSprite.addChild(markerBitmap);
+
+            if (markerLabelText.length > 0)
+            {
+                markerLabel = makeMarkerLabelField(markerLabelText, markerBitmap.y);
+                markerSprite.addChild(markerLabel);
+            }
+
+            markerValueLabel = makeMarkerValueField(formatXpValue(markerCostXp), markerBitmap.y + markerBitmap.height + 3);
+            markerValueLabel.name = "markerValueLabel";
+            markerSprite.addChild(markerValueLabel);
+
+            return markerSprite;
+        }
+
+        private function layoutMarkerValueLabel(markerDisplay:Sprite, rowRightEdges:Array):void
+        {
+            var markerValueLabel:TextField = markerDisplay.getChildByName("markerValueLabel") as TextField;
+            var labelLeft:Number;
+            var labelRight:Number;
+            var rowIndex:int;
+
+            if (markerValueLabel == null)
+            {
+                return;
+            }
+
+            labelLeft = markerDisplay.x + markerValueLabel.x;
+            labelRight = labelLeft + markerValueLabel.width;
+            rowIndex = chooseMarkerValueRow(labelLeft, rowRightEdges);
+            markerValueLabel.y += rowIndex * MARKER_VALUE_ROW_STEP;
+            rowRightEdges[rowIndex] = labelRight;
+        }
+
+        private function chooseMarkerValueRow(labelLeft:Number, rowRightEdges:Array):int
+        {
+            var rowIndex:int;
+            var bestIndex:int = 0;
+            var bestRight:Number = Number.MAX_VALUE;
+            var rowRight:Number;
+
+            for (rowIndex = 0; rowIndex < rowRightEdges.length; rowIndex++)
+            {
+                rowRight = Number(rowRightEdges[rowIndex]);
+                if (labelLeft >= rowRight + MARKER_VALUE_MIN_GAP)
+                {
+                    return rowIndex;
+                }
+                if (rowRight < bestRight)
+                {
+                    bestRight = rowRight;
+                    bestIndex = rowIndex;
+                }
+            }
+
+            return bestIndex;
+        }
+
+        private function createMarkerBitmap(markerCostXp:Number, combatXp:Number, freeXp:Number):Bitmap
+        {
+            if (markerCostXp <= combatXp)
+            {
+                return createBitmap(MarkerGreenAsset);
+            }
+            if (markerCostXp <= combatXp + freeXp)
+            {
+                return createBitmap(MarkerYellowAsset);
+            }
+            return createBitmap(MarkerDefaultAsset);
+        }
+
+        private function drawMask(shape:Shape, posX:Number, posY:Number, width:Number, height:Number):void
+        {
+            shape.graphics.clear();
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+            shape.graphics.beginFill(0xFFFFFF, 1.0);
+            shape.graphics.drawRect(posX, posY, width, height);
+            shape.graphics.endFill();
+        }
+
+        private function layoutFromStage():void
+        {
+            x = 0;
+            y = 0;
             if (stage == null)
             {
-                return new Rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT);
+                _barWidth = MIN_BAR_WIDTH;
+                return;
             }
-
-            return new Rectangle(
-                0,
-                0,
-                Math.max(0, stage.stageWidth - PANEL_WIDTH),
-                Math.max(0, stage.stageHeight - PANEL_HEIGHT)
-            );
+            _barWidth = Math.max(MIN_BAR_WIDTH, stage.stageWidth - SIDE_MARGIN * 2);
         }
 
-        private function makeTextField(
-            posX:Number,
-            posY:Number,
-            width:Number,
-            height:Number,
-            color:uint,
-            size:int,
-            bold:Boolean
-        ):TextField
+        private function positionLabels():void
+        {
+            var rightEdge:Number = SIDE_MARGIN + _barWidth;
+            var counterX:Number = rightEdge + COUNTER_GAP;
+            var counterCaptionX:Number = counterX + COUNTER_VALUE_WIDTH + COUNTER_TEXT_GAP;
+
+            combatPercentLabel.x = counterX;
+            combatPercentLabel.y = TOP_MARGIN - combatPercentLabel.height - 1;
+
+            combatPercentCaption.x = counterCaptionX;
+            combatPercentCaption.y = combatPercentLabel.y;
+
+            totalPercentLabel.x = counterX;
+            totalPercentLabel.y = TOP_MARGIN + BAR_HEIGHT + 1;
+
+            totalPercentCaption.x = counterCaptionX;
+            totalPercentCaption.y = totalPercentLabel.y;
+        }
+
+        private function createBitmap(assetClass:Class):Bitmap
+        {
+            var bitmap:Bitmap = new assetClass() as Bitmap;
+            bitmap.smoothing = true;
+            return bitmap;
+        }
+
+        private function numberValue(value:*, fallback:Number):Number
+        {
+            var parsed:Number = Number(value);
+            if (isNaN(parsed))
+            {
+                return fallback;
+            }
+            return parsed;
+        }
+
+        private function clamp(value:Number, minValue:Number, maxValue:Number):Number
+        {
+            if (value < minValue)
+            {
+                return minValue;
+            }
+            if (value > maxValue)
+            {
+                return maxValue;
+            }
+            return value;
+        }
+
+        private function makeMarkerLabelField(text:String, markerTopY:Number):TextField
+        {
+            var field:TextField = makeTextField(LABEL_COLOR, 10, true);
+            alignTextField(field, TextFormatAlign.CENTER);
+            field.width = 24;
+            field.height = 14;
+            field.x = -12;
+            field.y = markerTopY - field.height + 1;
+            field.text = text;
+            return field;
+        }
+
+        private function makeMarkerValueField(text:String, labelY:Number):TextField
+        {
+            var field:TextField = makeTextField(MARKER_VALUE_COLOR, 9, false);
+            alignTextField(field, TextFormatAlign.CENTER);
+            field.width = MARKER_VALUE_WIDTH;
+            field.height = 12;
+            field.x = -Math.round(MARKER_VALUE_WIDTH / 2);
+            field.y = labelY;
+            field.text = text;
+            return field;
+        }
+
+        private function makeCounterField():TextField
+        {
+            var field:TextField = makeTextField(LABEL_COLOR, 11, true);
+            alignTextField(field, TextFormatAlign.RIGHT);
+            field.width = COUNTER_VALUE_WIDTH;
+            field.height = 14;
+            return field;
+        }
+
+        private function makeCounterCaptionField(text:String):TextField
+        {
+            var field:TextField = makeTextField(LABEL_COLOR, 11, false);
+            alignTextField(field, TextFormatAlign.LEFT);
+            field.width = COUNTER_CAPTION_WIDTH;
+            field.height = 14;
+            field.text = text;
+            return field;
+        }
+
+        private function alignTextField(field:TextField, alignment:String):void
+        {
+            var format:TextFormat = field.defaultTextFormat;
+
+            format.align = alignment;
+            field.defaultTextFormat = format;
+            field.setTextFormat(format);
+        }
+
+        private function formatXpValue(value:Number):String
+        {
+            var absValue:Number = Math.abs(value);
+
+            if (absValue < 1000)
+            {
+                return int(value).toString();
+            }
+            if (absValue < 999500)
+            {
+                return formatCompactValue(value / 1000, "k");
+            }
+            return formatCompactValue(value / 1000000, "M");
+        }
+
+        private function formatCompactValue(value:Number, suffix:String):String
+        {
+            var absValue:Number = Math.abs(value);
+            var decimals:int;
+            var precision:Number;
+            var rounded:Number;
+            var text:String;
+
+            if (absValue < 10)
+            {
+                decimals = 2;
+            }
+            else if (absValue < 100)
+            {
+                decimals = 1;
+            }
+            else
+            {
+                decimals = 0;
+            }
+
+            precision = Math.pow(10, decimals);
+            rounded = Math.round(value * precision) / precision;
+            text = rounded.toFixed(decimals);
+
+            while (text.indexOf(".") != -1 && (text.charAt(text.length - 1) == "0" || text.charAt(text.length - 1) == "."))
+            {
+                text = text.substr(0, text.length - 1);
+            }
+
+            return text + suffix;
+        }
+
+        private function makeTextField(color:uint, size:int, bold:Boolean):TextField
         {
             var field:TextField = new TextField();
             field.defaultTextFormat = new TextFormat("_sans", size, color, bold);
-            field.x = posX;
-            field.y = posY;
-            field.width = width;
-            field.height = height;
             field.selectable = false;
             field.mouseEnabled = false;
             field.textColor = color;
+            field.multiline = false;
+            field.wordWrap = false;
             return field;
         }
     }

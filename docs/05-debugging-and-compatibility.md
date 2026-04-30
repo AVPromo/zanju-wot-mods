@@ -68,7 +68,7 @@ Known-safe baseline:
 - `fieldModsProbeMode=next-step-only`
 - `extractNextStepXPLightweight=false`
 - Immediate deferred scheduling (`BigWorld.callback(0.0, ...)`) is validated as stable.
-- `displayMode=ui` is validated with automatic fallback to log mode if GUI panel init/update fails.
+- The custom Scaleform garage bar is the active UI path; structured `python.log` output remains available for debugging.
 
 Validated UI bridge finding:
 
@@ -81,3 +81,20 @@ Future safety rule:
 
 - Do not add deep post-progression object traversal in the scheduled update path unless tested in staged probe modes first (`completion-only` -> `steps-only` -> `state-only` -> `next-step-only`), with stability checks at each step.
 - If real data already exists in a UI model, prefer observing that model population over calling deeper runtime methods from the scheduled update path.
+
+## 9. Research Progress Bar UI Visibility (WoT 2.2.1.2)
+
+Confirmed during live tuning:
+
+- `ContactsPopover`, `SessionStatsPopover`, `messenger/lobbyChannelWindow`, and `lobbyMenu` should not force the bar to hide once z-order is correct.
+- Destroying and reloading the bar window during those popups causes flashing and can close or disturb the popup itself.
+- The stable approach is a persistent `SFWindow` plus an SWF-side visibility callback.
+- Crew and personal-case style flows can arrive as `TOP_SUB_VIEW` overlays and should still hide the bar.
+- Equipment, shells, consumables, and directives can remain inside the hangar subview and only announce themselves through lobby-state-machine route changes such as `subScope/subLayer/hangar/loadout/...`.
+- Treat only `subScope/subLayer/hangar` and `subScope/subLayer/hangar/{root}` as default visible hangar routes.
+
+Useful diagnostics:
+
+- `Garage view gate[...]` lines show visibility decision transitions, including the effective route, subview, and block reason.
+- `Scaleform garage view visibility -> ...` lines show actual SWF visibility changes.
+- View lifecycle lines such as load, populated, disposed, and any exception traceback remain the primary signals for crash diagnosis.

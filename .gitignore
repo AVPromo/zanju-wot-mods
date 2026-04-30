@@ -1,3 +1,4 @@
 .env
 dist/
+.tmp/
 mods/research-progress-bar/ui-src/build/

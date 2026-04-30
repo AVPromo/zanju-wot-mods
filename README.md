@@ -55,6 +55,8 @@ python dev_test_cycle.py --fresh-log
 python dev_test_cycle.py research-progress-bar
 ```
 
+`dev_test_deploy.py`, `dev_test_cleanup.py`, and `dev_test_cycle.py` auto-target the newest numeric folder under `WOT_GAME_DIR/mods/`.
+
 ## Start Here
 
 1. Read `docs/01-mod-architecture.md`
