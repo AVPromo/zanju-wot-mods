@@ -1,5 +1,5 @@
 """
-mod_modname.py
+yourname_modname.main
 
 Minimal WoT mod skeleton.
 
@@ -9,6 +9,7 @@ Entry points called by the WoT client:
 
 All top-level code runs at import time; keep it minimal and guard everything.
 """
+from __future__ import print_function, unicode_literals
 
 import BigWorld
 import logging

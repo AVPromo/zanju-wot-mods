@@ -1,4 +1,7 @@
 .env
+.venv/
+__pycache__/
+*.py[cod]
 dist/
 .tmp/
-mods/research-progress-bar/ui-src/build/
+mods/*/ui-src/build/

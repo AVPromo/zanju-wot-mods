@@ -21,7 +21,7 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         '--output-file',
-        default=os.path.join(SCRIPT_DIR, '..', 'res', 'gui', 'flash', 'research-progress-bar-lobby.swf'),
+        default=os.path.join(SCRIPT_DIR, 'build', 'res', 'gui', 'flash', 'research-progress-bar-lobby.swf'),
         help='Path to the compiled SWF output.',
     )
     parser.add_argument(

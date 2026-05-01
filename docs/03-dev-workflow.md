@@ -30,7 +30,7 @@ Current repo direction:
 
 - Prefer the free code-first ActionScript 3 path for new UI work.
 - Use FFDec to inspect existing WoT or third-party SWFs.
-- Keep authored SWFs under `mods/<mod-name>/res/gui/flash/` so `build.py` can package them unchanged.
+- Keep authored ActionScript under `mods/<mod-name>/ui-src/` and let the compiler emit generated packaged assets under `mods/<mod-name>/ui-src/build/res/`.
 - Keep Python/AS3 integration logic in `mods/<mod-name>/src/`.
 - For garage widgets that should behave like real WoT lobby UI, prefer a custom Scaleform window over `GUIFlash`.
 - A custom lobby `.swf` loaded through `ViewSettings(..., WindowLayer.WINDOW, ...)` must use a WoT `IView`-compatible AS3 root such as `net.wg.infrastructure.base.AbstractView`; a plain `Sprite` root is rejected by the loader.
@@ -50,8 +50,9 @@ Scripts:
 
 - `python build.py`
   - Builds all mods under `mods/` into `dist/*.wotmod`.
+  - Also emits a ready-to-zip release bundle under `dist/<mod-id>_<version>/` with the `.wotmod`, copied config, and install README.
   - `WOT_PYTHON2_EXE` is used to compile `src/**/*.py` to Python 2 `.pyc` before packaging.
-  - Any files placed under `mods/<mod-name>/res/` are copied into the archive as-is, including `.swf` assets.
+  - Committed files under `mods/<mod-name>/res/` are staged together with generated packaged assets under `mods/<mod-name>/ui-src/build/res/`.
   - Use `python build.py <mod-name>` to build one mod.
 - `python dev_test_deploy.py`
   - Builds target mods, then deploys package + config to `WOT_GAME_DIR`.
@@ -78,7 +79,7 @@ Recommended daily loop:
 For UI work, extend the loop:
 
 1. Build or update the `.swf` with `mxmlc`
-2. Place the generated `.swf` under `mods/<mod-name>/res/gui/flash/`
+2. Let `compile_ui.py` write the generated `.swf` under `mods/<mod-name>/ui-src/build/res/gui/flash/`
 3. Run `python dev_test_cycle.py <mod-name>`
 4. Launch WoT, open the target screen, inspect `python.log`
 5. Repeat
@@ -126,7 +127,8 @@ For ActionScript-based UI mods:
 
 - author `.as` source outside the packaged `res/` tree if desired
 - compile to `.swf` with `mxmlc`
-- ship only the resulting `.swf` under `res/gui/flash/`
+- keep generated `.swf` files in ignored build output such as `ui-src/build/res/gui/flash/`
+- let `build.py` stage those generated assets into `res/gui/flash/` inside the final `.wotmod`
 - keep raw source/assets in the repo, not inside the game install
 
 ## 4. Config Strategy
@@ -183,9 +185,14 @@ Before escalating into deeper runtime step probes, check whether the same value 
 For the current research-progress-bar direction, the stable baseline is:
 
 1. Use `compile_ui.py` as the canonical SWF compiler. `build.py research-progress-bar` and `dev_test_cycle.py research-progress-bar` run it automatically before packaging, so manual UI builds are only needed for SWF-only iteration.
-2. Keep the SWF root on a WoT `IView`-compatible class such as `AbstractView`.
-3. Load the bar as an `SFWindow` and let WoT attach it to the main window automatically.
-4. Keep that window persistent and toggle SWF visibility for hide/show cases instead of destroying and reloading it for transient popups.
-5. Treat only the default hangar route as visible. Use both container hooks and lobby-route tracking because `hangar/loadout/*` screens do not always emit a separate container view.
-6. Use correct z-order for ordinary popup windows like chat, contacts, session statistics, and lobby menu rather than hiding the bar.
-7. Keep structured `python.log` lines during visibility tuning; remove or reduce them only after the behavior is stable.
+2. Treat `ui-src/build/` as generated output and `dist/` as release/export output; neither should be committed.
+3. Keep the SWF root on a WoT `IView`-compatible class such as `AbstractView`.
+4. Load the bar as an `SFWindow` and let WoT attach it to the main window automatically.
+5. Keep that window persistent and toggle SWF visibility for hide/show cases instead of destroying and reloading it for transient popups.
+6. Treat only the default hangar route as visible. Use both container hooks and lobby-route tracking because `hangar/loadout/*` screens do not always emit a separate container view.
+7. Use correct z-order for ordinary popup windows like chat, contacts, session statistics, and lobby menu rather than hiding the bar.
+8. Keep structured `python.log` lines during visibility tuning; remove or reduce them only after the behavior is stable.
+
+Future workflow note:
+
+- The release bundle under `dist/` is intended to be the eventual input to GitHub Releases/CI automation, but that publishing workflow is deliberately deferred for now.

@@ -9,12 +9,18 @@ Output: dist/<mod-id>_<version>.wotmod
 
 Optional prebuild hooks:
 - If mods/<name>/ui-src/compile_ui.py exists, it is run before packaging that mod.
-- This keeps embedded SWFs in sync for build.py and any workflows that call it.
+- Generated packaged assets should land under mods/<name>/ui-src/build/res/.
+- build.py stages both mods/<name>/res/ and generated ui-src/build/res/ into the final archive.
 
 Internal .wotmod layout:
     meta.xml
     res/scripts/client/gui/mods/<file>.pyc  (compiled from mods/<name>/src/)
-    res/...                                 (from mods/<name>/res/)
+    res/...                                 (from mods/<name>/res/ plus generated ui-src/build/res/)
+
+Additional release output:
+    dist/<mod-id>_<version>/README.txt
+    dist/<mod-id>_<version>/mods/<wot_client_version>/<mod-id>_<version>.wotmod
+    dist/<mod-id>_<version>/mods/configs/<mod-folder-name>/...
 
 Config files are NOT bundled.
 Ship them separately to: <WoT install>/mods/configs/<mod-folder-name>/
@@ -24,6 +30,7 @@ Copy it to mods/<new-mod-name>/ to start a new mod.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -80,7 +87,79 @@ def read_meta(mod_dir):
     return {
         'id': root.findtext('id', '').strip(),
         'version': root.findtext('version', '0.0.0.0').strip(),
+        'wot_client_version': root.findtext('wot_client_version', '').strip(),
     }
+
+
+def copy_tree_contents(src_dir, dst_dir):
+    if not os.path.isdir(src_dir):
+        return
+
+    os.makedirs(dst_dir, exist_ok=True)
+    for name in sorted(os.listdir(src_dir)):
+        src_path = os.path.join(src_dir, name)
+        dst_path = os.path.join(dst_dir, name)
+        if os.path.isdir(src_path):
+            shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
+        else:
+            dst_parent = os.path.dirname(dst_path)
+            if dst_parent:
+                os.makedirs(dst_parent, exist_ok=True)
+            shutil.copy2(src_path, dst_path)
+
+
+def stage_resource_trees(mod_dir, staged_res_dir):
+    copy_tree_contents(os.path.join(mod_dir, 'res'), staged_res_dir)
+    copy_tree_contents(os.path.join(mod_dir, 'ui-src', 'build', 'res'), staged_res_dir)
+
+
+def write_release_readme(readme_path, archive_name, mod_name, wot_client_version):
+    lines = [
+        'World of Tanks mod release bundle',
+        '',
+        'Contents:',
+        '  - mods/{0}/{1}'.format(wot_client_version, archive_name),
+        '  - mods/configs/{0}/'.format(mod_name),
+        '',
+        'Installation:',
+        '  1. Close World of Tanks.',
+        '  2. Copy the included mods/ folder into your World of Tanks game directory.',
+        '  3. Merge/overwrite files when prompted.',
+        '  4. Launch the game and verify the mod in python.log if needed.',
+        '',
+        'Notes:',
+        '  - The .wotmod package belongs under mods/{0}/.'.format(wot_client_version),
+        '  - The config folder belongs under mods/configs/{0}/.'.format(mod_name),
+    ]
+    with open(readme_path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines) + '\n')
+
+
+def create_release_bundle(mod_dir, mod_name, meta, output_path):
+    archive_name = os.path.basename(output_path)
+    bundle_name = os.path.splitext(archive_name)[0]
+    bundle_root = os.path.join(DIST_DIR, bundle_name)
+    wot_client_version = meta.get('wot_client_version') or 'UNKNOWN_GAME_VERSION'
+
+    if os.path.isdir(bundle_root):
+        shutil.rmtree(bundle_root)
+
+    package_dir = os.path.join(bundle_root, 'mods', wot_client_version)
+    os.makedirs(package_dir, exist_ok=True)
+    shutil.copy2(output_path, os.path.join(package_dir, archive_name))
+
+    config_dir = os.path.join(mod_dir, 'config')
+    if os.path.isdir(config_dir):
+        bundle_config_dir = os.path.join(bundle_root, 'mods', 'configs', mod_name)
+        copy_tree_contents(config_dir, bundle_config_dir)
+
+    write_release_readme(
+        os.path.join(bundle_root, 'README.txt'),
+        archive_name,
+        mod_name,
+        wot_client_version,
+    )
+    return bundle_root
 
 
 def iter_python_source_files(src_dir):
@@ -138,16 +217,23 @@ def build_mod(mod_name, py2_exe):
                     )
                     zf.write(compiled_path, archive_path)
 
-            # res/ tree  →  res/ inside the archive
-            res_dir = os.path.join(mod_dir, 'res')
-            if os.path.isdir(res_dir):
-                for dirpath, _, filenames in os.walk(res_dir):
+            # Stage packaged resources from committed source plus generated build output.
+            staged_res_dir = os.path.join(temp_dir, 'staged_res')
+            stage_resource_trees(mod_dir, staged_res_dir)
+            if os.path.isdir(staged_res_dir):
+                for dirpath, dirnames, filenames in os.walk(staged_res_dir):
+                    dirnames[:] = sorted(dirnames)
                     for filename in sorted(filenames):
                         abs_path = os.path.join(dirpath, filename)
-                        archive_path = os.path.relpath(abs_path, mod_dir).replace(os.sep, '/')
+                        archive_path = 'res/{}'.format(
+                            os.path.relpath(abs_path, staged_res_dir).replace(os.sep, '/')
+                        )
                         zf.write(abs_path, archive_path)
 
     print('Built: {}'.format(output_path))
+
+    release_bundle_dir = create_release_bundle(mod_dir, mod_name, meta, output_path)
+    print('  Release bundle: {}'.format(release_bundle_dir))
 
     config_dir = os.path.join(mod_dir, 'config')
     if os.path.isdir(config_dir):

@@ -13,12 +13,13 @@ mods/                          # one subdirectory per mod
   research-progress-bar/       # first mod
     meta.xml
     src/                       # Python source: top-level mod_*.py bootstrap + optional package
-    res/                       # bundled assets and localisation
-    config/                    # user config (shipped separately, not in .wotmod)
+    res/                       # committed static assets and localisation only
+    config/                    # committed default/user config source
+    ui-src/                    # ActionScript source and generated UI build output
 template/                      # scaffold — copy to mods/<new-mod> to start a mod
 docs/                          # knowledge base
-build.py                       # packages mods/ → dist/*.wotmod
-dist/                          # build output (gitignored)
+build.py                       # packages mods/ → dist/*.wotmod and dist/<release-bundle>/
+dist/                          # gitignored release/export output
 ```
 
 ## Build
@@ -29,6 +30,12 @@ python build.py research-progress-bar  # build one mod
 ```
 
 Requires Python 3.6+ (tested on 3.14.4). No third-party packages needed.
+
+Build outputs are split intentionally:
+
+- Generated intermediate assets live under gitignored build directories such as `mods/<mod-name>/ui-src/build/`.
+- Final user-facing export bundles live under gitignored `dist/`.
+- Commit source files and default config sources; do not commit generated `.swf`, `.pyc`, or `.wotmod` artifacts.
 
 ## Dev Commands
 
@@ -72,4 +79,5 @@ python dev_test_cycle.py research-progress-bar
 - Test every patch cycle (especially micro-patches) before release.
 - For this WoT stack, keep a thin top-level `mod_*.py` bootstrap under `src/`; package-only entrypoints were not auto-discovered.
 - For multi-file mods, keep implementation in a unique package under `src/`, include `__init__.py`, avoid bootstrap/package name collisions, and prefer relative intra-package imports.
+- Future work: automate publishing the `dist/` release bundle through GitHub Releases/CI. That workflow is intentionally not implemented yet.
 - For research-progress-bar crash boundaries and safe probe settings, see `docs/05-debugging-and-compatibility.md` section 8.
