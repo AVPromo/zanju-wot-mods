@@ -83,6 +83,20 @@ def read_meta(mod_dir):
     }
 
 
+def iter_python_source_files(src_dir):
+    for dirpath, dirnames, filenames in os.walk(src_dir):
+        dirnames[:] = sorted(
+            name for name in dirnames
+            if name != '__pycache__'
+        )
+        for filename in sorted(filenames):
+            if not filename.endswith('.py'):
+                continue
+            abs_path = os.path.join(dirpath, filename)
+            rel_path = os.path.relpath(abs_path, src_dir)
+            yield abs_path, rel_path
+
+
 def build_mod(mod_name, py2_exe):
     mod_dir = os.path.join(MODS_DIR, mod_name)
     if not os.path.isdir(mod_dir):
@@ -109,18 +123,19 @@ def build_mod(mod_name, py2_exe):
             # meta.xml at archive root
             zf.write(os.path.join(mod_dir, 'meta.xml'), 'meta.xml')
 
-            # src/*.py  →  res/scripts/client/gui/mods/<file>.pyc
+            # src/**/*.py  →  res/scripts/client/gui/mods/<relative-path>.pyc
             src_dir = os.path.join(mod_dir, 'src')
             if os.path.isdir(src_dir):
-                for filename in sorted(os.listdir(src_dir)):
-                    if not filename.endswith('.py'):
-                        continue
-
-                    abs_path = os.path.join(src_dir, filename)
-                    compiled_name = '{}c'.format(filename)
-                    compiled_path = os.path.join(temp_dir, compiled_name)
+                for abs_path, rel_path in iter_python_source_files(src_dir):
+                    compiled_rel_path = '{}c'.format(rel_path)
+                    compiled_path = os.path.join(temp_dir, compiled_rel_path)
+                    compiled_dir = os.path.dirname(compiled_path)
+                    if compiled_dir:
+                        os.makedirs(compiled_dir, exist_ok=True)
                     compile_py2_to_pyc(py2_exe, abs_path, compiled_path)
-                    archive_path = 'res/scripts/client/gui/mods/{}'.format(compiled_name)
+                    archive_path = 'res/scripts/client/gui/mods/{}'.format(
+                        compiled_rel_path.replace(os.sep, '/')
+                    )
                     zf.write(compiled_path, archive_path)
 
             # res/ tree  →  res/ inside the archive

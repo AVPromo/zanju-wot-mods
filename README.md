@@ -12,7 +12,7 @@ This repository contains a practical knowledge base and mod development workspac
 mods/                          # one subdirectory per mod
   research-progress-bar/       # first mod
     meta.xml
-    src/                       # Python source (compiled to .pyc for release)
+    src/                       # Python source: top-level mod_*.py bootstrap + optional package
     res/                       # bundled assets and localisation
     config/                    # user config (shipped separately, not in .wotmod)
 template/                      # scaffold — copy to mods/<new-mod> to start a mod
@@ -70,4 +70,6 @@ python dev_test_cycle.py research-progress-bar
 - Always re-check fair play policy before shipping a mod update.
 - Treat external examples as patterns, not guaranteed up-to-date APIs.
 - Test every patch cycle (especially micro-patches) before release.
+- For this WoT stack, keep a thin top-level `mod_*.py` bootstrap under `src/`; package-only entrypoints were not auto-discovered.
+- For multi-file mods, keep implementation in a unique package under `src/`, include `__init__.py`, avoid bootstrap/package name collisions, and prefer relative intra-package imports.
 - For research-progress-bar crash boundaries and safe probe settings, see `docs/05-debugging-and-compatibility.md` section 8.

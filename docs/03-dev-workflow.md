@@ -6,7 +6,7 @@
   Verified working on **Python 3.14.4** (current install on this machine).
   Download from https://python.org/downloads — tick "Add to PATH" during setup.
 - **Python 2.7** required for this repository's current WoT mod stack runtime compatibility.
-  It is used to compile `src/*.py` to Python 2 `.pyc` that ScriptLoader PRO actually executes.
+  It is used to compile `src/**/*.py` to Python 2 `.pyc` that ScriptLoader PRO actually executes.
 - No third-party Python packages needed; `build.py` uses standard library only.
 - **Java** is required for SWF/UI development with the free ActionScript toolchain.
 - **Apache Flex SDK** is required when building `.swf` UI assets from ActionScript sources (`mxmlc`).
@@ -50,7 +50,7 @@ Scripts:
 
 - `python build.py`
   - Builds all mods under `mods/` into `dist/*.wotmod`.
-  - `WOT_PYTHON2_EXE` is used to compile `src/*.py` to Python 2 `.pyc` before packaging.
+  - `WOT_PYTHON2_EXE` is used to compile `src/**/*.py` to Python 2 `.pyc` before packaging.
   - Any files placed under `mods/<mod-name>/res/` are copied into the archive as-is, including `.swf` assets.
   - Use `python build.py <mod-name>` to build one mod.
 - `python dev_test_deploy.py`
@@ -110,8 +110,17 @@ For distributable builds, package as `.wotmod` with internal `res/...` layout.
 At minimum:
 
 - `meta.xml`
-- compiled script(s) under `res/scripts/client/...`
+- a compiled top-level `mod_*.pyc` bootstrap under `res/scripts/client/gui/mods/`
+- optional package modules under `res/scripts/client/gui/mods/<package>/...`
 - any assets under `res/gui/...` or `res/mods/<namespace>/...`
+
+Safe Python shape for this repo:
+
+- keep a thin loader at `mods/<mod-name>/src/mod_<name>.py`
+- move real logic into a unique package under `mods/<mod-name>/src/<package>/`
+- include `__init__.py` in that package for Python 2 recognition
+- use explicit relative imports inside the package when importing sibling modules
+- do not expect a package-only entrypoint to auto-load, and do not use the same name for the bootstrap file and the package directory
 
 For ActionScript-based UI mods:
 

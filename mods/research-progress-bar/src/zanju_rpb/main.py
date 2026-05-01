@@ -1,5 +1,5 @@
 """
-mod_research_progress_bar.py
+zanju_rpb.main
 
 Displays research progress for the currently selected vehicle in the hangar:
   - Module / next vehicle unlock progress  (tech tree XP)
@@ -17,7 +17,6 @@ from numbers import Integral
 import BigWorld
 from CurrentVehicle import g_currentPreviewVehicle, g_currentVehicle
 from frameworks.wulf import WindowLayer
-from gui.Scaleform.daapi.settings.views import VIEW_ALIAS
 from gui.Scaleform.framework import ScopeTemplates, ViewSettings, g_entitiesFactories
 from gui.Scaleform.framework.entities.View import View
 from gui.Scaleform.framework.managers.loaders import SFViewLoadParams
@@ -25,30 +24,25 @@ from gui.shared.gui_items import GUI_ITEM_TYPE_NAMES
 from gui.shared.personality import ServicesLocator
 from helpers import dependency
 from items import getTypeOfCompactDescr
+from .constants import (
+    MOD_ID,
+    MOD_VERSION,
+    SCALEFORM_FILE_NAME,
+    SCALEFORM_VIEW_ALIAS,
+    _HANGAR_VIEW_ALIASES,
+    _NAVIGATING_ROUTE_PREFIX,
+    _TIER_FIELD_MOD_RULES,
+    _UNLOCK_MARKER_LABEL_BY_TYPE,
+    _UNLOCK_MARKER_TYPE_BY_GUI_NAME,
+    _VISIBLE_ROUTE_PREFIX,
+    _VISIBILITY_PROBE_DELAY,
+)
 from skeletons.gui.app_loader import GuiGlobalSpaceID as SPACE_ID
 from skeletons.gui.game_control import IVehiclePostProgressionController
 from skeletons.gui.shared import IItemsCache
 
 _logger = logging.getLogger('zanju.researchprogressbar')
 _lobby_state_logger = logging.getLogger('gui.lobby_state_machine.lobby_state_machine')
-
-MOD_ID = 'zanju.researchprogressbar'
-MOD_VERSION = '0.1.0.0'
-SCALEFORM_VIEW_ALIAS = 'ResearchProgressBarLobby'
-SCALEFORM_FILE_NAME = 'research-progress-bar-lobby.swf'
-_VISIBILITY_PROBE_DELAY = 0.25
-_VISIBLE_ROUTE_PREFIX = 'Visible route changed to: '
-_NAVIGATING_ROUTE_PREFIX = 'Navigating to '
-
-_HANGAR_VIEW_ALIASES = frozenset((VIEW_ALIAS.LOBBY_HANGAR, VIEW_ALIAS.LEGACY_LOBBY_HANGAR))
-_WINDOW_LAYER_NAMES = {
-    WindowLayer.VIEW: 'VIEW',
-    WindowLayer.SUB_VIEW: 'SUB_VIEW',
-    WindowLayer.TOP_SUB_VIEW: 'TOP_SUB_VIEW',
-    WindowLayer.WINDOW: 'WINDOW',
-    WindowLayer.TOP_WINDOW: 'TOP_WINDOW',
-    WindowLayer.OVERLAY: 'OVERLAY',
-}
 
 # ---------------------------------------------------------------------------
 # Config defaults — overridden by _load_config() at startup
@@ -85,34 +79,6 @@ _config = {
     'scaleformPrototypeEnabled': True,
 }
 
-_TIER_FIELD_MOD_RULES = {
-    6: {'max_level': 5, 'xp_per_level': 3500},
-    7: {'max_level': 5, 'xp_per_level': 7000},
-    8: {'max_level': 6, 'xp_per_level': 11500},
-    9: {'max_level': 7, 'xp_per_level': 20000},
-    10: {'max_level': 8, 'xp_per_level': 28000},
-}
-
-
-_UNLOCK_MARKER_TYPE_BY_GUI_NAME = {
-    'vehicleGun': 'gun',
-    'vehicleTurret': 'turret',
-    'vehicleEngine': 'engine',
-    'vehicleChassis': 'suspension',
-    'vehicleRadio': 'radio',
-    'vehicle': 'vehicle',
-}
-
-_UNLOCK_MARKER_LABEL_BY_TYPE = {
-    'gun': 'G',
-    'turret': 'T',
-    'engine': 'E',
-    'suspension': 'S',
-    'radio': 'R',
-    'vehicle': 'V',
-    'unknown': '?',
-}
-
 _ROUTE_PATH_RE = re.compile(r'\((subScope/[^)]*)\)')
 
 
@@ -128,16 +94,6 @@ def _load_config():
             _logger.info('Config loaded from %s', path)
     except Exception:
         _logger.exception('Failed to load config, using defaults')
-
-
-# ---------------------------------------------------------------------------
-# Progress data helpers
-# ---------------------------------------------------------------------------
-
-def _make_text_bar(pct, width=20):
-    """Returns an ASCII progress bar, e.g. [========------------] 40%"""
-    filled = int(width * max(0, min(100, pct)) / 100)
-    return '[{0}{1}] {2}%'.format('=' * filled, '-' * (width - filled), pct)
 
 
 def _next_available_unlock(vehicle, unlocks_set, available_unlocks=None):

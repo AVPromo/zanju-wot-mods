@@ -16,6 +16,32 @@ From local inspection (`me.kurzdor.battleequipment_3.4.12.wotmod`):
 - `res/gui/flash/battleEquipment.swf`
 - `res/mods/me.kurzdor.battleequipment/text/*.yml`
 
+### Required Python File Shape In This Repo
+
+For authored source in this repository, the safe working shape is:
+
+```text
+mods/<mod-name>/
+	src/
+		mod_<bootstrap>.py
+		<unique_package>/
+			__init__.py
+			main.py
+			constants.py
+	res/
+	config/
+```
+
+What live WoT testing established:
+
+- Author Python under `src/`; `build.py` compiles `src/**/*.py` into matching paths under `res/scripts/client/gui/mods/` inside the `.wotmod`.
+- Keep a thin top-level bootstrap module whose filename starts with `mod_` if you want ScriptLoader PRO to auto-discover the mod.
+- Do not rely on a package directory by itself as the entrypoint; package-only entrypoints were not auto-discovered in this client stack.
+- Put the real implementation in a uniquely named internal package to avoid collisions in WoT's shared `gui/mods` import namespace.
+- In Python 2, package directories need `__init__.py`.
+- Do not give the bootstrap file and the package directory the same module name, or the loaded bootstrap module will shadow the package in `sys.modules`.
+- Prefer explicit relative imports inside the package, such as `from .constants import ...`, instead of relying on absolute intra-package imports.
+
 ## 2. Runtime Locations
 
 Common runtime folders:

@@ -47,9 +47,6 @@ package
         private static const COUNTER_TEXT_GAP:Number = 5;
         private static const COUNTER_CAPTION_WIDTH:Number = 84;
         private static const MARKER_VALUE_COLOR:uint = 0xB8AC97;
-        private static const MARKER_VALUE_WIDTH:Number = 44;
-        private static const MARKER_VALUE_ROW_STEP:Number = 13;
-        private static const MARKER_VALUE_MIN_GAP:Number = 4;
         private static const MARKER_ICON_SIZE:Number = 48;
         private static const MARKER_ICON_Y_OFFSET:Number = 7;
         private static const TOOLTIP_BACKGROUND_COLOR:uint = 0x0B0B0B;
@@ -1194,18 +1191,6 @@ package
             return field;
         }
 
-        private function makeMarkerValueField(text:String, labelY:Number):TextField
-        {
-            var field:TextField = makeTextField(MARKER_VALUE_COLOR, 9, false);
-            alignTextField(field, TextFormatAlign.CENTER);
-            field.width = MARKER_VALUE_WIDTH;
-            field.height = 12;
-            field.x = -Math.round(MARKER_VALUE_WIDTH / 2);
-            field.y = labelY;
-            field.text = text;
-            return field;
-        }
-
         private function makeCounterField():TextField
         {
             var field:TextField = makeTextField(LABEL_COLOR, 13, true);
@@ -1232,21 +1217,6 @@ package
             format.align = alignment;
             field.defaultTextFormat = format;
             field.setTextFormat(format);
-        }
-
-        private function formatXpValue(value:Number):String
-        {
-            var absValue:Number = Math.abs(value);
-
-            if (absValue < 1000)
-            {
-                return int(value).toString();
-            }
-            if (absValue < 999500)
-            {
-                return formatCompactValue(value / 1000, "k");
-            }
-            return formatCompactValue(value / 1000000, "M");
         }
 
         private function formatExactXpValue(value:Number):String
