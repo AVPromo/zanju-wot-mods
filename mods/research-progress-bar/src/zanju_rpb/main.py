@@ -17,12 +17,18 @@ from numbers import Integral
 import BigWorld
 from CurrentVehicle import g_currentPreviewVehicle, g_currentVehicle
 from frameworks.wulf import WindowLayer
+from gui.impl import backport
+try:
+    from gui.impl.gen.resources import R
+except Exception:
+    R = None
 from gui.Scaleform.framework import ScopeTemplates, ViewSettings, g_entitiesFactories
 from gui.Scaleform.framework.entities.View import View
 from gui.Scaleform.framework.managers.loaders import SFViewLoadParams
 from gui.shared.gui_items import GUI_ITEM_TYPE_NAMES
 from gui.shared.personality import ServicesLocator
 from helpers import dependency
+from helpers import i18n
 from items import getTypeOfCompactDescr
 from .constants import (
     MOD_ID,
@@ -81,6 +87,26 @@ _config = {
 }
 
 _ROUTE_PATH_RE = re.compile(r'\((subScope/[^)]*)\)')
+_T11_CATEGORY_HINT_RE = re.compile(
+    r'(firepower|survivability|mobility|scouting|mechanic|special|category|speciali[sz]ation|icon|slot)',
+    re.I,
+)
+
+_T11_CATEGORY_PROBE_ATTRS = (
+    'settings', 'config', 'postProgressionConfig', 'vehicle_post_progression_config',
+    'tree', 'state', 'nodes', 'steps', 'items', 'children', 'groups', 'slots',
+    'branches', 'category', 'categories', 'specialization', 'specializations',
+    'icon', 'iconPath', '_data', '__dict__',
+)
+
+_T11_UI_NAME_HOOK_SPECS = (
+    ('gui.impl.lobby.vehicle_hub.sub_presenters.veh_skill_tree.utils', 'fillNodeModel'),
+    ('gui.impl.lobby.veh_skill_tree.utils', 'fillNodeModel'),
+)
+
+_t11_ui_name_cache = {}
+_t11_ui_name_hook_records = []
+_t11_ui_name_probe_miss_count = 0
 
 
 def _load_config():
@@ -146,16 +172,13 @@ def _resolve_unlock_display_name(intcd, items=None):
 
     return None
 
-
 def _build_unlock_marker_ref(intcd, items=None):
     item_type = _resolve_unlock_item_type(intcd)
     return {
-        'intcd': intcd,
         'item_type': item_type,
         'name': _resolve_unlock_display_name(intcd, items),
         'label': _UNLOCK_MARKER_LABEL_BY_TYPE.get(item_type, '?'),
     }
-
 
 def _resolve_unlock_display_names(intcds, items=None):
     names = []
@@ -324,6 +347,17 @@ def _resolve_t11_xp_from_type(type_name):
     return None
 
 
+def _resolve_t11_step_xp_cost(step):
+    """Safely resolves stable tier-11 node XP cost from getType()."""
+    try:
+        get_type = getattr(step, 'getType', None)
+        if get_type is None or not callable(get_type):
+            return None
+        return _resolve_t11_xp_from_type(get_type())
+    except Exception:
+        return None
+
+
 def _safe_t11_step_metadata(step):
     """Returns primitive metadata from step.__dict__ without method calls."""
     meta = {}
@@ -351,6 +385,219 @@ def _safe_method_probe(step, method_name):
         return True, _safe_text(value, 120)
     except Exception as exc:
         return False, '<error:{0}>'.format(_safe_text(exc, 80))
+
+
+def _safe_attr_text(obj, attr_name, max_len=120):
+    try:
+        value = getattr(obj, attr_name, None)
+    except Exception as exc:
+        return '<error:{0}>'.format(_safe_text(exc, 80))
+    return _safe_text(value, max_len)
+
+
+def _clean_probe_text(value):
+    if value is None:
+        return None
+    text = _safe_text(value, 120).strip()
+    if not text:
+        return None
+    if text[0] == '<' and text[-1] == '>':
+        return None
+    return text
+
+
+def _safe_method_value(obj, method_name):
+    ok, value_text = _safe_method_probe(obj, method_name)
+    if not ok:
+        return None
+    return _clean_probe_text(value_text)
+
+
+def _resolve_localized_action_name(action):
+    for method_name in ('getLocSplitNameRes', 'getLocNameRes'):
+        try:
+            method = getattr(action, method_name, None)
+            if method is None or not callable(method):
+                continue
+            resource = method()
+            if resource is None or not callable(resource):
+                continue
+            text = _clean_probe_text(backport.text(resource()))
+            if text:
+                return text
+        except Exception:
+            pass
+    return None
+
+
+def _is_generic_t11_action_name(name_text):
+    if not name_text:
+        return True
+    normalized = name_text.strip().lower()
+    return normalized in ('modification', 'upgrade', 'research item')
+
+
+def _resolve_t11_tooltip_title(identifier):
+    key = _clean_probe_text(identifier)
+    if not key:
+        return None
+
+    if R is not None:
+        try:
+            text = _clean_probe_text(backport.text(R.strings.veh_skill_tree.tooltips.title(key)))
+            if text and text != key:
+                return text
+        except Exception:
+            pass
+
+    try:
+        resource_key = '#veh_skill_tree:tooltips/title/{0}'.format(key)
+        text = _clean_probe_text(i18n.makeString(resource_key))
+        if text and text not in (key, resource_key):
+            return text
+    except Exception:
+        pass
+
+    return None
+
+
+def _resolve_t11_tooltip_title_from_candidates(*identifiers):
+    seen = set()
+    for identifier in identifiers:
+        key = _clean_probe_text(identifier)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        text = _resolve_t11_tooltip_title(key)
+        if text:
+            return text
+    return None
+
+
+def _extract_t11_action_marker_meta(step, step_id, vehicle=None):
+    """Builds best-effort marker metadata from a tier-11 step.action object."""
+    try:
+        action = getattr(step, 'action', None)
+    except Exception:
+        return None
+
+    if action is None:
+        return None
+
+    descriptor = getattr(action, '_descriptor', None)
+    vehicle_int_cd = getattr(vehicle, 'intCD', None) if vehicle is not None else None
+    ui_localized_name = _get_cached_t11_ui_name(vehicle_int_cd, step_id)
+    localized_name = _resolve_localized_action_name(action)
+    tech_name = _safe_method_value(action, 'getTechName')
+    loc_name = _safe_method_value(action, 'getLocName')
+    image_name = _safe_method_value(action, 'getImageName')
+    slot_category = _safe_method_value(action, 'getSlotCategory')
+    descriptor_name = _clean_probe_text(getattr(descriptor, 'name', None))
+    descriptor_loc_name = _clean_probe_text(getattr(descriptor, 'locName', None))
+    descriptor_image_name = _clean_probe_text(getattr(descriptor, 'imgName', None))
+    descriptor_categories = getattr(descriptor, 'categories', None)
+    descriptor_category = None
+    if descriptor_categories is not None:
+        try:
+            if len(descriptor_categories) > 0:
+                descriptor_category = _clean_probe_text(descriptor_categories[0])
+        except Exception:
+            try:
+                for category_value in descriptor_categories:
+                    descriptor_category = _clean_probe_text(category_value)
+                    break
+            except Exception:
+                descriptor_category = _clean_probe_text(descriptor_categories)
+
+    tooltip_title = _resolve_t11_tooltip_title_from_candidates(
+        ui_localized_name,
+        loc_name,
+        descriptor_loc_name,
+        image_name,
+        descriptor_image_name,
+    )
+
+    resolved_name = tooltip_title or localized_name or ui_localized_name
+    if _is_generic_t11_action_name(resolved_name):
+        resolved_name = image_name or descriptor_image_name or loc_name or tech_name or descriptor_loc_name or descriptor_name
+
+    return {
+        'step_id': step_id,
+        'name': resolved_name,
+        'tooltip_title': tooltip_title,
+        'ui_localized_name': ui_localized_name,
+        'localized_name': localized_name,
+        'loc_name': loc_name or descriptor_loc_name,
+        'tech_name': tech_name or descriptor_name,
+        'image_name': image_name or descriptor_image_name,
+        'slot_category': slot_category,
+        'category': descriptor_category,
+    }
+
+
+def _t11_action_node_sort_key(node):
+    bucket_order = {
+        'small_10k': 0,
+        'big_20k': 1,
+        'big_25k': 2,
+        'unknown': 3,
+    }
+    return (
+        bucket_order.get(node.get('bucket'), 99),
+        _to_int_or_none(node.get('step_id')) or 0,
+    )
+
+
+def _collect_t11_action_probe(step, step_id):
+    """Collects low-risk debug metadata from a tier-11 step.action object."""
+    try:
+        action = getattr(step, 'action', None)
+    except Exception as exc:
+        return 'sid={0},action=<error:{1}>'.format(step_id, _safe_text(exc, 80)), []
+
+    if action is None:
+        return 'sid={0},action=<missing>'.format(step_id), []
+
+    _ok, tech_name = _safe_method_probe(action, 'getTechName')
+    _ok, loc_name = _safe_method_probe(action, 'getLocName')
+    _ok, image_name = _safe_method_probe(action, 'getImageName')
+    _ok, slot_category = _safe_method_probe(action, 'getSlotCategory')
+
+    descriptor = getattr(action, '_descriptor', None)
+    preview = (
+        'sid={0},aclass={1},atype={2},tech={3},loc={4},img={5},slot={6},'
+        'dname={7},dloc={8},dimg={9}'
+    ).format(
+        step_id,
+        type(action).__name__,
+        _safe_attr_text(action, 'actionType', 40),
+        tech_name,
+        loc_name,
+        image_name,
+        slot_category,
+        _safe_attr_text(descriptor, 'name', 80),
+        _safe_attr_text(descriptor, 'locName', 80),
+        _safe_attr_text(descriptor, 'imgName', 80),
+    )
+
+    hits = _probe_t11_category_hints(action, 'step[{0}].action'.format(step_id))
+    if descriptor is not None:
+        hits.extend(
+            _probe_t11_category_hints(
+                descriptor,
+                'step[{0}].action._descriptor'.format(step_id),
+            )
+        )
+
+    deduped_hits = []
+    seen = set()
+    for hit in hits:
+        if hit in seen:
+            continue
+        seen.add(hit)
+        deduped_hits.append(hit)
+
+    return preview, deduped_hits
 
 
 def _get_t11_method_probe_cap(method_name):
@@ -389,6 +636,104 @@ def _safe_text(value, max_len=180):
     return text
 
 
+def _looks_like_t11_category_hint(value):
+    if value is None:
+        return False
+    return _T11_CATEGORY_HINT_RE.search(_safe_text(value, 240)) is not None
+
+
+def _is_string_like(value):
+    return isinstance(value, str) or type(value).__name__ == 'unicode'
+
+
+def _probe_t11_category_hints(root, root_name):
+    hits = []
+    seen = set()
+    visited = set()
+
+    def add_hit(path, value):
+        text = _safe_text(value, 180)
+        item = '{0}={1}'.format(path, text)
+        if item in seen:
+            return
+        seen.add(item)
+        hits.append(item)
+
+    def walk(node, path, depth):
+        if node is None or depth > 8 or len(hits) >= 40:
+            return
+
+        try:
+            node_id = id(node)
+            if node_id in visited:
+                return
+            visited.add(node_id)
+        except Exception:
+            pass
+
+        if _is_string_like(node):
+            if _looks_like_t11_category_hint(node):
+                add_hit(path, node)
+            return
+
+        if isinstance(node, dict):
+            sid = node.get('stepID', node.get('id'))
+            for key, value in node.iteritems():
+                key_text = _safe_text(key, 48)
+                child_path = '{0}.{1}'.format(path, key_text)
+                if _looks_like_t11_category_hint(key):
+                    add_hit('{0}::<key>'.format(child_path), key)
+                if sid is not None and _is_string_like(value) and _looks_like_t11_category_hint(value):
+                    add_hit('{0}[step={1}]'.format(child_path, sid), value)
+                walk(value, child_path, depth + 1)
+                if len(hits) >= 40:
+                    return
+            return
+
+        if isinstance(node, (list, tuple, set)):
+            for index, item in enumerate(node):
+                walk(item, '{0}[{1}]'.format(path, index), depth + 1)
+                if len(hits) >= 40:
+                    return
+            return
+
+        sid = getattr(node, 'stepID', None)
+        if sid is None:
+            sid = getattr(node, 'id', None)
+
+        attr_names = list(_T11_CATEGORY_PROBE_ATTRS)
+        try:
+            slots = getattr(type(node), '__slots__', None)
+            if _is_string_like(slots):
+                slots = [slots]
+            if isinstance(slots, (list, tuple)):
+                for slot_name in slots[:40]:
+                    if slot_name not in attr_names:
+                        attr_names.append(slot_name)
+        except Exception:
+            pass
+
+        for attr in attr_names:
+            try:
+                child = getattr(node, attr, None)
+            except Exception:
+                continue
+            if child is None or child is node:
+                continue
+
+            child_path = '{0}.{1}'.format(path, attr)
+            if _looks_like_t11_category_hint(attr):
+                add_hit('{0}::<attr>'.format(child_path), attr)
+            if sid is not None and _is_string_like(child) and _looks_like_t11_category_hint(child):
+                add_hit('{0}[step={1}]'.format(child_path, sid), child)
+            walk(child, child_path, depth + 1)
+            if len(hits) >= 40:
+                return
+
+    walk(root, root_name, 0)
+    return hits
+
+
 def _to_int_or_none(value):
     if value is None:
         return None
@@ -399,6 +744,216 @@ def _to_int_or_none(value):
     if isinstance(value, float):
         return int(value)
     return None
+
+
+def _coerce_int_or_none(value):
+    direct = _to_int_or_none(value)
+    if direct is not None:
+        return direct
+
+    text = _clean_probe_text(value)
+    if text is None:
+        return None
+
+    try:
+        return int(text)
+    except Exception:
+        return None
+
+
+def _get_current_vehicle_int_cd():
+    try:
+        vehicle = g_currentVehicle.item
+    except Exception:
+        vehicle = None
+
+    if vehicle is not None:
+        return getattr(vehicle, 'intCD', None)
+    return None
+
+
+def _looks_like_t11_node_model(value):
+    if value is None:
+        return False
+    return callable(getattr(value, 'getLocalizationName', None)) and callable(getattr(value, 'getId', None))
+
+
+def _extract_t11_step_id(value):
+    if value is None:
+        return None
+
+    step_id = _coerce_int_or_none(value)
+    if step_id is not None:
+        return step_id
+
+    for method_name in ('getID', 'getId'):
+        method = getattr(value, method_name, None)
+        if callable(method):
+            step_id = _coerce_int_or_none(method())
+            if step_id is not None:
+                return step_id
+
+    for attr_name in ('stepID', 'stepId', 'step_id', 'id'):
+        step_id = _coerce_int_or_none(getattr(value, attr_name, None))
+        if step_id is not None:
+            return step_id
+
+    return None
+
+
+def _normalize_t11_ui_step_id(vehicle_int_cd, step_id):
+    vehicle_key = _coerce_int_or_none(vehicle_int_cd)
+    step_key = _coerce_int_or_none(step_id)
+    if vehicle_key is None or step_key is None:
+        return step_key
+
+    vehicle_text = str(vehicle_key)
+    step_text = str(step_key)
+    if step_text.startswith(vehicle_text) and len(step_text) > len(vehicle_text):
+        suffix = step_text[len(vehicle_text):]
+        try:
+            normalized = int(suffix)
+        except Exception:
+            normalized = None
+        if normalized is not None and normalized > 0:
+            return normalized
+
+    return step_key
+
+
+def _get_cached_t11_ui_name(vehicle_int_cd, step_id):
+    vehicle_key = _coerce_int_or_none(vehicle_int_cd)
+    step_key = _normalize_t11_ui_step_id(vehicle_int_cd, step_id)
+    if vehicle_key is None or step_key is None:
+        return None
+    return _t11_ui_name_cache.get((vehicle_key, step_key))
+
+
+def _cache_t11_ui_name(vehicle_int_cd, step_id, localization_name, source_name):
+    vehicle_key = _coerce_int_or_none(vehicle_int_cd)
+    step_key = _normalize_t11_ui_step_id(vehicle_int_cd, step_id)
+    name_text = _clean_probe_text(localization_name)
+    if vehicle_key is None or step_key is None or not name_text or _is_generic_t11_action_name(name_text):
+        return False
+
+    cache_key = (vehicle_key, step_key)
+    previous = _t11_ui_name_cache.get(cache_key)
+    if previous == name_text:
+        return False
+
+    _t11_ui_name_cache[cache_key] = name_text
+    if _config.get('debugFieldMods'):
+        _logger.info(
+            'Tier-11 UI name cache captured: intCD=%s sid=%s source=%s name=%s',
+            vehicle_key,
+            step_key,
+            source_name,
+            name_text,
+        )
+    if _mod is not None and getattr(_mod, '_active', False):
+        _mod._schedule_update('tier11_ui_name_capture')
+    return True
+
+
+def _capture_t11_ui_name_from_fill_node_model(args, kwargs, source_name):
+    global _t11_ui_name_probe_miss_count
+
+    node_model = None
+    step_id = None
+
+    for value in list(args) + list(kwargs.values()):
+        if node_model is None and _looks_like_t11_node_model(value):
+            node_model = value
+        if step_id is None:
+            step_id = _extract_t11_step_id(value)
+
+    if node_model is None:
+        return False
+
+    if step_id is None:
+        step_id = _extract_t11_step_id(node_model)
+
+    vehicle_int_cd = _get_current_vehicle_int_cd()
+    localization_name = _safe_method_value(node_model, 'getLocalizationName')
+    captured = _cache_t11_ui_name(
+        vehicle_int_cd,
+        step_id,
+        localization_name,
+        source_name,
+    )
+    if not captured and _config.get('debugFieldMods') and _t11_ui_name_probe_miss_count < 12:
+        _t11_ui_name_probe_miss_count += 1
+        _logger.info(
+            'Tier-11 UI name capture miss: intCD=%s sid=%s nodeId=%s source=%s loc=%s argTypes=%s',
+            _coerce_int_or_none(vehicle_int_cd),
+            step_id,
+            _safe_method_value(node_model, 'getId'),
+            source_name,
+            localization_name,
+            ','.join([type(value).__name__ for value in list(args) + list(kwargs.values())[:6]]),
+        )
+    return captured
+
+
+def _wrap_t11_ui_name_hook(module_name, attr_name, original):
+    def _wrapped(*args, **kwargs):
+        result = original(*args, **kwargs)
+        try:
+            _capture_t11_ui_name_from_fill_node_model(
+                args,
+                kwargs,
+                '{0}.{1}'.format(module_name, attr_name),
+            )
+        except Exception:
+            if _config.get('debugFieldMods'):
+                _logger.exception('Failed to capture Tier-11 UI name from %s.%s', module_name, attr_name)
+        return result
+
+    _wrapped.__name__ = getattr(original, '__name__', attr_name)
+    _wrapped.__doc__ = getattr(original, '__doc__', None)
+    _wrapped._zanju_rpb_original = original
+    return _wrapped
+
+
+def _install_t11_ui_name_hooks():
+    if _t11_ui_name_hook_records:
+        return len(_t11_ui_name_hook_records)
+
+    for module_name, attr_name in _T11_UI_NAME_HOOK_SPECS:
+        try:
+            module = __import__(module_name, fromlist=[attr_name])
+        except Exception:
+            continue
+
+        original = getattr(module, attr_name, None)
+        if not callable(original):
+            continue
+        if getattr(original, '_zanju_rpb_original', None) is not None:
+            continue
+
+        wrapped = _wrap_t11_ui_name_hook(module_name, attr_name, original)
+        setattr(module, attr_name, wrapped)
+        _t11_ui_name_hook_records.append((module, attr_name, original))
+
+    if _config.get('debugFieldMods') and _t11_ui_name_hook_records:
+        _logger.info(
+            'Tier-11 UI name hooks attached: %s',
+            ', '.join([
+                '{0}.{1}'.format(module.__name__, attr_name)
+                for module, attr_name, _original in _t11_ui_name_hook_records
+            ])
+        )
+    return len(_t11_ui_name_hook_records)
+
+
+def _uninstall_t11_ui_name_hooks():
+    while _t11_ui_name_hook_records:
+        module, attr_name, original = _t11_ui_name_hook_records.pop()
+        try:
+            setattr(module, attr_name, original)
+        except Exception:
+            if _config.get('debugFieldMods'):
+                _logger.exception('Failed to detach Tier-11 UI name hook: %s.%s', module.__name__, attr_name)
 
 
 def _extract_xp_cost(value):
@@ -666,6 +1221,12 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
         't11_widenet_step_repr': [],
         't11_widenet_step_dir_fingerprint': [],
         't11_widenet_unlock_repr': [],
+        't11_action_nodes_researched': [],
+        't11_action_nodes_unresearched': [],
+        't11_action_probe_preview': [],
+        't11_action_probe_hits': [],
+        't11_settings_probe_hits': [],
+        't11_raw_tree_probe_hits': [],
         't11_method_probe_name': None,
         't11_method_probe_preview': [],
         't11_method_probe_hits': 0,
@@ -731,6 +1292,14 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
 
                 if sid is not None:
                     step_meta_raw = _safe_t11_step_metadata(step)
+                    step_xp_cost = None
+                    step_size = 'unknown'
+                    action_meta = None
+                    if data['is_veh_skill_tree']:
+                        step_xp_cost = _resolve_t11_step_xp_cost(step)
+                        if step_xp_cost is not None:
+                            step_size = _classify_t11_step_size_from_xp(step_xp_cost)
+                        action_meta = _extract_t11_action_marker_meta(step, sid, vehicle)
                     step_repr = None
                     step_dir_fp = ''
                     if data['is_veh_skill_tree'] and _config.get('tier11WideNetProbe', True):
@@ -759,13 +1328,23 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
                                 interesting.append(name)
                         step_dir_fp = ','.join(sorted(interesting)[:40])
 
+                    if data['is_veh_skill_tree'] and _config.get('debugFieldMods'):
+                        action_preview, action_hits = _collect_t11_action_probe(step, sid)
+                        if len(data['t11_action_probe_preview']) < 40:
+                            data['t11_action_probe_preview'].append(action_preview)
+                        for hit in action_hits:
+                            if len(data['t11_action_probe_hits']) >= 80:
+                                break
+                            if hit not in data['t11_action_probe_hits']:
+                                data['t11_action_probe_hits'].append(hit)
+
                     step_meta[sid] = {
                         'level': level,
-                        # Keep normal probe modes safe: avoid deep step-cost introspection.
-                        'xp_cost': None,
-                        'size': 'unknown',
+                        'xp_cost': step_xp_cost,
+                        'size': step_size,
                         'meta': step_meta_raw,
                         'signature': _t11_meta_signature(step_meta_raw),
+                        'action_meta': action_meta,
                         'repr': step_repr,
                         'dir_fp': step_dir_fp,
                     }
@@ -876,6 +1455,8 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
                 sig_unresearched = {}
                 meta_keys = {}
                 step_preview = []
+                researched_action_nodes = []
+                unresearched_action_nodes = []
                 assumed_25k_step_id = max(step_meta.keys()) if step_meta else None
                 data['t11_assumed_25k_step_id'] = assumed_25k_step_id
                 has_explicit_25k = any(meta.get('xp_cost') == 25000 for meta in step_meta.itervalues())
@@ -930,6 +1511,27 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
                                 signature,
                             )
                         )
+
+                    if meta.get('action_meta') is not None:
+                        action_node = {
+                            'step_id': sid,
+                            'xp_cost': xp_cost,
+                            'bucket': bucket,
+                            'name': meta['action_meta'].get('name'),
+                            'tooltip_title': meta['action_meta'].get('tooltip_title'),
+                            'ui_localized_name': meta['action_meta'].get('ui_localized_name'),
+                            'localized_name': meta['action_meta'].get('localized_name'),
+                            'loc_name': meta['action_meta'].get('loc_name'),
+                            'tech_name': meta['action_meta'].get('tech_name'),
+                            'image_name': meta['action_meta'].get('image_name'),
+                            'slot_category': meta['action_meta'].get('slot_category'),
+                            'category': meta['action_meta'].get('category'),
+                        }
+                        if is_researched:
+                            researched_action_nodes.append(action_node)
+                        else:
+                            unresearched_action_nodes.append(action_node)
+
                     if step_repr is not None and len(data['t11_widenet_step_repr']) < 40:
                         data['t11_widenet_step_repr'].append(
                             'sid={0},researched={1},repr={2}'.format(sid, is_researched, step_repr)
@@ -945,6 +1547,8 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
                 data['t11_meta_signature_researched'] = sig_researched
                 data['t11_meta_signature_unresearched'] = sig_unresearched
                 data['t11_meta_keys'] = meta_keys
+                data['t11_action_nodes_researched'] = sorted(researched_action_nodes, key=_t11_action_node_sort_key)
+                data['t11_action_nodes_unresearched'] = sorted(unresearched_action_nodes, key=_t11_action_node_sort_key)
 
                 if _config.get('tier11WideNetProbe', True):
                     unlock_preview = []
@@ -953,6 +1557,14 @@ def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_off
                             break
                         unlock_preview.append(_safe_text(repr(unlock)))
                     data['t11_widenet_unlock_repr'] = unlock_preview
+
+                if _config.get('debugFieldMods'):
+                    data['t11_settings_probe_hits'] = _probe_t11_category_hints(pp_settings, 'settings')
+                    try:
+                        raw_tree = pp.getRawTree()
+                    except Exception:
+                        raw_tree = None
+                    data['t11_raw_tree_probe_hits'] = _probe_t11_category_hints(raw_tree, 'rawTree')
         except Exception:
             _logger.exception('Failed to read post-progression state/unlocks')
 
@@ -1200,12 +1812,14 @@ class ResearchProgressBar(object):
         self._lobby_route_log_handler = None
         self._current_lobby_route_path = None
         self._last_context_log_key = None
+        self._last_scaleform_payload_log_key = None
         self._last_seen_sub_view_alias = None
 
     # -- lifecycle -----------------------------------------------------------
 
     def start(self):
         self._active = True
+        _install_t11_ui_name_hooks()
         self._attach_lobby_route_log_handler()
         self._start_scaleform_view()
         g_currentVehicle.onChanged += self._on_vehicle_changed
@@ -1218,6 +1832,7 @@ class ResearchProgressBar(object):
         self._cancel_pending_update()
         self._cancel_visibility_probe()
         self._detach_lobby_route_log_handler()
+        _uninstall_t11_ui_name_hooks()
         g_currentPreviewVehicle.onChanged -= self._on_preview_vehicle_changed
         self._stop_scaleform_view()
         g_currentVehicle.onChanged -= self._on_vehicle_changed
@@ -1620,8 +2235,77 @@ class ResearchProgressBar(object):
             progress = self._scaleform_payload.get('progress')
             if progress is not None:
                 self._scaleform_view.as_setProgressS(progress)
+            self._log_scaleform_payload_debug()
         except Exception:
             _logger.exception('Failed to push data to scaleform garage view')
+
+    def _log_scaleform_payload_debug(self):
+        if not _config.get('debugFieldMods'):
+            return
+
+        payload = self._scaleform_payload or {}
+        modes = payload.get('modes') or []
+        if not modes:
+            return
+
+        mode_ids = []
+        tier11_mode = None
+        for mode in modes:
+            mode_id = str(mode.get('id') or '')
+            mode_ids.append(mode_id)
+            if mode_id == 'tier11_upgrades':
+                tier11_mode = mode
+
+        if tier11_mode is None:
+            return
+
+        markers = tier11_mode.get('markers') or []
+        marker_bits = []
+        marker_key = []
+        for marker in markers:
+            marker_id = str(marker.get('id') or '')
+            position_value = _to_int_or_none(marker.get('positionValue'))
+            marker_state = str(marker.get('markerState') or '')
+            marker_item_type = str(marker.get('itemType') or '')
+            marker_category = str(marker.get('debugCategory') or '')
+            marker_bar_type = str(marker.get('barItemType') or '')
+            marker_hide_bar_icon = bool(marker.get('hideBarIcon'))
+            marker_bits.append(
+                '%s@%s[%s]{item=%s cat=%s bar=%s hide=%s}' % (
+                    marker_id,
+                    position_value,
+                    marker_state,
+                    marker_item_type,
+                    marker_category,
+                    marker_bar_type,
+                    marker_hide_bar_icon,
+                )
+            )
+            marker_key.append((marker_id, position_value, marker_state))
+
+        log_key = (
+            tuple(mode_ids),
+            payload.get('selectedModeId'),
+            _to_int_or_none(tier11_mode.get('barMaxValue')),
+            _to_int_or_none(tier11_mode.get('completedValue')),
+            _to_int_or_none(tier11_mode.get('primaryValue')),
+            _to_int_or_none(tier11_mode.get('secondaryValue')),
+            tuple(marker_bits),
+        )
+        if log_key == self._last_scaleform_payload_log_key:
+            return
+
+        self._last_scaleform_payload_log_key = log_key
+        _logger.info(
+            '  Scaleform DEBUG tier11 payload: selected=%s modes=%s barMax=%s completed=%s primary=%s secondary=%s markers=%s',
+            payload.get('selectedModeId'),
+            ','.join(mode_ids),
+            tier11_mode.get('barMaxValue'),
+            tier11_mode.get('completedValue'),
+            tier11_mode.get('primaryValue'),
+            tier11_mode.get('secondaryValue'),
+            '; '.join(marker_bits) or 'none',
+        )
 
     def _render_scaleform_view(self, vehicle, data):
         if not _config.get('scaleformPrototypeEnabled', True):
@@ -1859,6 +2543,10 @@ class ResearchProgressBar(object):
                 't11_widenet_step_repr': field_mods['t11_widenet_step_repr'],
                 't11_widenet_step_dir_fingerprint': field_mods['t11_widenet_step_dir_fingerprint'],
                 't11_widenet_unlock_repr': field_mods['t11_widenet_unlock_repr'],
+                't11_action_nodes_researched': field_mods['t11_action_nodes_researched'],
+                't11_action_nodes_unresearched': field_mods['t11_action_nodes_unresearched'],
+                't11_action_probe_preview': field_mods['t11_action_probe_preview'],
+                't11_action_probe_hits': field_mods['t11_action_probe_hits'],
                 't11_method_probe_name': field_mods['t11_method_probe_name'],
                 't11_method_probe_preview': field_mods['t11_method_probe_preview'],
                 't11_method_probe_hits': field_mods['t11_method_probe_hits'],
@@ -1975,6 +2663,32 @@ class ResearchProgressBar(object):
                     '  Tier-11 DEBUG widenet unlock repr: %s',
                     '; '.join(fm['t11_widenet_unlock_repr'][:20])
                 )
+            if fm.get('t11_action_probe_preview'):
+                _logger.info(
+                    '  Tier-11 DEBUG action probe: %s',
+                    '; '.join(fm['t11_action_probe_preview'][:16])
+                )
+            if fm.get('t11_action_probe_hits'):
+                _logger.info(
+                    '  Tier-11 DEBUG action hints: %s',
+                    '; '.join(fm['t11_action_probe_hits'][:20])
+                )
+            else:
+                _logger.info('  Tier-11 DEBUG action hints: <none>')
+            if fm.get('t11_settings_probe_hits'):
+                _logger.info(
+                    '  Tier-11 DEBUG settings hints: %s',
+                    '; '.join(fm['t11_settings_probe_hits'][:20])
+                )
+            else:
+                _logger.info('  Tier-11 DEBUG settings hints: <none>')
+            if fm.get('t11_raw_tree_probe_hits'):
+                _logger.info(
+                    '  Tier-11 DEBUG raw-tree hints: %s',
+                    '; '.join(fm['t11_raw_tree_probe_hits'][:20])
+                )
+            else:
+                _logger.info('  Tier-11 DEBUG raw-tree hints: <none>')
 
     # -- rendering -----------------------------------------------------------
 
@@ -2020,17 +2734,17 @@ class ResearchProgressBar(object):
         vehicle_is_elite = bool(tt.get('is_elite'))
         fm = data['field_mods']
         if _config.get('showFieldMods'):
-            if not vehicle_is_elite:
-                lines.append('Field mods: requires elite vehicle status')
-            elif not fm['exists']:
-                lines.append('Field mods: not available for this vehicle')
-            elif fm['is_veh_skill_tree'] and fm['total_steps'] > 0:
+            if fm['is_veh_skill_tree'] and fm['total_steps'] > 0:
                 pct = int(fm['unlocked_steps'] * 100 / fm['total_steps'])
                 lines.append(
-                    'Field mods: {0}% ({1}/{2}, completion={3})'.format(
+                    'Upgrades: {0}% ({1}/{2}, completion={3})'.format(
                         pct, fm['unlocked_steps'], fm['total_steps'], fm['completion_name']
                     )
                 )
+            elif not vehicle_is_elite:
+                lines.append('Field mods: requires elite vehicle status')
+            elif not fm['exists']:
+                lines.append('Field mods: not available for this vehicle')
             elif (not fm['is_veh_skill_tree']) and fm['unique_level_count'] > 0:
                 pct = int(fm['unique_unlocked_level_count'] * 100 / fm['unique_level_count'])
                 lines.append(
@@ -2044,27 +2758,31 @@ class ResearchProgressBar(object):
             else:
                 lines.append('Field mods: available but no steps resolved')
 
-            if vehicle_is_elite and fm['is_veh_skill_tree']:
-                lines.append('Tier-11 upgrades: skill tree progress shown by steps')
+            if fm['is_veh_skill_tree']:
+                lines.append('Upgrades: skill tree progress shown by steps')
 
-            if vehicle_is_elite and fm['next_purchasable_step_id'] is not None:
+            if (fm['is_veh_skill_tree'] or vehicle_is_elite) and fm['next_purchasable_step_id'] is not None:
                 if fm['next_purchasable_step_xp'] is not None:
                     lines.append(
-                        'Field mods next: {0} XP required'.format(
-                            fm['next_purchasable_step_xp'],
+                        '{0} next: {1} XP required'.format(
+                            'Upgrades' if fm['is_veh_skill_tree'] else 'Field mods',
+                            fm['next_purchasable_step_xp']
                         )
                     )
                 else:
                     lines.append(
-                        'Field mods next: step available at level {0}'.format(
-                            fm['next_purchasable_step_level'],
+                        '{0} next: step available at level {1}'.format(
+                            'Upgrades' if fm['is_veh_skill_tree'] else 'Field mods',
+                            fm['next_purchasable_step_level']
                         )
                     )
 
             self._log_field_mods_debug(vehicle, fm)
 
             tier_plan = fm.get('tier_plan') or {}
-            if not vehicle_is_elite:
+            if fm['is_veh_skill_tree']:
+                pass
+            elif not vehicle_is_elite:
                 lines.append('Tier rules: unavailable until vehicle is elite')
             elif tier_plan.get('enabled'):
                 if tier_plan.get('next_level') is not None:

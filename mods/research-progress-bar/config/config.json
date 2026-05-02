@@ -6,7 +6,7 @@
     "showEliteProgress": true,
     "showFieldMods": true,
     "_debugFieldMods_comment": "Verbose field-mod internals for development and parser tuning. Keep disabled for normal use.",
-    "debugFieldMods": false,
+    "debugFieldMods": true,
     "extractNextStepXPLightweight": false,
     "parseNextStepXPFromSettings": false,
     "parseNextStepXPFromRawTree": false,
