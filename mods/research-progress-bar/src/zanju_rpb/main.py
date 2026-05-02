@@ -37,6 +37,7 @@ from .constants import (
     _VISIBLE_ROUTE_PREFIX,
     _VISIBILITY_PROBE_DELAY,
 )
+from .scaleform_modes import build_scaleform_view_payload
 from skeletons.gui.app_loader import GuiGlobalSpaceID as SPACE_ID
 from skeletons.gui.game_control import IVehiclePostProgressionController
 from skeletons.gui.shared import IItemsCache
@@ -1589,6 +1590,9 @@ class ResearchProgressBar(object):
         if not self._should_show_scaleform_view('populated', view):
             self._sync_scaleform_view('populated_outside_hangar', view)
             return
+        if self._scaleform_payload is None:
+            self._set_scaleform_view_visible(False, 'populated_no_modes')
+            return
         try:
             ping_value = view.as_pingS()
             _logger.info('Scaleform garage view populated (%s)', ping_value)
@@ -1605,92 +1609,7 @@ class ResearchProgressBar(object):
         _logger.info('Scaleform garage view disposed')
 
     def _build_scaleform_payload(self, vehicle, data):
-        name = getattr(vehicle, 'userName', str(vehicle.intCD))
-        tier = data.get('vehicle', {}).get('tier')
-        if tier is not None:
-            vehicle_label = '{0} (Tier {1})'.format(name, tier)
-        else:
-            vehicle_label = '{0} (Tier unknown)'.format(name)
-
-        tt = data['tech_tree']
-        available_unlocks = tt.get('available_unlocks', [])
-        visible_unlocks = tt.get('visible_unlocks', available_unlocks)
-        locked_unlock_count = int(tt.get('locked_unlock_count', 0) or 0)
-
-        if visible_unlocks:
-            max_requirement_xp = max(1, max(item['xp_cost'] for item in visible_unlocks))
-        elif tt['is_fully_elite']:
-            max_requirement_xp = 1
-        else:
-            max_requirement_xp = max(1, tt.get('next_cost') or 0)
-
-        if tt['is_fully_elite']:
-            combat_xp = max_requirement_xp
-            free_xp = 0
-            summary = 'Basic research complete'
-            detail = 'All currently reachable tech-tree research is unlocked'
-            right_metric = 'Elite vehicle'
-        else:
-            combat_xp = min(tt['vehicle_xp'], max_requirement_xp)
-            free_xp = min(tt['free_xp'], max(0, max_requirement_xp - combat_xp))
-
-            if available_unlocks:
-                if locked_unlock_count > 0:
-                    summary = 'Basic research: {0}% toward furthest shown unlock'.format(
-                        min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
-                    )
-                    detail = '{0} research markers on bar ({1} locked)'.format(
-                        len(visible_unlocks),
-                        locked_unlock_count,
-                    )
-                else:
-                    summary = 'Basic research: {0}% toward most expensive available item'.format(
-                        min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
-                    )
-                    detail = '{0} research markers on bar'.format(len(available_unlocks))
-                if tt['can_research_with_total_xp']:
-                    right_metric = 'Next available: ready now'
-                else:
-                    if locked_unlock_count > 0:
-                        right_metric = 'Furthest marker: {0} XP'.format(max_requirement_xp)
-                    else:
-                        right_metric = 'Max item: {0} XP'.format(max_requirement_xp)
-            elif visible_unlocks:
-                summary = 'Basic research: locked behind prerequisites'
-                detail = '{0} locked research markers on bar'.format(len(visible_unlocks))
-                right_metric = 'Unlock prerequisites first'
-            else:
-                summary = 'Basic research: no available unlocks'
-                detail = 'Bar scoped to tech-tree research only'
-                right_metric = 'No unlocks found'
-
-        progress = min(100, int((combat_xp + free_xp) * 100 / max_requirement_xp))
-        markers = []
-        for item in visible_unlocks:
-            markers.append({
-                'id': 'unlock_{0}'.format(item['intcd']),
-                'costXp': item['xp_cost'],
-                'itemType': item['item_type'],
-                'isAvailable': item.get('is_available', True),
-                'missingPrereqNames': item.get('missing_prereq_names', []),
-                'missingPrereqs': item.get('missing_prereqs', []),
-                'name': item.get('name'),
-                'label': item['label'],
-            })
-
-        return {
-            'title': 'Research Progress',
-            'vehicle': vehicle_label,
-            'summary': summary,
-            'detail': detail,
-            'progress': progress,
-            'leftMetric': 'Combat XP: {0}'.format(tt['vehicle_xp']),
-            'rightMetric': right_metric,
-            'maxRequirementXp': max_requirement_xp,
-            'combatXp': combat_xp,
-            'freeXp': free_xp,
-            'markers': markers,
-        }
+        return build_scaleform_view_payload(vehicle, data)
 
     def _push_scaleform_payload(self):
         if self._scaleform_view is None or self._scaleform_payload is None:
@@ -1698,7 +1617,9 @@ class ResearchProgressBar(object):
 
         try:
             self._scaleform_view.as_setContextS(self._scaleform_payload)
-            self._scaleform_view.as_setProgressS(self._scaleform_payload.get('progress', 0))
+            progress = self._scaleform_payload.get('progress')
+            if progress is not None:
+                self._scaleform_view.as_setProgressS(progress)
         except Exception:
             _logger.exception('Failed to push data to scaleform garage view')
 
@@ -1706,6 +1627,10 @@ class ResearchProgressBar(object):
         if not _config.get('scaleformPrototypeEnabled', True):
             return
         self._scaleform_payload = self._build_scaleform_payload(vehicle, data)
+        if self._scaleform_payload is None:
+            if self._scaleform_view is not None:
+                self._set_scaleform_view_visible(False, 'no_available_modes')
+            return
         if self._sync_scaleform_view('data_update'):
             self._push_scaleform_payload()
 
@@ -2092,9 +2017,12 @@ class ResearchProgressBar(object):
         if _config.get('showEliteProgress') and el['total'] > 0:
             lines.append('Elite mods: {0}% ({1}/{2})'.format(el['pct'], el['unlocked'], el['total']))
 
+        vehicle_is_elite = bool(tt.get('is_elite'))
         fm = data['field_mods']
         if _config.get('showFieldMods'):
-            if not fm['exists']:
+            if not vehicle_is_elite:
+                lines.append('Field mods: requires elite vehicle status')
+            elif not fm['exists']:
                 lines.append('Field mods: not available for this vehicle')
             elif fm['is_veh_skill_tree'] and fm['total_steps'] > 0:
                 pct = int(fm['unlocked_steps'] * 100 / fm['total_steps'])
@@ -2116,10 +2044,10 @@ class ResearchProgressBar(object):
             else:
                 lines.append('Field mods: available but no steps resolved')
 
-            if fm['is_veh_skill_tree']:
+            if vehicle_is_elite and fm['is_veh_skill_tree']:
                 lines.append('Tier-11 upgrades: skill tree progress shown by steps')
 
-            if fm['next_purchasable_step_id'] is not None:
+            if vehicle_is_elite and fm['next_purchasable_step_id'] is not None:
                 if fm['next_purchasable_step_xp'] is not None:
                     lines.append(
                         'Field mods next: {0} XP required'.format(
@@ -2136,7 +2064,9 @@ class ResearchProgressBar(object):
             self._log_field_mods_debug(vehicle, fm)
 
             tier_plan = fm.get('tier_plan') or {}
-            if tier_plan.get('enabled'):
+            if not vehicle_is_elite:
+                lines.append('Tier rules: unavailable until vehicle is elite')
+            elif tier_plan.get('enabled'):
                 if tier_plan.get('next_level') is not None:
                     lines.append(
                         'Tier rules: lvl {0}/{1}, next {2}, cost {3} XP'.format(
