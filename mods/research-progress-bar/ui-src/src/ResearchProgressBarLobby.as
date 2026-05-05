@@ -101,6 +101,10 @@ package
         private static const TOOLTIP_PROGRESS_LABEL_WIDTH:Number = 68;
         private static const TOOLTIP_PROGRESS_PERCENT_WIDTH:Number = 40;
         private static const TOOLTIP_PROGRESS_GAP:Number = 8;
+        private static const COUNTER_LAYOUT_RIGHT_SINGLE:String = "right_single";
+        private static const COUNTER_LAYOUT_ELITE_STATUS:String = "elite_status";
+        private static const BAR_FILL_MODE_COMPLETED_ONLY:String = "completed_only";
+        private static const ELITE_STATUS_WIDTH:Number = 210;
         private static const MARKER_TYPE_NAMES:Object = {
             gun: "Gun",
             turret: "Turret",
@@ -209,6 +213,8 @@ package
         private var _markerIconLoadStateByType:Object = {};
         private var _markerTooltipDataByDisplay:Dictionary = new Dictionary(true);
         private var _modeIdByButton:Dictionary = new Dictionary(true);
+        private var _activeCounterLayout:String = "";
+        private var _activeBarFillMode:String = "";
 
         public function ResearchProgressBarLobby()
         {
@@ -403,6 +409,9 @@ package
             var completedWidth:Number;
             var primaryWidth:Number;
             var secondaryWidth:Number;
+            var totalProgressValue:Number;
+            var markerPrimaryValue:Number;
+            var markerSecondaryValue:Number;
             var defaultPrimaryPercent:int;
             var defaultTotalPercent:int;
 
@@ -433,6 +442,7 @@ package
             completedValue = clamp(numberValue(activeMode.completedValue, 0), 0, barMaxValue);
             primaryValue = clamp(numberValue(activeMode.primaryValue, numberValue(_context.combatXp, 0)), 0, barMaxValue - completedValue);
             secondaryValue = clamp(numberValue(activeMode.secondaryValue, numberValue(_context.freeXp, 0)), 0, barMaxValue - completedValue - primaryValue);
+            totalProgressValue = clamp(completedValue + primaryValue + secondaryValue, 0, barMaxValue);
             completedWidth = Math.round(_barWidth * completedValue / barMaxValue);
             primaryWidth = Math.round(_barWidth * primaryValue / barMaxValue);
             secondaryWidth = Math.round(_barWidth * secondaryValue / barMaxValue);
@@ -446,6 +456,15 @@ package
             combatBar.visible = true;
             freeBar.visible = true;
             markersContainer.visible = true;
+
+            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY)
+            {
+                completedWidth = Math.round(_barWidth * totalProgressValue / barMaxValue);
+                primaryWidth = 0;
+                secondaryWidth = 0;
+                combatBar.visible = false;
+                freeBar.visible = false;
+            }
 
             baseBar.x = SIDE_MARGIN;
             baseBar.y = TOP_MARGIN;
@@ -471,7 +490,15 @@ package
             drawMask(combatMaskShape, SIDE_MARGIN + completedWidth, TOP_MARGIN, primaryWidth, BAR_HEIGHT);
             drawMask(freeMaskShape, SIDE_MARGIN + completedWidth + primaryWidth, TOP_MARGIN, secondaryWidth, BAR_HEIGHT);
 
-            rebuildMarkers(activeMode, barMaxValue, primaryValue, secondaryValue);
+            markerPrimaryValue = primaryValue;
+            markerSecondaryValue = secondaryValue;
+            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY)
+            {
+                markerPrimaryValue = totalProgressValue;
+                markerSecondaryValue = 0;
+            }
+
+            rebuildMarkers(activeMode, barMaxValue, markerPrimaryValue, markerSecondaryValue);
             positionLabels();
         }
 
@@ -492,6 +519,8 @@ package
             totalPercentCaption.text = "";
             sideCounterLabel.text = "";
             sideCounterCaption.text = "";
+            _activeCounterLayout = "";
+            _activeBarFillMode = "";
         }
 
         private function updateCounterFields(activeMode:Object, defaultPrimaryPercent:int, defaultTotalPercent:int):void
@@ -502,6 +531,13 @@ package
             var rightCounterCaption:String;
             var sideCounterText:String;
             var sideCounterCaption:String;
+
+            _activeCounterLayout = activeMode != null && activeMode.counterLayout !== undefined
+                ? String(activeMode.counterLayout)
+                : "";
+            _activeBarFillMode = activeMode != null && activeMode.barFillMode !== undefined
+                ? String(activeMode.barFillMode)
+                : "";
 
             leftCounterText = activeMode != null && activeMode.leftCounterText !== undefined
                 ? String(activeMode.leftCounterText)
@@ -523,11 +559,27 @@ package
                 : "";
 
             combatPercentLabel.text = leftCounterText;
-            combatPercentCaption.text = leftCounterCaption;
             totalPercentLabel.text = rightCounterText;
             totalPercentCaption.text = rightCounterCaption;
             this.sideCounterLabel.text = sideCounterText;
             this.sideCounterCaption.text = sideCounterCaption;
+
+            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS)
+            {
+                alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
+                alignTextField(combatPercentCaption, TextFormatAlign.RIGHT);
+                combatPercentLabel.width = ELITE_STATUS_WIDTH;
+                combatPercentCaption.width = ELITE_STATUS_WIDTH;
+                combatPercentCaption.htmlText = buildEliteStatusCounterHtml(leftCounterCaption);
+            }
+            else
+            {
+                combatPercentCaption.text = leftCounterCaption;
+                alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
+                alignTextField(combatPercentCaption, TextFormatAlign.LEFT);
+                combatPercentLabel.width = COUNTER_VALUE_WIDTH;
+                combatPercentCaption.width = COUNTER_CAPTION_WIDTH;
+            }
         }
 
         private function resolveModes():Array
@@ -1098,6 +1150,8 @@ package
             var markerState:String = marker != null && marker.markerState !== undefined ? String(marker.markerState) : "";
             var prereq:Object;
             var prereqs:Array;
+            var progressLabel:String = marker != null && marker.progressLabel !== undefined ? String(marker.progressLabel) : "Vehicle XP";
+            var singleProgressRow:Boolean = marker != null && marker.singleProgressRow !== undefined && Boolean(marker.singleProgressRow);
 
             row = createTooltipTitleCostRow(marker, markerCostXp);
             row.y = cursorY;
@@ -1181,11 +1235,16 @@ package
                 return section;
             }
 
-            row = createTooltipProgressRow("Vehicle XP", combatXp, markerCostXp);
+            row = createTooltipProgressRow(progressLabel, combatXp, markerCostXp);
             row.y = cursorY;
             section.addChild(row);
             rowBounds = row.getBounds(row);
             cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+
+            if (singleProgressRow)
+            {
+                return section;
+            }
 
             row = createTooltipProgressRow("Total XP", combatXp + freeXp, markerCostXp);
             row.y = cursorY;
@@ -1222,10 +1281,21 @@ package
             var labelField:TextField;
             var percentField:TextField;
             var statusField:TextField;
-            var pct:int = int(Math.min(100, currentXp * 100 / Math.max(1, targetXp)));
-            var missingXp:Number = Math.max(0, targetXp - currentXp);
+            var pct:int;
+            var missingXp:Number;
             var statusText:String;
             var rowHeight:Number;
+
+            if (targetXp <= 0)
+            {
+                pct = 100;
+                missingXp = 0;
+            }
+            else
+            {
+                pct = int(Math.min(100, currentXp * 100 / targetXp));
+                missingXp = Math.max(0, targetXp - currentXp);
+            }
 
             if (missingXp <= 0)
             {
@@ -1267,7 +1337,9 @@ package
         {
             var row:Sprite = new Sprite();
             var icon:Sprite = null;
-            var titleField:TextField = makeTooltipRowField(resolveMarkerName(marker), TOOLTIP_TITLE_SIZE, TOOLTIP_TEXT_COLOR, true);
+            var tooltipIconSize:Number = resolveMarkerTooltipIconSize(marker);
+            var tooltipIconLayoutWidth:Number = Math.max(TOOLTIP_ICON_LAYOUT_WIDTH, tooltipIconSize);
+            var titleField:TextField = makeTooltipRowField(resolveMarkerTooltipTitle(marker), TOOLTIP_TITLE_SIZE, TOOLTIP_TEXT_COLOR, true);
             var costField:TextField = makeTooltipHtmlRowField(
                 buildTooltipHighlightedHtml("", formatExactXpValue(costXp), " XP", true),
                 TOOLTIP_BODY_SIZE,
@@ -1281,22 +1353,27 @@ package
 
             if (!shouldHideTooltipIcon(marker))
             {
-                icon = createTooltipMarkerIconForMarker(marker, marker != null && marker.label !== undefined ? String(marker.label) : "?", TOOLTIP_ICON_SIZE);
+                icon = createTooltipMarkerIconForMarker(marker, marker != null && marker.label !== undefined ? String(marker.label) : "?", tooltipIconSize, tooltipIconLayoutWidth);
             }
             else
             {
-                icon = createTransparentTooltipIconPlaceholder(TOOLTIP_ICON_SIZE);
+                icon = createTransparentTooltipIconPlaceholder(tooltipIconSize, tooltipIconLayoutWidth);
             }
 
             if (icon != null)
             {
                 row.addChild(icon);
-                titleX = TOOLTIP_ICON_LAYOUT_WIDTH + TOOLTIP_ICON_GAP;
+                titleX = tooltipIconLayoutWidth + TOOLTIP_ICON_GAP;
             }
 
             if (isT11Marker(marker))
             {
                 titleX += 5;
+            }
+
+            if (isEliteMarker(marker))
+            {
+                titleX += 10;
             }
 
             titleField.x = titleX;
@@ -1305,10 +1382,10 @@ package
             costField.x = titleField.x + titleField.width + TOOLTIP_PROGRESS_GAP;
             row.addChild(costField);
 
-            rowHeight = Math.max(TOOLTIP_ICON_SIZE, Math.max(titleField.height, costField.height));
+            rowHeight = Math.max(tooltipIconSize, Math.max(titleField.height, costField.height));
             if (icon != null)
             {
-                icon.y = Math.round((rowHeight - TOOLTIP_ICON_SIZE) / 2);
+                icon.y = Math.round((rowHeight - tooltipIconSize) / 2);
             }
             textBlockHeight = Math.max(titleField.height, costField.height);
             textBlockTop = Math.round((rowHeight - textBlockHeight) / 2);
@@ -1329,6 +1406,43 @@ package
 
             markerId = String(marker.id);
             return markerId.indexOf("t11_") == 0;
+        }
+
+        private function isEliteMarker(marker:Object):Boolean
+        {
+            var markerId:String;
+
+            if (marker == null || marker.id === undefined || marker.id == null)
+            {
+                return false;
+            }
+
+            markerId = String(marker.id);
+            return markerId.indexOf("elite_") == 0;
+        }
+
+        private function resolveMarkerTooltipTitle(marker:Object):String
+        {
+            var markerName:String = resolveMarkerName(marker);
+            var levelValue:*;
+
+            if (!isEliteMarker(marker) || marker == null || marker.level === undefined || marker.level == null)
+            {
+                return markerName;
+            }
+
+            levelValue = marker.level;
+            return "Level " + String(levelValue) + ": " + markerName;
+        }
+
+        private function resolveMarkerTooltipIconSize(marker:Object):Number
+        {
+            if (marker != null && marker.tooltipIconSize !== undefined && marker.tooltipIconSize != null)
+            {
+                return Number(marker.tooltipIconSize);
+            }
+
+            return TOOLTIP_ICON_SIZE;
         }
 
         private function createTooltipIconTextRow(itemType:String, fallbackLabel:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite
@@ -1355,12 +1469,12 @@ package
             return row;
         }
 
-        private function createTransparentTooltipIconPlaceholder(iconSize:Number = TOOLTIP_ICON_SIZE):Sprite
+        private function createTransparentTooltipIconPlaceholder(iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite
         {
             var iconSprite:Sprite = new Sprite();
 
             iconSprite.graphics.beginFill(0xFFFFFF, 0.0);
-            iconSprite.graphics.drawRect(0, 0, TOOLTIP_ICON_LAYOUT_WIDTH, iconSize);
+            iconSprite.graphics.drawRect(0, 0, layoutWidth, iconSize);
             iconSprite.graphics.endFill();
             return iconSprite;
         }
@@ -1373,7 +1487,7 @@ package
             return row;
         }
 
-        private function createTooltipMarkerIcon(itemType:String, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite
+        private function createTooltipMarkerIcon(itemType:String, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite
         {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = getMarkerIconBitmapData(itemType);
@@ -1388,14 +1502,14 @@ package
                 scale = iconSize / Math.max(iconBitmap.width, iconBitmap.height);
                 iconBitmap.scaleX = scale;
                 iconBitmap.scaleY = scale;
-                iconBitmap.x = Math.round((TOOLTIP_ICON_LAYOUT_WIDTH - iconBitmap.width) / 2);
+                iconBitmap.x = Math.round((layoutWidth - iconBitmap.width) / 2);
                 iconBitmap.y = Math.round((iconSize - iconBitmap.height) / 2);
                 iconSprite.addChild(iconBitmap);
                 return iconSprite;
             }
 
             labelField = makeTooltipRowField(fallbackLabel, TOOLTIP_BODY_SIZE, TOOLTIP_TEXT_COLOR, true);
-            labelField.width = TOOLTIP_ICON_LAYOUT_WIDTH;
+            labelField.width = layoutWidth;
             labelField.height = iconSize;
             alignTextField(labelField, TextFormatAlign.CENTER);
             labelField.y = Math.round((iconSize - labelField.height) / 2);
@@ -1403,7 +1517,7 @@ package
             return iconSprite;
         }
 
-        private function createTooltipMarkerIconForMarker(marker:Object, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite
+        private function createTooltipMarkerIconForMarker(marker:Object, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite
         {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = getMarkerIconBitmapDataForMarker(marker);
@@ -1418,14 +1532,14 @@ package
                 scale = iconSize / Math.max(iconBitmap.width, iconBitmap.height);
                 iconBitmap.scaleX = scale;
                 iconBitmap.scaleY = scale;
-                iconBitmap.x = Math.round((TOOLTIP_ICON_LAYOUT_WIDTH - iconBitmap.width) / 2);
+                iconBitmap.x = Math.round((layoutWidth - iconBitmap.width) / 2);
                 iconBitmap.y = Math.round((iconSize - iconBitmap.height) / 2);
                 iconSprite.addChild(iconBitmap);
                 return iconSprite;
             }
 
             labelField = makeTooltipRowField(fallbackLabel, TOOLTIP_BODY_SIZE, TOOLTIP_TEXT_COLOR, true);
-            labelField.width = TOOLTIP_ICON_LAYOUT_WIDTH;
+            labelField.width = layoutWidth;
             labelField.height = iconSize;
             alignTextField(labelField, TextFormatAlign.CENTER);
             labelField.y = Math.round((iconSize - labelField.height) / 2);
@@ -1468,6 +1582,23 @@ package
             html += "</font>";
             html += escapeHtml(suffix);
             return html;
+        }
+
+        private function buildEliteStatusCounterHtml(text:String):String
+        {
+            var suffix:String = " Base XP";
+
+            if (text == null)
+            {
+                return "";
+            }
+
+            if (text.length > suffix.length && text.substr(text.length - suffix.length) == suffix)
+            {
+                return buildTooltipHighlightedHtml("", text.substr(0, text.length - suffix.length), suffix, true);
+            }
+
+            return escapeHtml(text);
         }
 
         private function escapeHtml(text:String):String
@@ -1884,6 +2015,33 @@ package
             var sideCounterX:Number = sideCounterRightX - COUNTER_VALUE_WIDTH;
             var sideCaptionRightX:Number = sideCounterX - COUNTER_TEXT_GAP;
             var sideCaptionX:Number = sideCaptionRightX - COUNTER_CAPTION_WIDTH;
+            var eliteStatusX:Number = SIDE_MARGIN - COUNTER_GAP - ELITE_STATUS_WIDTH;
+
+            if (_activeCounterLayout == COUNTER_LAYOUT_RIGHT_SINGLE)
+            {
+                totalPercentLabel.x = counterX;
+                totalPercentLabel.y = resolveCenteredTextY(totalPercentLabel, TOP_MARGIN, BAR_HEIGHT);
+
+                totalPercentCaption.x = counterCaptionX;
+                totalPercentCaption.y = totalPercentLabel.y;
+                return;
+            }
+
+            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS)
+            {
+                combatPercentLabel.x = eliteStatusX;
+                combatPercentLabel.y = TOP_MARGIN - combatPercentLabel.height - 1;
+
+                combatPercentCaption.x = eliteStatusX;
+                combatPercentCaption.y = TOP_MARGIN + BAR_HEIGHT + 1;
+
+                totalPercentLabel.x = counterX;
+                totalPercentLabel.y = resolveCenteredTextY(totalPercentLabel, TOP_MARGIN, BAR_HEIGHT);
+
+                totalPercentCaption.x = counterCaptionX;
+                totalPercentCaption.y = totalPercentLabel.y;
+                return;
+            }
 
             combatPercentLabel.x = counterX;
             combatPercentLabel.y = TOP_MARGIN - combatPercentLabel.height - 1;

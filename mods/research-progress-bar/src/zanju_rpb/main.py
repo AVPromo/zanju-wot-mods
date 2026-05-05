@@ -22,6 +22,10 @@ try:
     from gui.impl.gen.resources import R
 except Exception:
     R = None
+try:
+    from gui.prestige import prestige_helpers as _prestige_helpers
+except Exception:
+    _prestige_helpers = None
 from gui.Scaleform.framework import ScopeTemplates, ViewSettings, g_entitiesFactories
 from gui.Scaleform.framework.entities.View import View
 from gui.Scaleform.framework.managers.loaders import SFViewLoadParams
@@ -744,6 +748,261 @@ def _to_int_or_none(value):
     if isinstance(value, float):
         return int(value)
     return None
+
+
+def _call_prestige_helper(helper_name, *values):
+    if _prestige_helpers is None:
+        return None
+
+    helper = getattr(_prestige_helpers, helper_name, None)
+    if not callable(helper):
+        return None
+
+    candidates = []
+    for value in values:
+        if value is None:
+            continue
+        candidates.append(value)
+        value_int_cd = getattr(value, 'intCD', None)
+        if value_int_cd is not None:
+            candidates.append(value_int_cd)
+
+    if not candidates:
+        try:
+            return helper()
+        except TypeError:
+            return None
+        except Exception:
+            if _config.get('debugFieldMods'):
+                _logger.exception('Failed prestige helper %s without args', helper_name)
+            return None
+
+    for candidate in candidates:
+        try:
+            return helper(candidate)
+        except TypeError:
+            continue
+        except Exception:
+            if _config.get('debugFieldMods'):
+                _logger.exception('Failed prestige helper %s for values=%s', helper_name, candidates)
+            return None
+
+    try:
+        return helper()
+    except TypeError:
+        return None
+    except Exception:
+        if _config.get('debugFieldMods'):
+            _logger.exception('Failed prestige helper %s without args after candidate fallback', helper_name)
+        return None
+
+
+def _mapping_value(mapping, key):
+    if mapping is None or key is None:
+        return None
+
+    candidates = [key]
+    try:
+        candidates.append(str(key))
+    except Exception:
+        pass
+
+    candidate = None
+    for candidate in candidates:
+        try:
+            value = mapping.get(candidate)
+        except Exception:
+            value = None
+        if value is not None:
+            return value
+
+        try:
+            return mapping[candidate]
+        except Exception:
+            pass
+
+    return None
+
+
+def _collect_int_attr_candidates(objects, attr_names):
+    values = []
+    obj = None
+    for obj in objects:
+        value = _first_int_attr(obj, attr_names)
+        if value is not None:
+            values.append(value)
+    return values
+
+
+def _extract_sequence_ints(value, max_items=4):
+    items = []
+    if value is None or isinstance(value, (str, unicode)):
+        return items
+
+    try:
+        item_count = len(value)
+    except Exception:
+        return items
+
+    limit = min(item_count, max_items)
+    index = 0
+    while index < limit:
+        try:
+            item = value[index]
+        except Exception:
+            break
+        item = _to_int_or_none(item)
+        if item is not None:
+            items.append(item)
+        index += 1
+    return items
+
+
+def _first_int_attr_from_objects(objects, attr_names):
+    obj = None
+    for obj in objects:
+        value = _first_int_attr(obj, attr_names)
+        if value is not None:
+            return value
+    return None
+
+
+def _debug_prestige_value_summary(value):
+    if value is None:
+        return 'None'
+
+    parts = ['type={0}'.format(type(value).__name__)]
+    for attr_name in ('currentLevel', 'prestigeLevel', 'level', 'currentXP', 'nextLvlXP', 'maxLevel', 'remainingPoints', 'remainingPts', 'nextLevelPts'):
+        attr_value = _first_int_attr(value, (attr_name,))
+        if attr_value is not None:
+            parts.append('{0}={1}'.format(attr_name, attr_value))
+
+    sequence_items = _extract_sequence_ints(value)
+    if sequence_items:
+        parts.append('items={0}'.format(sequence_items))
+
+    try:
+        if hasattr(value, '__len__') and not isinstance(value, (str, unicode)):
+            parts.append('len={0}'.format(len(value)))
+    except Exception:
+        pass
+
+    return ','.join(parts)
+
+
+def _extract_elite_remaining_points(objects):
+    obj = None
+    for obj in objects:
+        value = _first_int_attr(obj, ('remainingPoints', 'remainingPts', 'nextLevelPts', 'nextLvlPts'))
+        if value is not None:
+            return value
+
+        sequence_items = _extract_sequence_ints(obj, 3)
+        if len(sequence_items) >= 2:
+            return sequence_items[1]
+
+    return None
+
+
+def _first_int_attr(obj, attr_names):
+    attr_name = None
+    for attr_name in attr_names:
+        try:
+            value = getattr(obj, attr_name, None)
+        except Exception:
+            value = None
+        value = _to_int_or_none(value)
+        if value is not None:
+            return value
+    return None
+
+
+def _collect_elite_progression(vehicle):
+    data = {
+        'available': False,
+        'current_level': None,
+        'current_xp': None,
+        'next_level_xp': None,
+        'remaining_xp': None,
+        'max_level': None,
+    }
+
+    if vehicle is None or not getattr(vehicle, 'isElite', False):
+        return data
+
+    has_vehicle_prestige = _call_prestige_helper('hasVehiclePrestige', vehicle)
+    global_prestige_stats = _call_prestige_helper('getPrestigeStats')
+    vehicle_points = _call_prestige_helper('getVehiclePoints', vehicle)
+    prestige_stats = _call_prestige_helper('getPrestigeStats', vehicle_points, vehicle)
+    if prestige_stats is None:
+        prestige_stats = global_prestige_stats
+    prestige_map = _call_prestige_helper('getVehiclePrestigeMap', prestige_stats, global_prestige_stats)
+    mapped_prestige = _mapping_value(prestige_map, getattr(vehicle, 'intCD', None))
+    prestige = _call_prestige_helper('getVehiclePrestige', vehicle)
+    progress = _call_prestige_helper(
+        'getCurrentProgress',
+        mapped_prestige,
+        prestige_stats,
+        prestige,
+        vehicle_points,
+        vehicle,
+    )
+    if has_vehicle_prestige is False and prestige is None and prestige_stats is None and mapped_prestige is None:
+        return data
+
+    data['available'] = bool(has_vehicle_prestige) or prestige is not None or prestige_stats is not None or mapped_prestige is not None or progress is not None
+    level_candidates = _collect_int_attr_candidates(
+        (mapped_prestige, progress, prestige_stats, prestige),
+        ('currentLevel', 'prestigeLevel', 'level'),
+    )
+    progress_sources = (progress, mapped_prestige, prestige_stats, prestige)
+    if not level_candidates and all(source is None for source in progress_sources):
+        return data
+
+    if level_candidates:
+        data['current_level'] = max(level_candidates)
+    data['current_xp'] = _first_int_attr_from_objects(progress_sources, ('currentXP', 'currentXp'))
+    data['next_level_xp'] = _first_int_attr_from_objects(
+        progress_sources,
+        ('nextLvlXP', 'nextLevelXP', 'nextLvlXp', 'nextLevelXp'),
+    )
+    remaining_points = _extract_elite_remaining_points((progress, mapped_prestige, prestige_stats, prestige, vehicle_points))
+    if remaining_points is not None:
+        data['remaining_xp'] = _call_prestige_helper('prestigePointsToXP', remaining_points)
+        if data['remaining_xp'] is None:
+            data['remaining_xp'] = remaining_points
+    max_level_candidates = _collect_int_attr_candidates(
+        (mapped_prestige, progress, prestige_stats, prestige),
+        ('maxLevel',),
+    )
+    if max_level_candidates:
+        data['max_level'] = max(max_level_candidates)
+    if data['max_level'] is None:
+        data['max_level'] = _first_int_attr(prestige, ('maxLevel',))
+    if data['current_level'] is None:
+        data['available'] = False
+
+    if _config.get('debugFieldMods'):
+        vehicle_name = getattr(vehicle, 'userName', getattr(vehicle, 'intCD', 'unknown'))
+        _logger.info(
+            '  Elite DEBUG [%s]: has=%s globalStats=(%s) points=(%s) stats=(%s) mapEntry=(%s) prestige=(%s) progress=(%s) levelCandidates=%s chosenLevel=%s currentXP=%s nextXP=%s remainingXP=%s maxLevel=%s',
+            vehicle_name,
+            has_vehicle_prestige,
+            _debug_prestige_value_summary(global_prestige_stats),
+            _debug_prestige_value_summary(vehicle_points),
+            _debug_prestige_value_summary(prestige_stats),
+            _debug_prestige_value_summary(mapped_prestige),
+            _debug_prestige_value_summary(prestige),
+            _debug_prestige_value_summary(progress),
+            level_candidates,
+            data['current_level'],
+            data['current_xp'],
+            data['next_level_xp'],
+            data['remaining_xp'],
+            data['max_level'],
+        )
+
+    return data
 
 
 def _coerce_int_or_none(value):
@@ -2462,6 +2721,8 @@ class ResearchProgressBar(object):
         elite_total = len(elite.total) if hasattr(elite, 'total') else 0
         elite_pct = int(elite_unlocked * 100 / elite_total) if elite_total > 0 else 100
 
+        elite_progression = _collect_elite_progression(vehicle)
+
         # --- Field modifications / post-progression (per vehicle) ---
         pp_settings = None
         try:
@@ -2510,6 +2771,7 @@ class ResearchProgressBar(object):
                 'total': elite_total,
                 'pct': elite_pct,
             },
+            'elite_progression': elite_progression,
             'field_mods': {
                 'exists': field_mods['exists'],
                 'active': field_mods['active'],
