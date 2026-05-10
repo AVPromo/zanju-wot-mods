@@ -2073,6 +2073,125 @@ class ResearchProgressBar(object):
         self._last_context_log_key = None
         self._last_scaleform_payload_log_key = None
         self._last_seen_sub_view_alias = None
+        self._bound_current_vehicle_holder_id = None
+        self._bound_current_vehicle_event_id = None
+        self._bound_preview_vehicle_holder_id = None
+        self._bound_preview_vehicle_event_id = None
+
+    def _record_vehicle_binding_targets(self):
+        current_event = getattr(g_currentVehicle, 'onChanged', None)
+        preview_event = getattr(g_currentPreviewVehicle, 'onChanged', None)
+        self._bound_current_vehicle_holder_id = id(g_currentVehicle)
+        self._bound_current_vehicle_event_id = id(current_event) if current_event is not None else None
+        self._bound_preview_vehicle_holder_id = id(g_currentPreviewVehicle)
+        self._bound_preview_vehicle_event_id = id(preview_event) if preview_event is not None else None
+
+    def _clear_vehicle_binding_targets(self):
+        self._bound_current_vehicle_holder_id = None
+        self._bound_current_vehicle_event_id = None
+        self._bound_preview_vehicle_holder_id = None
+        self._bound_preview_vehicle_event_id = None
+
+    def _refresh_vehicle_change_hooks(self, reason):
+        current_ok = False
+        preview_ok = False
+
+        try:
+            try:
+                g_currentVehicle.onChanged -= self._on_vehicle_changed
+            except Exception:
+                pass
+            g_currentVehicle.onChanged += self._on_vehicle_changed
+            current_ok = True
+        except Exception:
+            _logger.exception('Failed to refresh current vehicle hook (%s)', reason)
+
+        try:
+            try:
+                g_currentPreviewVehicle.onChanged -= self._on_preview_vehicle_changed
+            except Exception:
+                pass
+            g_currentPreviewVehicle.onChanged += self._on_preview_vehicle_changed
+            preview_ok = True
+        except Exception:
+            _logger.exception('Failed to refresh preview vehicle hook (%s)', reason)
+
+        if current_ok or preview_ok:
+            self._record_vehicle_binding_targets()
+            self._log_control_debug(
+                'vehicle_hooks_refreshed',
+                'reason={0} current={1} preview={2}'.format(reason, current_ok, preview_ok),
+            )
+
+    def _format_control_identity(self, value):
+        if value is None:
+            return 'None'
+        return '0x{0:x}'.format(int(value))
+
+    def _format_vehicle_item(self, item):
+        if item is None:
+            return 'none'
+
+        name = (
+            getattr(item, 'userName', None)
+            or getattr(item, 'shortUserName', None)
+            or getattr(item, 'name', None)
+            or '?'
+        )
+        return '{0}:{1}'.format(getattr(item, 'intCD', None), name)
+
+    def _describe_vehicle_binding(self, holder, bound_holder_id, bound_event_id):
+        event = getattr(holder, 'onChanged', None)
+        live_holder_id = id(holder)
+        live_event_id = id(event) if event is not None else None
+        present = 'n/a'
+        is_present = getattr(holder, 'isPresent', None)
+        if callable(is_present):
+            try:
+                present = is_present()
+            except Exception:
+                present = 'err'
+
+        is_match = bound_holder_id == live_holder_id and bound_event_id == live_event_id
+        return 'bind={0}/{1} live={2}/{3} ok={4} present={5} item={6}'.format(
+            self._format_control_identity(bound_holder_id),
+            self._format_control_identity(bound_event_id),
+            self._format_control_identity(live_holder_id),
+            self._format_control_identity(live_event_id),
+            is_match,
+            present,
+            self._format_vehicle_item(getattr(holder, 'item', None)),
+        )
+
+    def _log_control_debug(self, reason, extra=None):
+        if not _config.get('debugFieldMods'):
+            return
+
+        payload = self._scaleform_payload if isinstance(self._scaleform_payload, dict) else {}
+        extra_text = '' if extra is None else ' | {0}'.format(extra)
+        _logger.info(
+            '  Control DEBUG [%s]: cv[%s] pv[%s] route=%s lastSub=%s view=%s req=%s vis=%s pending=%s updating=%s payload=%s%s',
+            reason,
+            self._describe_vehicle_binding(
+                g_currentVehicle,
+                self._bound_current_vehicle_holder_id,
+                self._bound_current_vehicle_event_id,
+            ),
+            self._describe_vehicle_binding(
+                g_currentPreviewVehicle,
+                self._bound_preview_vehicle_holder_id,
+                self._bound_preview_vehicle_event_id,
+            ),
+            self._current_lobby_route_path,
+            self._last_seen_sub_view_alias,
+            self._scaleform_view is not None,
+            self._scaleform_view_requested,
+            self._scaleform_view_visible,
+            self._pending_update_callback is not None,
+            self._update_in_progress,
+            payload.get('vehicleLabel'),
+            extra_text,
+        )
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -2081,8 +2200,8 @@ class ResearchProgressBar(object):
         _install_t11_ui_name_hooks()
         self._attach_lobby_route_log_handler()
         self._start_scaleform_view()
-        g_currentVehicle.onChanged += self._on_vehicle_changed
-        g_currentPreviewVehicle.onChanged += self._on_preview_vehicle_changed
+        self._refresh_vehicle_change_hooks('start')
+        self._log_control_debug('start', 'hooks_attached=True')
         # Avoid running heavy collection during early login/loading phase.
         # First update is triggered by onChanged once hangar vehicle selection settles.
 
@@ -2095,6 +2214,8 @@ class ResearchProgressBar(object):
         g_currentPreviewVehicle.onChanged -= self._on_preview_vehicle_changed
         self._stop_scaleform_view()
         g_currentVehicle.onChanged -= self._on_vehicle_changed
+        self._log_control_debug('stop', 'hooks_attached=False')
+        self._clear_vehicle_binding_targets()
 
     def _start_scaleform_view(self):
         if not _config.get('scaleformPrototypeEnabled', True):
@@ -2211,7 +2332,12 @@ class ResearchProgressBar(object):
         if route_path is None or route_path == self._current_lobby_route_path:
             return
 
+        previous_route_path = self._current_lobby_route_path
         self._current_lobby_route_path = route_path
+        if self._is_default_hangar_route(route_path) and not self._is_default_hangar_route(previous_route_path):
+            self._last_seen_sub_view_alias = None
+            if self._active:
+                self._refresh_vehicle_change_hooks('enter_default_hangar')
         if self._active:
             self._schedule_update('lobby_route_changed')
 
@@ -2329,7 +2455,8 @@ class ResearchProgressBar(object):
         if incoming_layer == WindowLayer.TOP_SUB_VIEW and incoming_alias != SCALEFORM_VIEW_ALIAS:
             return 'incoming_top_sub_view={0}'.format(incoming_alias)
 
-        if effective_sub_view_alias not in _HANGAR_VIEW_ALIASES:
+        allow_missing_sub_view = effective_sub_view_alias is None and self._scaleform_view is not None
+        if effective_sub_view_alias not in _HANGAR_VIEW_ALIASES and not allow_missing_sub_view:
             return 'sub_view={0}'.format(effective_sub_view_alias)
         if effective_top_sub_view_alias not in (None, SCALEFORM_VIEW_ALIAS):
             return 'top_sub_view={0}'.format(effective_top_sub_view_alias)
@@ -2439,12 +2566,15 @@ class ResearchProgressBar(object):
         if not self._active:
             return
         if space_id == SPACE_ID.LOBBY:
+            self._log_control_debug('gui_space_entered', 'space={0}'.format(space_id))
             self._attach_scaleform_container_hooks()
             self._sync_scaleform_view('lobby_entered')
 
     def _on_gui_space_left(self, space_id):
         if space_id != SPACE_ID.LOBBY:
             return
+
+        self._log_control_debug('gui_space_left', 'space={0}'.format(space_id))
 
         self._detach_scaleform_container_hooks()
         self._scaleform_view_requested = False
@@ -2461,6 +2591,7 @@ class ResearchProgressBar(object):
         self._scaleform_view_requested = False
         self._scaleform_view = view
         self._scaleform_view_visible = None
+        self._log_control_debug('scaleform_populated', 'alias={0}'.format(self._get_view_alias(view)))
         if not self._should_show_scaleform_view('populated', view):
             self._sync_scaleform_view('populated_outside_hangar', view)
             return
@@ -2476,6 +2607,7 @@ class ResearchProgressBar(object):
         self._set_scaleform_view_visible(True, 'populated')
 
     def _on_scaleform_view_disposed(self, view):
+        self._log_control_debug('scaleform_disposed', 'alias={0}'.format(self._get_view_alias(view)))
         if self._scaleform_view is view:
             self._scaleform_view = None
             self._scaleform_view_visible = None
@@ -2494,6 +2626,10 @@ class ResearchProgressBar(object):
             progress = self._scaleform_payload.get('progress')
             if progress is not None:
                 self._scaleform_view.as_setProgressS(progress)
+            self._log_control_debug(
+                'push_scaleform_payload',
+                'selected={0}'.format(self._scaleform_payload.get('selectedModeId')),
+            )
             self._log_scaleform_payload_debug()
         except Exception:
             _logger.exception('Failed to push data to scaleform garage view')
@@ -2570,6 +2706,13 @@ class ResearchProgressBar(object):
         if not _config.get('scaleformPrototypeEnabled', True):
             return
         self._scaleform_payload = self._build_scaleform_payload(vehicle, data)
+        self._log_control_debug(
+            'render_scaleform_payload',
+            'vehicle={0} selected={1}'.format(
+                self._format_vehicle_item(vehicle),
+                None if self._scaleform_payload is None else self._scaleform_payload.get('selectedModeId'),
+            ),
+        )
         if self._scaleform_payload is None:
             if self._scaleform_view is not None:
                 self._set_scaleform_view_visible(False, 'no_available_modes')
@@ -2622,21 +2765,27 @@ class ResearchProgressBar(object):
         if not self._active:
             return
 
+        had_pending = self._pending_update_callback is not None
         self._cancel_pending_update()
 
         # Keep deferred execution and callback coalescing, but run immediately.
         self._pending_update_callback = BigWorld.callback(0.0, self._deferred_update)
+        self._log_control_debug('schedule_update', 'reason={0} hadPending={1}'.format(reason, had_pending))
 
     # -- event handlers ------------------------------------------------------
 
     def _on_vehicle_changed(self):
         if not self._active:
+            self._log_control_debug('vehicle_changed_ignored', 'active=False')
             return
+        self._log_control_debug('vehicle_changed_signal')
         self._schedule_update('vehicle_changed')
 
     def _on_preview_vehicle_changed(self):
         if not self._active:
+            self._log_control_debug('preview_vehicle_changed_ignored', 'active=False')
             return
+        self._log_control_debug('preview_vehicle_changed_signal')
         self._schedule_update('preview_vehicle_changed')
 
     def _on_view_added_to_container(self, _container, view):
@@ -2648,6 +2797,10 @@ class ResearchProgressBar(object):
 
         if getattr(view, 'alias', None) == SCALEFORM_VIEW_ALIAS:
             return
+        self._log_control_debug(
+            'view_added_to_container',
+            'alias={0} layer={1}'.format(self._get_view_alias(view), getattr(view, 'layer', None)),
+        )
         if self._should_show_scaleform_view('view_added_to_container', view):
             self._schedule_update('view_added_to_container')
         else:
@@ -2658,7 +2811,9 @@ class ResearchProgressBar(object):
         self._pending_update_callback = None
         if self._active:
             try:
+                self._log_control_debug('deferred_update_start')
                 self._update()
+                self._log_control_debug('deferred_update_end')
             except Exception:
                 _logger.exception('Error in _deferred_update')
 
@@ -2667,25 +2822,32 @@ class ResearchProgressBar(object):
     def _update(self):
         if not _config.get('enabled'):
             return
+        self._log_control_debug('update_begin')
         if not self._sync_scaleform_view('update_precheck'):
+            self._log_control_debug('update_blocked_precheck')
             return
         if self._update_in_progress:
+            self._log_control_debug('update_skipped_in_progress')
             return
 
         self._update_in_progress = True
         try:
             vehicle = g_currentVehicle.item
             if vehicle is None:
+                self._log_control_debug('update_no_vehicle')
                 return
 
             try:
                 stats = self.itemsCache.items.stats
             except Exception:
                 _logger.exception('itemsCache not ready')
+                self._log_control_debug('update_no_stats')
                 return
 
+            self._log_control_debug('update_collect', 'vehicle={0}'.format(self._format_vehicle_item(vehicle)))
             data = self._collect(vehicle, stats)
             self._render(vehicle, data)
+            self._log_control_debug('update_rendered', 'vehicle={0}'.format(self._format_vehicle_item(vehicle)))
         finally:
             self._update_in_progress = False
 

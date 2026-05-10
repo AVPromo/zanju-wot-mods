@@ -491,13 +491,12 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
     remaining_major_count = display_layout['remaining_major_count']
     remaining_final_count = display_layout['remaining_final_count']
     markers = _build_t11_completed_markers(completed_minor_nodes, completed_major_nodes)
-    next_marker_position = display_layout['completed_cost']
+    completed_cost = display_layout['completed_cost']
 
     if remaining_minor_count > 0:
-        next_marker_position += 10000
         minor_marker = _make_t11_marker(
             marker_id='t11_minor_upgrade',
-            position_value=next_marker_position,
+            position_value=completed_cost + 10000,
             cost_xp=10000,
             name='Minor Upgrade',
             remaining_cost=10000,
@@ -514,10 +513,9 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
         markers.append(minor_marker)
 
     if remaining_major_count > 0:
-        next_marker_position += 20000
         major_marker = _make_t11_marker(
             marker_id='t11_major_upgrade',
-            position_value=next_marker_position,
+            position_value=completed_cost + 20000,
             cost_xp=20000,
             name='Major Upgrade',
             remaining_cost=20000,
