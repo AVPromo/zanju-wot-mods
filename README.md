@@ -13,10 +13,10 @@ mods/                          # one subdirectory per mod
   research-progress-bar/       # first mod
     meta.xml
     src/                       # Python source: top-level mod_*.py bootstrap + optional package
-    res/                       # committed static assets and localisation only
-    config/                    # committed default/user config source
-    ui-src/                    # ActionScript source and generated UI build output
-template/                      # scaffold — copy to mods/<new-mod> to start a mod
+    res/                       # committed runtime-shaped assets
+    i18n/                      # authored localisation sources staged into res/mods/<meta.id>/text/
+    config.json                # authored config source staged into mods/configs/<mod-name>/
+    ui/                        # ActionScript source, assets, WoT API mirror, and generated UI build output
 docs/                          # knowledge base
 build.py                       # packages mods/ → dist/*.wotmod and dist/<release-bundle>/
 dist/                          # gitignored release/export output
@@ -33,7 +33,7 @@ Requires Python 3.6+ (tested on 3.14.4). No third-party packages needed.
 
 Build outputs are split intentionally:
 
-- Generated intermediate assets live under gitignored build directories such as `mods/<mod-name>/ui-src/build/`.
+- Generated intermediate assets live under gitignored build directories such as `mods/<mod-name>/ui/build/`.
 - Final user-facing export bundles live under gitignored `dist/`.
 - Commit source files and default config sources; do not commit generated `.swf`, `.pyc`, or `.wotmod` artifacts.
 

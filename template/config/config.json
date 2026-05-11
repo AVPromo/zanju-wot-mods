@@ -1,6 +1,0 @@
-{
-    "_comment": "Config for com.yourname.modname. Placed at mods/configs/modname/config.json",
-    "configVersion": 1,
-    "enabled": true,
-    "logLevel": "INFO"
-}

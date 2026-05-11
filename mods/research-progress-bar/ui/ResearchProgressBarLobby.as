@@ -1,5 +1,4 @@
-package
-{
+package {
     import flash.display.Bitmap;
     import flash.display.BitmapData;
     import flash.display.Loader;
@@ -17,42 +16,41 @@ package
     import net.wg.infrastructure.base.AbstractView;
 
     [SWF(width="1920", height="220", frameRate="30", backgroundColor="#000000")]
-    public class ResearchProgressBarLobby extends AbstractView
-    {
-        [Embed(source="../assets/progress_bar_base.png")]
+    public class ResearchProgressBarLobby extends AbstractView {
+        [Embed(source="assets/progress_bar_base.png")]
         private static const ProgressBarBaseAsset:Class;
 
-        [Embed(source="../assets/progress_bar_green.png")]
+        [Embed(source="assets/progress_bar_green.png")]
         private static const ProgressBarGreenAsset:Class;
 
-        [Embed(source="../assets/progress_bar_white.png")]
+        [Embed(source="assets/progress_bar_white.png")]
         private static const ProgressBarWhiteAsset:Class;
 
-        [Embed(source="../assets/progress_bar_yellow.png")]
+        [Embed(source="assets/progress_bar_yellow.png")]
         private static const ProgressBarYellowAsset:Class;
 
-        [Embed(source="../assets/marker_default.png")]
+        [Embed(source="assets/marker_default.png")]
         private static const MarkerDefaultAsset:Class;
 
-        [Embed(source="../assets/marker_green.png")]
+        [Embed(source="assets/marker_green.png")]
         private static const MarkerGreenAsset:Class;
 
-        [Embed(source="../assets/marker_white.png")]
+        [Embed(source="assets/marker_white.png")]
         private static const MarkerWhiteAsset:Class;
 
-        [Embed(source="../assets/marker_yellow.png")]
+        [Embed(source="assets/marker_yellow.png")]
         private static const MarkerYellowAsset:Class;
 
-        [Embed(source="../assets/cog.png")]
+        [Embed(source="assets/cog.png")]
         private static const T11CogAsset:Class;
 
-        [Embed(source="../assets/star.png")]
+        [Embed(source="assets/star.png")]
         private static const T11StarAsset:Class;
 
-        [Embed(source="../assets/circle.png")]
+        [Embed(source="assets/circle.png")]
         private static const T11MinorUpgradeAsset:Class;
 
-        [Embed(source="../assets/rhomb.png")]
+        [Embed(source="assets/rhomb.png")]
         private static const T11MajorUpgradeAsset:Class;
 
         private static const SIDE_MARGIN:Number = 600;
@@ -216,32 +214,27 @@ package
         private var _activeCounterLayout:String = "";
         private var _activeBarFillMode:String = "";
 
-        public function ResearchProgressBarLobby()
-        {
+        public function ResearchProgressBarLobby() {
             super();
         }
 
-        override protected function configUI():void
-        {
+        override protected function configUI():void {
             super.configUI();
             mouseEnabled = false;
             mouseChildren = true;
             build();
 
-            if (stage != null)
-            {
+            if (stage != null) {
                 stage.addEventListener(Event.RESIZE, onStageResize);
                 stage.addEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove, false, 0, true);
                 stage.addEventListener(Event.MOUSE_LEAVE, onStageMouseLeave, false, 0, true);
             }
         }
 
-        override protected function onDispose():void
-        {
+        override protected function onDispose():void {
             hideMarkerTooltip();
             clearModeButtons();
-            if (stage != null)
-            {
+            if (stage != null) {
                 stage.removeEventListener(Event.RESIZE, onStageResize);
                 stage.removeEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
                 stage.removeEventListener(Event.MOUSE_LEAVE, onStageMouseLeave);
@@ -249,16 +242,14 @@ package
             super.onDispose();
         }
 
-        override protected function nextFrameAfterPopulateHandler():void
-        {
+        override protected function nextFrameAfterPopulateHandler():void {
             super.nextFrameAfterPopulateHandler();
             _isReady = true;
             layoutFromStage();
             updateBarFromContext();
         }
 
-        private function build():void
-        {
+        private function build():void {
             combatPercentLabel = makeCounterField();
             addChild(combatPercentLabel);
 
@@ -332,65 +323,52 @@ package
             addChild(tooltipContainer);
         }
 
-        private function onStageResize(event:Event):void
-        {
+        private function onStageResize(event:Event):void {
             layoutFromStage();
             updateBarFromContext();
         }
 
-        private function onStageMouseMove(event:MouseEvent):void
-        {
+        private function onStageMouseMove(event:MouseEvent):void {
             updateTooltipAtStagePoint(event.stageX, event.stageY);
         }
 
-        private function onStageMouseLeave(event:Event):void
-        {
+        private function onStageMouseLeave(event:Event):void {
             hideMarkerTooltip();
         }
 
-        public function as_setContext(data:Object):void
-        {
+        public function as_setContext(data:Object):void {
             applyContext(data);
         }
 
-        public function as_setProgress(value:Number):void
-        {
-            if (_context == null)
-            {
+        public function as_setProgress(value:Number):void {
+            if (_context == null) {
                 _context = {};
             }
             _context.progress = Number(value);
-            if (_isReady)
-            {
+            if (_isReady) {
                 updateBarFromContext();
             }
         }
 
-        public function as_ping():String
-        {
+        public function as_ping():String {
             return "research-progress-bar-lobby-ready";
         }
 
-        public function as_setVisible(value:Boolean):void
-        {
+        public function as_setVisible(value:Boolean):void {
             visible = value;
-            if (!value)
-            {
+            if (!value) {
                 hideMarkerTooltip();
             }
         }
 
-        private function applyContext(data:Object):void
-        {
-            if (data == null)
-            {
+        private function applyContext(data:Object):void {
+            if (data == null) {
                 return;
             }
 
             _context = data;
 
-            if (!_isReady)
-            {
+            if (!_isReady) {
                 return;
             }
 
@@ -398,8 +376,7 @@ package
             updateBarFromContext();
         }
 
-        private function updateBarFromContext():void
-        {
+        private function updateBarFromContext():void {
             var modes:Array;
             var activeMode:Object;
             var barMaxValue:Number;
@@ -415,13 +392,11 @@ package
             var defaultPrimaryPercent:int;
             var defaultTotalPercent:int;
 
-            if (!_isReady || _context == null)
-            {
+            if (!_isReady || _context == null) {
                 return;
             }
 
-            if (baseBar == null || completedBar == null || combatBar == null || freeBar == null || markersContainer == null || modeButtonsContainer == null)
-            {
+            if (baseBar == null || completedBar == null || combatBar == null || freeBar == null || markersContainer == null || modeButtonsContainer == null) {
                 return;
             }
 
@@ -432,8 +407,7 @@ package
             rebuildModeButtons(modes);
 
             activeMode = resolveSelectedMode(modes);
-            if (activeMode == null)
-            {
+            if (activeMode == null) {
                 clearBarPresentation();
                 return;
             }
@@ -457,8 +431,7 @@ package
             freeBar.visible = true;
             markersContainer.visible = true;
 
-            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY)
-            {
+            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY) {
                 completedWidth = Math.round(_barWidth * totalProgressValue / barMaxValue);
                 primaryWidth = 0;
                 secondaryWidth = 0;
@@ -492,8 +465,7 @@ package
 
             markerPrimaryValue = primaryValue;
             markerSecondaryValue = secondaryValue;
-            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY)
-            {
+            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY) {
                 markerPrimaryValue = totalProgressValue;
                 markerSecondaryValue = 0;
             }
@@ -502,8 +474,7 @@ package
             positionLabels();
         }
 
-        private function clearBarPresentation():void
-        {
+        private function clearBarPresentation():void {
             clearMarkers();
             drawMask(completedMaskShape, SIDE_MARGIN, TOP_MARGIN, 0, BAR_HEIGHT);
             drawMask(combatMaskShape, SIDE_MARGIN, TOP_MARGIN, 0, BAR_HEIGHT);
@@ -523,8 +494,7 @@ package
             _activeBarFillMode = "";
         }
 
-        private function updateCounterFields(activeMode:Object, defaultPrimaryPercent:int, defaultTotalPercent:int):void
-        {
+        private function updateCounterFields(activeMode:Object, defaultPrimaryPercent:int, defaultTotalPercent:int):void {
             var leftCounterText:String;
             var leftCounterCaption:String;
             var rightCounterText:String;
@@ -564,16 +534,14 @@ package
             this.sideCounterLabel.text = sideCounterText;
             this.sideCounterCaption.text = sideCounterCaption;
 
-            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS)
-            {
+            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS) {
                 alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
                 alignTextField(combatPercentCaption, TextFormatAlign.RIGHT);
                 combatPercentLabel.width = ELITE_STATUS_WIDTH;
                 combatPercentCaption.width = ELITE_STATUS_WIDTH;
                 combatPercentCaption.htmlText = buildEliteStatusCounterHtml(leftCounterCaption);
             }
-            else
-            {
+            else {
                 combatPercentCaption.text = leftCounterCaption;
                 alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
                 alignTextField(combatPercentCaption, TextFormatAlign.LEFT);
@@ -582,20 +550,16 @@ package
             }
         }
 
-        private function resolveModes():Array
-        {
-            if (_context == null)
-            {
+        private function resolveModes():Array {
+            if (_context == null) {
                 return [];
             }
 
-            if (_context.modes is Array)
-            {
+            if (_context.modes is Array) {
                 return _context.modes as Array;
             }
 
-            return [
-                {
+            return [ {
                     id: "legacy_research",
                     buttonLabel: "Research",
                     barMaxValue: _context.maxRequirementXp,
@@ -613,41 +577,33 @@ package
             ];
         }
 
-        private function syncSelectedMode(modes:Array):void
-        {
+        private function syncSelectedMode(modes:Array):void {
             var requestedModeId:String = _context != null && _context.selectedModeId !== undefined
                 ? String(_context.selectedModeId)
                 : null;
 
-            if (!hasModeId(modes, _selectedModeId))
-            {
+            if (!hasModeId(modes, _selectedModeId)) {
                 _selectedModeId = null;
             }
 
-            if (_selectedModeId == null && hasModeId(modes, requestedModeId))
-            {
+            if (_selectedModeId == null && hasModeId(modes, requestedModeId)) {
                 _selectedModeId = requestedModeId;
             }
 
-            if (_selectedModeId == null && modes != null && modes.length > 0)
-            {
+            if (_selectedModeId == null && modes != null && modes.length > 0) {
                 _selectedModeId = modeIdOf(modes[0]);
             }
         }
 
-        private function hasModeId(modes:Array, modeId:String):Boolean
-        {
+        private function hasModeId(modes:Array, modeId:String):Boolean {
             var mode:Object;
 
-            if (modeId == null || modes == null)
-            {
+            if (modeId == null || modes == null) {
                 return false;
             }
 
-            for each (mode in modes)
-            {
-                if (modeIdOf(mode) == modeId)
-                {
+            for each (mode in modes) {
+                if (modeIdOf(mode) == modeId) {
                     return true;
                 }
             }
@@ -655,19 +611,15 @@ package
             return false;
         }
 
-        private function resolveSelectedMode(modes:Array):Object
-        {
+        private function resolveSelectedMode(modes:Array):Object {
             var mode:Object;
 
-            if (modes == null)
-            {
+            if (modes == null) {
                 return null;
             }
 
-            for each (mode in modes)
-            {
-                if (modeIdOf(mode) == _selectedModeId)
-                {
+            for each (mode in modes) {
+                if (modeIdOf(mode) == _selectedModeId) {
                     return mode;
                 }
             }
@@ -675,18 +627,15 @@ package
             return null;
         }
 
-        private function modeIdOf(mode:Object):String
-        {
-            if (mode == null || mode.id === undefined || mode.id == null)
-            {
+        private function modeIdOf(mode:Object):String {
+            if (mode == null || mode.id === undefined || mode.id == null) {
                 return null;
             }
 
             return String(mode.id);
         }
 
-        private function rebuildModeButtons(modes:Array):void
-        {
+        private function rebuildModeButtons(modes:Array):void {
             var cursorX:Number = SIDE_MARGIN;
             var buttonY:Number = TOP_MARGIN + BAR_HEIGHT + MODE_BUTTON_Y_OFFSET;
             var mode:Object;
@@ -694,15 +643,13 @@ package
 
             clearModeButtons();
 
-            if (modeButtonsContainer == null || modes == null || modes.length == 0)
-            {
+            if (modeButtonsContainer == null || modes == null || modes.length == 0) {
                 return;
             }
 
             modeButtonsContainer.visible = true;
 
-            for each (mode in modes)
-            {
+            for each (mode in modes) {
                 button = createModeButton(resolveModeButtonLabel(mode), modeIdOf(mode) == _selectedModeId);
                 button.x = cursorX;
                 button.y = buttonY;
@@ -716,20 +663,16 @@ package
             }
         }
 
-        private function clearModeButtons():void
-        {
+        private function clearModeButtons():void {
             var child:Sprite;
 
-            if (modeButtonsContainer == null)
-            {
+            if (modeButtonsContainer == null) {
                 return;
             }
 
-            while (modeButtonsContainer.numChildren > 0)
-            {
+            while (modeButtonsContainer.numChildren > 0) {
                 child = modeButtonsContainer.removeChildAt(0) as Sprite;
-                if (child != null)
-                {
+                if (child != null) {
                     child.removeEventListener(MouseEvent.CLICK, onModeButtonClick);
                 }
             }
@@ -738,19 +681,16 @@ package
             modeButtonsContainer.visible = false;
         }
 
-        private function onModeButtonClick(event:MouseEvent):void
-        {
+        private function onModeButtonClick(event:MouseEvent):void {
             var button:Sprite = event.currentTarget as Sprite;
             var modeId:String;
 
-            if (button == null)
-            {
+            if (button == null) {
                 return;
             }
 
             modeId = _modeIdByButton[button];
-            if (modeId == null || modeId == _selectedModeId)
-            {
+            if (modeId == null || modeId == _selectedModeId) {
                 return;
             }
 
@@ -759,18 +699,15 @@ package
             updateBarFromContext();
         }
 
-        private function resolveModeButtonLabel(mode:Object):String
-        {
-            if (mode != null && mode.buttonLabel !== undefined && mode.buttonLabel != null)
-            {
+        private function resolveModeButtonLabel(mode:Object):String {
+            if (mode != null && mode.buttonLabel !== undefined && mode.buttonLabel != null) {
                 return String(mode.buttonLabel);
             }
 
             return "Mode";
         }
 
-        private function createModeButton(label:String, isSelected:Boolean):Sprite
-        {
+        private function createModeButton(label:String, isSelected:Boolean):Sprite {
             var button:Sprite = new Sprite();
             var background:Shape = new Shape();
             var field:TextField = makeTextField(
@@ -794,8 +731,7 @@ package
             return button;
         }
 
-        private function drawModeButtonBackground(shape:Shape, width:Number, height:Number, isSelected:Boolean):void
-        {
+        private function drawModeButtonBackground(shape:Shape, width:Number, height:Number, isSelected:Boolean):void {
             shape.graphics.clear();
             shape.graphics.lineStyle(
                 1,
@@ -810,8 +746,7 @@ package
             shape.graphics.endFill();
         }
 
-        private function rebuildMarkers(activeMode:Object, maxRequirementXp:Number, combatXp:Number, freeXp:Number):void
-        {
+        private function rebuildMarkers(activeMode:Object, maxRequirementXp:Number, combatXp:Number, freeXp:Number):void {
             var marker:Object;
             var markerPositionValue:Number;
             var markerX:Number;
@@ -819,13 +754,11 @@ package
 
             clearMarkers();
 
-            if (activeMode == null || !(activeMode.markers is Array))
-            {
+            if (activeMode == null || !(activeMode.markers is Array)) {
                 return;
             }
 
-            for each (marker in activeMode.markers)
-            {
+            for each (marker in activeMode.markers) {
                 markerPositionValue = clamp(
                     numberValue(
                         marker != null && marker.positionValue !== undefined
@@ -845,24 +778,20 @@ package
             }
         }
 
-        private function clearMarkers():void
-        {
+        private function clearMarkers():void {
             hideMarkerTooltip();
             _markerTooltipDataByDisplay = new Dictionary(true);
 
-            if (markersContainer == null)
-            {
+            if (markersContainer == null) {
                 return;
             }
 
-            while (markersContainer.numChildren > 0)
-            {
+            while (markersContainer.numChildren > 0) {
                 markersContainer.removeChildAt(0);
             }
         }
 
-        private function createMarkerDisplay(marker:Object, markerProgressValue:Number, combatXp:Number, freeXp:Number):Sprite
-        {
+        private function createMarkerDisplay(marker:Object, markerProgressValue:Number, combatXp:Number, freeXp:Number):Sprite {
             var markerSprite:Sprite = new Sprite();
             var markerTooltipValue:Number = numberValue(
                 marker != null && marker.costXp !== undefined ? marker.costXp : markerProgressValue,
@@ -878,12 +807,10 @@ package
             markerSprite.addChild(markerBitmap);
 
             markerIcon = createMarkerIcon(marker, markerBitmap.y);
-            if (markerIcon != null)
-            {
+            if (markerIcon != null) {
                 markerSprite.addChild(markerIcon);
             }
-            else if (markerLabelText.length > 0)
-            {
+            else if (markerLabelText.length > 0) {
                 markerLabel = makeMarkerLabelField(markerLabelText, markerBitmap.y);
                 markerSprite.addChild(markerLabel);
             }
@@ -902,18 +829,15 @@ package
             return markerSprite;
         }
 
-        private function updateMarkerHitArea(markerDisplay:Sprite):void
-        {
+        private function updateMarkerHitArea(markerDisplay:Sprite):void {
             var bounds:Rectangle;
 
-            if (markerDisplay == null)
-            {
+            if (markerDisplay == null) {
                 return;
             }
 
             bounds = markerDisplay.getBounds(markerDisplay);
-            if (bounds == null)
-            {
+            if (bounds == null) {
                 return;
             }
 
@@ -923,98 +847,79 @@ package
             markerDisplay.graphics.endFill();
         }
 
-        private function createMarkerBitmap(marker:Object, markerProgressValue:Number, combatXp:Number, freeXp:Number):Bitmap
-        {
+        private function createMarkerBitmap(marker:Object, markerProgressValue:Number, combatXp:Number, freeXp:Number):Bitmap {
             var markerState:String = marker != null && marker.markerState !== undefined ? String(marker.markerState) : "";
 
-            if (markerState == "completed")
-            {
+            if (markerState == "completed") {
                 return createBitmap(MarkerWhiteAsset);
             }
-            if (markerState == "reachable_vehicle")
-            {
+            if (markerState == "reachable_vehicle") {
                 return createBitmap(MarkerGreenAsset);
             }
-            if (markerState == "reachable_total")
-            {
+            if (markerState == "reachable_total") {
                 return createBitmap(MarkerYellowAsset);
             }
-            if (markerState == "locked")
-            {
+            if (markerState == "locked") {
                 return createBitmap(MarkerDefaultAsset);
             }
-            if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable))
-            {
+            if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable)) {
                 return createBitmap(MarkerDefaultAsset);
             }
-            if (markerProgressValue <= combatXp)
-            {
+            if (markerProgressValue <= combatXp) {
                 return createBitmap(MarkerGreenAsset);
             }
-            if (markerProgressValue <= combatXp + freeXp)
-            {
+            if (markerProgressValue <= combatXp + freeXp) {
                 return createBitmap(MarkerYellowAsset);
             }
             return createBitmap(MarkerDefaultAsset);
         }
 
-        private function shouldHideTooltipIcon(marker:Object):Boolean
-        {
+        private function shouldHideTooltipIcon(marker:Object):Boolean {
             return marker != null && marker.hideTooltipIcon !== undefined && Boolean(marker.hideTooltipIcon);
         }
 
-        private function shouldHideBarIcon(marker:Object):Boolean
-        {
+        private function shouldHideBarIcon(marker:Object):Boolean {
             return marker != null && marker.hideBarIcon !== undefined && Boolean(marker.hideBarIcon);
         }
 
-        private function onMarkerMouseOver(event:MouseEvent):void
-        {
+        private function onMarkerMouseOver(event:MouseEvent):void {
             updateTooltipAtStagePoint(event.stageX, event.stageY);
         }
 
-        private function onMarkerMouseOut(event:MouseEvent):void
-        {
+        private function onMarkerMouseOut(event:MouseEvent):void {
             updateTooltipAtStagePoint(event.stageX, event.stageY);
         }
 
-        private function updateTooltipAtStagePoint(stageX:Number, stageY:Number):void
-        {
+        private function updateTooltipAtStagePoint(stageX:Number, stageY:Number):void {
             var tooltipEntries:Array = [];
             var candidate:Sprite;
             var candidateBounds:Rectangle;
             var candidateData:Object;
             var idx:int;
 
-            if (!visible || markersContainer == null)
-            {
+            if (!visible || markersContainer == null) {
                 hideMarkerTooltip();
                 return;
             }
 
-            for (idx = 0; idx < markersContainer.numChildren; idx++)
-            {
+            for (idx = 0; idx < markersContainer.numChildren; idx++) {
                 candidate = markersContainer.getChildAt(idx) as Sprite;
-                if (candidate == null)
-                {
+                if (candidate == null) {
                     continue;
                 }
 
                 candidateBounds = candidate.getBounds(stage);
-                if (candidateBounds == null || !candidateBounds.contains(stageX, stageY))
-                {
+                if (candidateBounds == null || !candidateBounds.contains(stageX, stageY)) {
                     continue;
                 }
 
                 candidateData = _markerTooltipDataByDisplay[candidate];
-                if (candidateData != null)
-                {
+                if (candidateData != null) {
                     tooltipEntries.push(candidateData);
                 }
             }
 
-            if (tooltipEntries.length == 0)
-            {
+            if (tooltipEntries.length == 0) {
                 hideMarkerTooltip();
                 return;
             }
@@ -1022,8 +927,7 @@ package
             showTooltipEntries(tooltipEntries, stageX, stageY);
         }
 
-        private function showTooltipEntries(entries:Array, stageX:Number, stageY:Number):void
-        {
+        private function showTooltipEntries(entries:Array, stageX:Number, stageY:Number):void {
             var entry:Object;
             var section:Sprite;
             var sectionBounds:Rectangle;
@@ -1033,23 +937,20 @@ package
             var tooltipWidth:Number;
             var tooltipHeight:Number;
 
-            if (tooltipContainer == null || tooltipContent == null || tooltipBackground == null)
-            {
+            if (tooltipContainer == null || tooltipContent == null || tooltipBackground == null) {
                 return;
             }
 
             clearTooltipContent();
 
-            for (idx = 0; idx < entries.length; idx++)
-            {
+            for (idx = 0; idx < entries.length; idx++) {
                 entry = entries[idx];
                 section = buildTooltipSection(entry);
                 section.y = cursorY;
                 tooltipContent.addChild(section);
                 sectionBounds = section.getBounds(section);
                 cursorY += sectionBounds.height;
-                if (idx < entries.length - 1)
-                {
+                if (idx < entries.length - 1) {
                     cursorY += TOOLTIP_SECTION_GAP;
                 }
             }
@@ -1066,29 +967,23 @@ package
             positionTooltip(stageX, stageY, tooltipWidth, tooltipHeight);
         }
 
-        private function clearTooltipContent():void
-        {
-            if (tooltipContent == null)
-            {
+        private function clearTooltipContent():void {
+            if (tooltipContent == null) {
                 return;
             }
 
-            while (tooltipContent.numChildren > 0)
-            {
+            while (tooltipContent.numChildren > 0) {
                 tooltipContent.removeChildAt(0);
             }
         }
 
-        private function hideMarkerTooltip():void
-        {
-            if (tooltipContainer != null)
-            {
+        private function hideMarkerTooltip():void {
+            if (tooltipContainer != null) {
                 tooltipContainer.visible = false;
             }
         }
 
-        private function positionTooltip(stageX:Number, stageY:Number, tooltipWidth:Number, tooltipHeight:Number):void
-        {
+        private function positionTooltip(stageX:Number, stageY:Number, tooltipWidth:Number, tooltipHeight:Number):void {
             var tooltipX:Number = stageX - Math.round(tooltipWidth / 2);
             var tooltipY:Number = stageY + TOOLTIP_OFFSET_Y;
             var minX:Number = 4;
@@ -1096,30 +991,24 @@ package
             var minY:Number = 4;
             var maxY:Number;
 
-            if (stage != null)
-            {
+            if (stage != null) {
                 maxX = stage.stageWidth - tooltipWidth - 4;
                 maxY = stage.stageHeight - tooltipHeight - 4;
-                if (tooltipX < minX)
-                {
+                if (tooltipX < minX) {
                     tooltipX = minX;
                 }
-                if (tooltipX > maxX)
-                {
+                if (tooltipX > maxX) {
                     tooltipX = maxX;
                 }
 
-                if (tooltipY > maxY)
-                {
+                if (tooltipY > maxY) {
                     tooltipY = stageY - tooltipHeight - TOOLTIP_OFFSET_Y;
                 }
 
-                if (tooltipY < minY)
-                {
+                if (tooltipY < minY) {
                     tooltipY = minY;
                 }
-                if (tooltipY > maxY)
-                {
+                if (tooltipY > maxY) {
                     tooltipY = maxY;
                 }
             }
@@ -1128,8 +1017,7 @@ package
             tooltipContainer.y = Math.round(tooltipY);
         }
 
-        private function drawTooltipBackground(width:Number, height:Number):void
-        {
+        private function drawTooltipBackground(width:Number, height:Number):void {
             tooltipBackground.graphics.clear();
             tooltipBackground.graphics.lineStyle(1, TOOLTIP_BORDER_COLOR, 1.0);
             tooltipBackground.graphics.beginFill(TOOLTIP_BACKGROUND_COLOR, TOOLTIP_BACKGROUND_ALPHA);
@@ -1137,8 +1025,7 @@ package
             tooltipBackground.graphics.endFill();
         }
 
-        private function buildTooltipSection(entry:Object):Sprite
-        {
+        private function buildTooltipSection(entry:Object):Sprite {
             var section:Sprite = new Sprite();
             var marker:Object = entry.marker;
             var markerCostXp:Number = Number(entry.costXp);
@@ -1160,8 +1047,7 @@ package
             cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
 
             var debugText:String = resolveMarkerDebugText(marker);
-            if (debugText.length > 0)
-            {
+            if (debugText.length > 0) {
                 row = createTooltipTextRow(
                     debugText,
                     TOOLTIP_BODY_SIZE,
@@ -1174,8 +1060,7 @@ package
                 cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
             }
 
-            if (markerState == "completed")
-            {
+            if (markerState == "completed") {
                 row = createTooltipTextRow(
                     "Unlocked",
                     TOOLTIP_BODY_SIZE,
@@ -1187,8 +1072,7 @@ package
                 return section;
             }
 
-            if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable))
-            {
+            if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable)) {
                 row = createTooltipTextRow(
                     "Prerequisites:",
                     TOOLTIP_BODY_SIZE,
@@ -1201,8 +1085,7 @@ package
                 cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
 
                 prereqs = marker != null && marker.missingPrereqs is Array ? marker.missingPrereqs as Array : [];
-                for each (prereq in prereqs)
-                {
+                for each (prereq in prereqs) {
                     row = createTooltipIconTextRow(
                         prereq != null && prereq.item_type !== undefined ? String(prereq.item_type) : "unknown",
                         prereq != null && prereq.label !== undefined ? String(prereq.label) : "?",
@@ -1218,8 +1101,7 @@ package
                     cursorY += rowBounds.height + TOOLTIP_COMPACT_ROW_GAP;
                 }
 
-                if (prereqs.length == 0)
-                {
+                if (prereqs.length == 0) {
                     row = createTooltipTextRow(
                         resolveLockedBehindText(marker),
                         TOOLTIP_BODY_SIZE,
@@ -1241,8 +1123,7 @@ package
             rowBounds = row.getBounds(row);
             cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
 
-            if (singleProgressRow)
-            {
+            if (singleProgressRow) {
                 return section;
             }
 
@@ -1253,20 +1134,16 @@ package
             return section;
         }
 
-        private function resolveLockedBehindText(marker:Object):String
-        {
+        private function resolveLockedBehindText(marker:Object):String {
             var prereqNames:Array;
             var prereqText:String;
 
-            if (marker != null && marker.missingPrereqNames is Array)
-            {
+            if (marker != null && marker.missingPrereqNames is Array) {
                 prereqNames = marker.missingPrereqNames as Array;
-                if (prereqNames.length == 1)
-                {
+                if (prereqNames.length == 1) {
                     return String(prereqNames[0]);
                 }
-                if (prereqNames.length > 1)
-                {
+                if (prereqNames.length > 1) {
                     prereqText = prereqNames.join(", ");
                     return prereqText;
                 }
@@ -1275,8 +1152,7 @@ package
             return "missing prerequisites";
         }
 
-        private function createTooltipProgressRow(label:String, currentXp:Number, targetXp:Number):Sprite
-        {
+        private function createTooltipProgressRow(label:String, currentXp:Number, targetXp:Number):Sprite {
             var row:Sprite = new Sprite();
             var labelField:TextField;
             var percentField:TextField;
@@ -1286,24 +1162,20 @@ package
             var statusText:String;
             var rowHeight:Number;
 
-            if (targetXp <= 0)
-            {
+            if (targetXp <= 0) {
                 pct = 100;
                 missingXp = 0;
             }
-            else
-            {
+            else {
                 pct = int(Math.min(100, currentXp * 100 / targetXp));
                 missingXp = Math.max(0, targetXp - currentXp);
             }
 
-            if (missingXp <= 0)
-            {
+            if (missingXp <= 0) {
                 statusText = "ready for research";
                 statusField = makeTooltipRowField(statusText, TOOLTIP_BODY_SIZE, TOOLTIP_TEXT_COLOR, false);
             }
-            else
-            {
+            else {
                 statusField = makeTooltipHtmlRowField(
                     buildTooltipHighlightedHtml("", formatExactXpValue(missingXp), " XP left", true),
                     TOOLTIP_BODY_SIZE,
@@ -1333,8 +1205,7 @@ package
             return row;
         }
 
-        private function createTooltipTitleCostRow(marker:Object, costXp:Number):Sprite
-        {
+        private function createTooltipTitleCostRow(marker:Object, costXp:Number):Sprite {
             var row:Sprite = new Sprite();
             var icon:Sprite = null;
             var tooltipIconSize:Number = resolveMarkerTooltipIconSize(marker);
@@ -1351,28 +1222,23 @@ package
             var textBlockTop:Number;
             var titleX:Number = 0;
 
-            if (!shouldHideTooltipIcon(marker))
-            {
+            if (!shouldHideTooltipIcon(marker)) {
                 icon = createTooltipMarkerIconForMarker(marker, marker != null && marker.label !== undefined ? String(marker.label) : "?", tooltipIconSize, tooltipIconLayoutWidth);
             }
-            else
-            {
+            else {
                 icon = createTransparentTooltipIconPlaceholder(tooltipIconSize, tooltipIconLayoutWidth);
             }
 
-            if (icon != null)
-            {
+            if (icon != null) {
                 row.addChild(icon);
                 titleX = tooltipIconLayoutWidth + TOOLTIP_ICON_GAP;
             }
 
-            if (isT11Marker(marker))
-            {
+            if (isT11Marker(marker)) {
                 titleX += 5;
             }
 
-            if (isEliteMarker(marker))
-            {
+            if (isEliteMarker(marker)) {
                 titleX += 10;
             }
 
@@ -1383,8 +1249,7 @@ package
             row.addChild(costField);
 
             rowHeight = Math.max(tooltipIconSize, Math.max(titleField.height, costField.height));
-            if (icon != null)
-            {
+            if (icon != null) {
                 icon.y = Math.round((rowHeight - tooltipIconSize) / 2);
             }
             textBlockHeight = Math.max(titleField.height, costField.height);
@@ -1395,12 +1260,10 @@ package
             return row;
         }
 
-        private function isT11Marker(marker:Object):Boolean
-        {
+        private function isT11Marker(marker:Object):Boolean {
             var markerId:String;
 
-            if (marker == null || marker.id === undefined || marker.id == null)
-            {
+            if (marker == null || marker.id === undefined || marker.id == null) {
                 return false;
             }
 
@@ -1408,12 +1271,10 @@ package
             return markerId.indexOf("t11_") == 0;
         }
 
-        private function isEliteMarker(marker:Object):Boolean
-        {
+        private function isEliteMarker(marker:Object):Boolean {
             var markerId:String;
 
-            if (marker == null || marker.id === undefined || marker.id == null)
-            {
+            if (marker == null || marker.id === undefined || marker.id == null) {
                 return false;
             }
 
@@ -1421,13 +1282,11 @@ package
             return markerId.indexOf("elite_") == 0;
         }
 
-        private function resolveMarkerTooltipTitle(marker:Object):String
-        {
+        private function resolveMarkerTooltipTitle(marker:Object):String {
             var markerName:String = resolveMarkerName(marker);
             var levelValue:*;
 
-            if (!isEliteMarker(marker) || marker == null || marker.level === undefined || marker.level == null)
-            {
+            if (!isEliteMarker(marker) || marker == null || marker.level === undefined || marker.level == null) {
                 return markerName;
             }
 
@@ -1435,25 +1294,21 @@ package
             return "Level " + String(levelValue) + ": " + markerName;
         }
 
-        private function resolveMarkerTooltipIconSize(marker:Object):Number
-        {
-            if (marker != null && marker.tooltipIconSize !== undefined && marker.tooltipIconSize != null)
-            {
+        private function resolveMarkerTooltipIconSize(marker:Object):Number {
+            if (marker != null && marker.tooltipIconSize !== undefined && marker.tooltipIconSize != null) {
                 return Number(marker.tooltipIconSize);
             }
 
             return TOOLTIP_ICON_SIZE;
         }
 
-        private function createTooltipIconTextRow(itemType:String, fallbackLabel:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite
-        {
+        private function createTooltipIconTextRow(itemType:String, fallbackLabel:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite {
             var row:Sprite = new Sprite();
             var icon:Sprite = createTooltipMarkerIcon(itemType, fallbackLabel, iconSize);
             var field:TextField = makeTooltipRowField(text, size, color, bold);
             var rowHeight:Number;
 
-            if (icon != null)
-            {
+            if (icon != null) {
                 row.addChild(icon);
             }
 
@@ -1461,16 +1316,14 @@ package
             row.addChild(field);
 
             rowHeight = Math.max(iconSize, field.height);
-            if (icon != null)
-            {
+            if (icon != null) {
                 icon.y = Math.round((rowHeight - iconSize) / 2);
             }
             field.y = Math.round((rowHeight - field.height) / 2);
             return row;
         }
 
-        private function createTransparentTooltipIconPlaceholder(iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite
-        {
+        private function createTransparentTooltipIconPlaceholder(iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
             var iconSprite:Sprite = new Sprite();
 
             iconSprite.graphics.beginFill(0xFFFFFF, 0.0);
@@ -1479,24 +1332,21 @@ package
             return iconSprite;
         }
 
-        private function createTooltipTextRow(text:String, size:int, color:uint, bold:Boolean):Sprite
-        {
+        private function createTooltipTextRow(text:String, size:int, color:uint, bold:Boolean):Sprite {
             var row:Sprite = new Sprite();
             var field:TextField = makeTooltipRowField(text, size, color, bold);
             row.addChild(field);
             return row;
         }
 
-        private function createTooltipMarkerIcon(itemType:String, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite
-        {
+        private function createTooltipMarkerIcon(itemType:String, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = getMarkerIconBitmapData(itemType);
             var iconBitmap:Bitmap;
             var scale:Number;
             var labelField:TextField;
 
-            if (bitmapData != null)
-            {
+            if (bitmapData != null) {
                 iconBitmap = new Bitmap(bitmapData);
                 iconBitmap.smoothing = true;
                 scale = iconSize / Math.max(iconBitmap.width, iconBitmap.height);
@@ -1517,16 +1367,14 @@ package
             return iconSprite;
         }
 
-        private function createTooltipMarkerIconForMarker(marker:Object, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite
-        {
+        private function createTooltipMarkerIconForMarker(marker:Object, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = getMarkerIconBitmapDataForMarker(marker);
             var iconBitmap:Bitmap;
             var scale:Number;
             var labelField:TextField;
 
-            if (bitmapData != null)
-            {
+            if (bitmapData != null) {
                 iconBitmap = new Bitmap(bitmapData);
                 iconBitmap.smoothing = true;
                 scale = iconSize / Math.max(iconBitmap.width, iconBitmap.height);
@@ -1547,8 +1395,7 @@ package
             return iconSprite;
         }
 
-        private function makeTooltipRowField(text:String, size:int, color:uint, bold:Boolean):TextField
-        {
+        private function makeTooltipRowField(text:String, size:int, color:uint, bold:Boolean):TextField {
             var field:TextField = makeTextField(color, size, bold);
             field.text = text;
             field.width = field.textWidth + 6;
@@ -1556,8 +1403,7 @@ package
             return field;
         }
 
-        private function makeTooltipHtmlRowField(html:String, size:int, color:uint, bold:Boolean):TextField
-        {
+        private function makeTooltipHtmlRowField(html:String, size:int, color:uint, bold:Boolean):TextField {
             var field:TextField = makeTextField(color, size, bold);
             field.htmlText = html;
             field.width = field.textWidth + 6;
@@ -1565,18 +1411,15 @@ package
             return field;
         }
 
-        private function buildTooltipHighlightedHtml(prefix:String, highlightedText:String, suffix:String, highlightBold:Boolean):String
-        {
+        private function buildTooltipHighlightedHtml(prefix:String, highlightedText:String, suffix:String, highlightBold:Boolean):String {
             var html:String = escapeHtml(prefix);
 
             html += "<font color='#" + formatHtmlColor(TOOLTIP_HIGHLIGHT_TEXT_COLOR) + "'>";
-            if (highlightBold)
-            {
+            if (highlightBold) {
                 html += "<b>";
             }
             html += escapeHtml(highlightedText);
-            if (highlightBold)
-            {
+            if (highlightBold) {
                 html += "</b>";
             }
             html += "</font>";
@@ -1584,93 +1427,76 @@ package
             return html;
         }
 
-        private function buildEliteStatusCounterHtml(text:String):String
-        {
+        private function buildEliteStatusCounterHtml(text:String):String {
             var suffix:String = " Base XP";
 
-            if (text == null)
-            {
+            if (text == null) {
                 return "";
             }
 
-            if (text.length > suffix.length && text.substr(text.length - suffix.length) == suffix)
-            {
+            if (text.length > suffix.length && text.substr(text.length - suffix.length) == suffix) {
                 return buildTooltipHighlightedHtml("", text.substr(0, text.length - suffix.length), suffix, true);
             }
 
             return escapeHtml(text);
         }
 
-        private function escapeHtml(text:String):String
-        {
-            if (text == null)
-            {
+        private function escapeHtml(text:String):String {
+            if (text == null) {
                 return "";
             }
 
             return text.split("&").join("&amp;").split("<").join("&lt;").split(">") .join("&gt;");
         }
 
-        private function formatHtmlColor(color:uint):String
-        {
+        private function formatHtmlColor(color:uint):String {
             var hex:String = color.toString(16).toUpperCase();
 
-            while (hex.length < 6)
-            {
+            while (hex.length < 6) {
                 hex = "0" + hex;
             }
 
             return hex;
         }
 
-        private function resolveTooltipItemLabel(item:Object):String
-        {
-            if (item != null && item.name !== undefined && item.name != null && String(item.name).length > 0)
-            {
+        private function resolveTooltipItemLabel(item:Object):String {
+            if (item != null && item.name !== undefined && item.name != null && String(item.name).length > 0) {
                 return String(item.name);
             }
 
-            if (item != null && item.item_type !== undefined)
-            {
+            if (item != null && item.item_type !== undefined) {
                 return resolveMarkerName({itemType: item.item_type});
             }
 
             return resolveMarkerName(null);
         }
 
-        private function resolveMarkerName(marker:Object):String
-        {
+        private function resolveMarkerName(marker:Object):String {
             var explicitName:String;
             var itemType:String;
 
-            if (marker != null && marker.name !== undefined && marker.name != null)
-            {
+            if (marker != null && marker.name !== undefined && marker.name != null) {
                 explicitName = String(marker.name);
-                if (explicitName.length > 0)
-                {
+                if (explicitName.length > 0) {
                     return explicitName;
                 }
             }
 
             itemType = marker != null && marker.itemType !== undefined ? String(marker.itemType) : "unknown";
-            if (MARKER_TYPE_NAMES.hasOwnProperty(itemType))
-            {
+            if (MARKER_TYPE_NAMES.hasOwnProperty(itemType)) {
                 return String(MARKER_TYPE_NAMES[itemType]);
             }
 
             return String(MARKER_TYPE_NAMES.unknown);
         }
 
-        private function resolveMarkerDebugText(marker:Object):String
-        {
+        private function resolveMarkerDebugText(marker:Object):String {
             var parts:Array = [];
             var slotCategory:String;
 
-            if (marker != null && marker.debugSlotCategory !== undefined && marker.debugSlotCategory != null)
-            {
+            if (marker != null && marker.debugSlotCategory !== undefined && marker.debugSlotCategory != null) {
                 slotCategory = String(marker.debugSlotCategory);
-                if (slotCategory.length > 0 && slotCategory != "universal")
-                {
+                if (slotCategory.length > 0 && slotCategory != "universal") {
                     parts.push("slot: " + slotCategory);
                 }
             }
@@ -1678,21 +1504,18 @@ package
             return parts.join(" | ");
         }
 
-        private function createMarkerIcon(marker:Object, markerTopY:Number):Bitmap
-        {
+        private function createMarkerIcon(marker:Object, markerTopY:Number):Bitmap {
             var bitmapData:BitmapData = getMarkerBarIconBitmapDataForMarker(marker);
             var iconSize:Number;
             var icon:Bitmap;
             var scale:Number;
             var yOffset:Number;
 
-            if (shouldHideBarIcon(marker))
-            {
+            if (shouldHideBarIcon(marker)) {
                 return null;
             }
 
-            if (bitmapData == null)
-            {
+            if (bitmapData == null) {
                 return null;
             }
 
@@ -1708,57 +1531,46 @@ package
             return icon;
         }
 
-        private function getMarkerBarIconBitmapDataForMarker(marker:Object):BitmapData
-        {
+        private function getMarkerBarIconBitmapDataForMarker(marker:Object):BitmapData {
             var barItemType:String;
 
             barItemType = resolveMarkerBarItemType(marker);
-            if (barItemType.length > 0)
-            {
+            if (barItemType.length > 0) {
                 return getMarkerIconBitmapData(barItemType);
             }
 
             return getMarkerIconBitmapDataForMarker(marker);
         }
 
-        private function resolveMarkerBarItemType(marker:Object):String
-        {
+        private function resolveMarkerBarItemType(marker:Object):String {
             var itemType:String;
             var iconCacheKey:String;
             var cacheParts:Array;
 
-            if (marker == null)
-            {
+            if (marker == null) {
                 return "";
             }
 
-            if (marker.barItemType !== undefined && marker.barItemType != null)
-            {
+            if (marker.barItemType !== undefined && marker.barItemType != null) {
                 return String(marker.barItemType);
             }
 
-            if (marker.debugCategory !== undefined && marker.debugCategory != null)
-            {
+            if (marker.debugCategory !== undefined && marker.debugCategory != null) {
                 return String(marker.debugCategory);
             }
 
-            if (marker.itemType !== undefined && marker.itemType != null)
-            {
+            if (marker.itemType !== undefined && marker.itemType != null) {
                 itemType = String(marker.itemType);
-                if (itemType != "unknown")
-                {
+                if (itemType != "unknown") {
                     return itemType;
                 }
             }
 
-            if (marker.iconCacheKey !== undefined && marker.iconCacheKey != null)
-            {
+            if (marker.iconCacheKey !== undefined && marker.iconCacheKey != null) {
                 iconCacheKey = String(marker.iconCacheKey);
-                if (iconCacheKey.indexOf("t11:") == 0)
-                {
+                if (iconCacheKey.indexOf("t11:") == 0) {
                     cacheParts = iconCacheKey.split(":");
-                    if (cacheParts.length >= 3)
-                    {
+                    if (cacheParts.length >= 3) {
                         return String(cacheParts[1]);
                     }
                 }
@@ -1767,73 +1579,59 @@ package
             return "";
         }
 
-        private function getMarkerIconBitmapDataForMarker(marker:Object):BitmapData
-        {
+        private function getMarkerIconBitmapDataForMarker(marker:Object):BitmapData {
             return getMarkerIconBitmapDataByKey(resolveMarkerIconKey(marker), resolveMarkerIconPaths(marker));
         }
 
-        private function getEmbeddedMarkerIconBitmapData(itemType:String):BitmapData
-        {
-            if (itemType == null || !MARKER_ICON_EMBEDDED.hasOwnProperty(itemType))
-            {
+        private function getEmbeddedMarkerIconBitmapData(itemType:String):BitmapData {
+            if (itemType == null || !MARKER_ICON_EMBEDDED.hasOwnProperty(itemType)) {
                 return null;
             }
             var assetClass:Class = MARKER_ICON_EMBEDDED[itemType] as Class;
-            if (assetClass == null)
-            {
+            if (assetClass == null) {
                 return null;
             }
             var assetBitmap:Bitmap = new assetClass() as Bitmap;
-            if (assetBitmap == null)
-            {
+            if (assetBitmap == null) {
                 return null;
             }
             return assetBitmap.bitmapData;
         }
 
-        private function getMarkerIconBitmapData(itemType:String):BitmapData
-        {
+        private function getMarkerIconBitmapData(itemType:String):BitmapData {
             var embedded:BitmapData = getEmbeddedMarkerIconBitmapData(itemType);
-            if (embedded != null)
-            {
+            if (embedded != null) {
                 return embedded;
             }
             return getMarkerIconBitmapDataByKey(itemType != null ? itemType : "", getMarkerIconPaths(itemType));
         }
 
-        private function getMarkerIconBitmapDataByKey(iconKey:String, paths:Array):BitmapData
-        {
+        private function getMarkerIconBitmapDataByKey(iconKey:String, paths:Array):BitmapData {
             var normalizedType:String = iconKey != null ? iconKey : "";
             var embeddedBitmapData:BitmapData;
 
             embeddedBitmapData = getEmbeddedMarkerIconBitmapData(normalizedType);
-            if (embeddedBitmapData != null)
-            {
+            if (embeddedBitmapData != null) {
                 return embeddedBitmapData;
             }
 
-            if (_markerIconBitmapByType.hasOwnProperty(normalizedType))
-            {
+            if (_markerIconBitmapByType.hasOwnProperty(normalizedType)) {
                 return _markerIconBitmapByType[normalizedType] as BitmapData;
             }
 
-            if (_markerIconLoadStateByType[normalizedType] === "failed")
-            {
+            if (_markerIconLoadStateByType[normalizedType] === "failed") {
                 return null;
             }
 
-            if (_markerIconLoadStateByType[normalizedType] !== "loading")
-            {
+            if (_markerIconLoadStateByType[normalizedType] !== "loading") {
                 beginMarkerIconLoad(normalizedType, paths);
             }
 
             return null;
         }
 
-        private function beginMarkerIconLoad(iconKey:String, paths:Array):void
-        {
-            if (paths == null || paths.length == 0)
-            {
+        private function beginMarkerIconLoad(iconKey:String, paths:Array):void {
+            if (paths == null || paths.length == 0) {
                 _markerIconLoadStateByType[iconKey] = "failed";
                 return;
             }
@@ -1842,15 +1640,13 @@ package
             loadMarkerIconCandidate(iconKey, paths, 0);
         }
 
-        private function loadMarkerIconCandidate(iconKey:String, paths:Array, pathIndex:int):void
-        {
+        private function loadMarkerIconCandidate(iconKey:String, paths:Array, pathIndex:int):void {
             var path:String;
             var loader:Loader;
             var onComplete:Function;
             var onError:Function;
 
-            if (paths == null || pathIndex >= paths.length)
-            {
+            if (paths == null || pathIndex >= paths.length) {
                 _markerIconLoadStateByType[iconKey] = "failed";
                 return;
             }
@@ -1858,51 +1654,41 @@ package
             path = String(paths[pathIndex]);
             loader = new Loader();
 
-            onComplete = function(event:Event):void
-            {
+            onComplete = function(event:Event):void {
                 var loadedBitmap:Bitmap = loader.content as Bitmap;
 
                 loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onComplete);
                 loader.contentLoaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
 
-                if (loadedBitmap != null && loadedBitmap.bitmapData != null)
-                {
+                if (loadedBitmap != null && loadedBitmap.bitmapData != null) {
                     _markerIconBitmapByType[iconKey] = loadedBitmap.bitmapData.clone();
                     _markerIconLoadStateByType[iconKey] = "ready";
-                    try
-                    {
+                    try {
                         loader.unload();
                     }
-                    catch (error:Error)
-                    {
+                    catch (error:Error) {
                     }
-                    if (_isReady && _context != null)
-                    {
+                    if (_isReady && _context != null) {
                         updateBarFromContext();
                     }
                     return;
                 }
 
-                try
-                {
+                try {
                     loader.unload();
                 }
-                catch (error2:Error)
-                {
+                catch (error2:Error) {
                 }
                 loadMarkerIconCandidate(iconKey, paths, pathIndex + 1);
             };
 
-            onError = function(event:IOErrorEvent):void
-            {
+            onError = function(event:IOErrorEvent):void {
                 loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onComplete);
                 loader.contentLoaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
-                try
-                {
+                try {
                     loader.unload();
                 }
-                catch (error:Error)
-                {
+                catch (error:Error) {
                 }
                 loadMarkerIconCandidate(iconKey, paths, pathIndex + 1);
             };
@@ -1910,31 +1696,25 @@ package
             loader.contentLoaderInfo.addEventListener(Event.COMPLETE, onComplete, false, 0, true);
             loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onError, false, 0, true);
 
-            try
-            {
+            try {
                 loader.load(new URLRequest(path));
             }
-            catch (error:Error)
-            {
+            catch (error:Error) {
                 loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onComplete);
                 loader.contentLoaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
                 loadMarkerIconCandidate(iconKey, paths, pathIndex + 1);
             }
         }
 
-        private function resolveMarkerIconKey(marker:Object):String
-        {
+        private function resolveMarkerIconKey(marker:Object):String {
             var customPaths:Array = marker != null && marker.iconPaths is Array ? marker.iconPaths as Array : null;
             var cacheKey:String;
             var itemType:String;
 
-            if (customPaths != null && customPaths.length > 0)
-            {
-                if (marker != null && marker.iconCacheKey !== undefined && marker.iconCacheKey != null)
-                {
+            if (customPaths != null && customPaths.length > 0) {
+                if (marker != null && marker.iconCacheKey !== undefined && marker.iconCacheKey != null) {
                     cacheKey = String(marker.iconCacheKey);
-                    if (cacheKey.length > 0)
-                    {
+                    if (cacheKey.length > 0) {
                         return cacheKey;
                     }
                 }
@@ -1945,26 +1725,21 @@ package
             return itemType;
         }
 
-        private function resolveMarkerIconPaths(marker:Object):Array
-        {
+        private function resolveMarkerIconPaths(marker:Object):Array {
             var combined:Array = [];
             var customPaths:Array = marker != null && marker.iconPaths is Array ? marker.iconPaths as Array : null;
             var itemType:String = marker != null && marker.itemType !== undefined ? String(marker.itemType) : "";
             var fallbackPaths:Array = getMarkerIconPaths(itemType);
             var i:int;
 
-            if (customPaths != null)
-            {
-                for (i = 0; i < customPaths.length; i++)
-                {
+            if (customPaths != null) {
+                for (i = 0; i < customPaths.length; i++) {
                     combined.push(customPaths[i]);
                 }
             }
 
-            if (fallbackPaths != null)
-            {
-                for (i = 0; i < fallbackPaths.length; i++)
-                {
+            if (fallbackPaths != null) {
+                for (i = 0; i < fallbackPaths.length; i++) {
                     combined.push(fallbackPaths[i]);
                 }
             }
@@ -1972,21 +1747,17 @@ package
             return combined.length > 0 ? combined : null;
         }
 
-        private function getMarkerIconPaths(itemType:String):Array
-        {
-            if (itemType == null || itemType.length == 0 || !MARKER_ICON_PATHS.hasOwnProperty(itemType))
-            {
+        private function getMarkerIconPaths(itemType:String):Array {
+            if (itemType == null || itemType.length == 0 || !MARKER_ICON_PATHS.hasOwnProperty(itemType)) {
                 return null;
             }
 
             return MARKER_ICON_PATHS[itemType] as Array;
         }
 
-        private function drawMask(shape:Shape, posX:Number, posY:Number, width:Number, height:Number):void
-        {
+        private function drawMask(shape:Shape, posX:Number, posY:Number, width:Number, height:Number):void {
             shape.graphics.clear();
-            if (width <= 0 || height <= 0)
-            {
+            if (width <= 0 || height <= 0) {
                 return;
             }
             shape.graphics.beginFill(0xFFFFFF, 1.0);
@@ -1994,20 +1765,17 @@ package
             shape.graphics.endFill();
         }
 
-        private function layoutFromStage():void
-        {
+        private function layoutFromStage():void {
             x = 0;
             y = 0;
-            if (stage == null)
-            {
+            if (stage == null) {
                 _barWidth = MIN_BAR_WIDTH;
                 return;
             }
             _barWidth = Math.max(MIN_BAR_WIDTH, stage.stageWidth - SIDE_MARGIN * 2);
         }
 
-        private function positionLabels():void
-        {
+        private function positionLabels():void {
             var rightEdge:Number = SIDE_MARGIN + _barWidth;
             var counterX:Number = rightEdge + COUNTER_GAP;
             var counterCaptionX:Number = counterX + COUNTER_VALUE_WIDTH + COUNTER_TEXT_GAP;
@@ -2017,8 +1785,7 @@ package
             var sideCaptionX:Number = sideCaptionRightX - COUNTER_CAPTION_WIDTH;
             var eliteStatusX:Number = SIDE_MARGIN - COUNTER_GAP - ELITE_STATUS_WIDTH;
 
-            if (_activeCounterLayout == COUNTER_LAYOUT_RIGHT_SINGLE)
-            {
+            if (_activeCounterLayout == COUNTER_LAYOUT_RIGHT_SINGLE) {
                 totalPercentLabel.x = counterX;
                 totalPercentLabel.y = resolveCenteredTextY(totalPercentLabel, TOP_MARGIN, BAR_HEIGHT);
 
@@ -2027,8 +1794,7 @@ package
                 return;
             }
 
-            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS)
-            {
+            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS) {
                 combatPercentLabel.x = eliteStatusX;
                 combatPercentLabel.y = TOP_MARGIN - combatPercentLabel.height - 1;
 
@@ -2062,43 +1828,35 @@ package
             sideCounterCaption.y = sideCounterLabel.y;
         }
 
-        private function resolveCenteredTextY(field:TextField, containerTop:Number, containerHeight:Number):Number
-        {
+        private function resolveCenteredTextY(field:TextField, containerTop:Number, containerHeight:Number):Number {
             return containerTop + Math.round((containerHeight - field.textHeight) / 2) - 2;
         }
 
-        private function createBitmap(assetClass:Class):Bitmap
-        {
+        private function createBitmap(assetClass:Class):Bitmap {
             var bitmap:Bitmap = new assetClass() as Bitmap;
             bitmap.smoothing = true;
             return bitmap;
         }
 
-        private function numberValue(value:*, fallback:Number):Number
-        {
+        private function numberValue(value:*, fallback:Number):Number {
             var parsed:Number = Number(value);
-            if (isNaN(parsed))
-            {
+            if (isNaN(parsed)) {
                 return fallback;
             }
             return parsed;
         }
 
-        private function clamp(value:Number, minValue:Number, maxValue:Number):Number
-        {
-            if (value < minValue)
-            {
+        private function clamp(value:Number, minValue:Number, maxValue:Number):Number {
+            if (value < minValue) {
                 return minValue;
             }
-            if (value > maxValue)
-            {
+            if (value > maxValue) {
                 return maxValue;
             }
             return value;
         }
 
-        private function makeMarkerLabelField(text:String, markerTopY:Number):TextField
-        {
+        private function makeMarkerLabelField(text:String, markerTopY:Number):TextField {
             var field:TextField = makeTextField(LABEL_COLOR, 16, true);
             alignTextField(field, TextFormatAlign.CENTER);
             field.width = 48;
@@ -2109,8 +1867,7 @@ package
             return field;
         }
 
-        private function makeCounterField():TextField
-        {
+        private function makeCounterField():TextField {
             var field:TextField = makeTextField(LABEL_COLOR, 13, true);
             alignTextField(field, TextFormatAlign.RIGHT);
             field.width = COUNTER_VALUE_WIDTH;
@@ -2118,8 +1875,7 @@ package
             return field;
         }
 
-        private function makeCounterCaptionField(text:String):TextField
-        {
+        private function makeCounterCaptionField(text:String):TextField {
             var field:TextField = makeTextField(MARKER_VALUE_COLOR, 13, false);
             alignTextField(field, TextFormatAlign.LEFT);
             field.width = COUNTER_CAPTION_WIDTH;
@@ -2128,8 +1884,7 @@ package
             return field;
         }
 
-        private function alignTextField(field:TextField, alignment:String):void
-        {
+        private function alignTextField(field:TextField, alignment:String):void {
             var format:TextFormat = field.defaultTextFormat;
 
             format.align = alignment;
@@ -2137,50 +1892,42 @@ package
             field.setTextFormat(format);
         }
 
-        private function formatExactXpValue(value:Number):String
-        {
+        private function formatExactXpValue(value:Number):String {
             var integerValue:int = Math.round(value);
             var text:String = Math.abs(integerValue).toString();
             var parts:Array = [];
 
-            while (text.length > 3)
-            {
+            while (text.length > 3) {
                 parts.unshift(text.substr(text.length - 3));
                 text = text.substr(0, text.length - 3);
             }
 
-            if (text.length > 0)
-            {
+            if (text.length > 0) {
                 parts.unshift(text);
             }
 
             text = parts.join(" ");
-            if (integerValue < 0)
-            {
+            if (integerValue < 0) {
                 text = "-" + text;
             }
 
             return text;
         }
 
-        private function formatCompactValue(value:Number, suffix:String):String
-        {
+        private function formatCompactValue(value:Number, suffix:String):String {
             var absValue:Number = Math.abs(value);
             var decimals:int;
             var precision:Number;
             var rounded:Number;
             var text:String;
 
-            if (absValue < 10)
-            {
+            if (absValue < 10) {
                 decimals = 2;
             }
-            else if (absValue < 100)
-            {
+            else if (absValue < 100) {
                 decimals = 1;
             }
-            else
-            {
+            else {
                 decimals = 0;
             }
 
@@ -2188,16 +1935,14 @@ package
             rounded = Math.round(value * precision) / precision;
             text = rounded.toFixed(decimals);
 
-            while (text.indexOf(".") != -1 && (text.charAt(text.length - 1) == "0" || text.charAt(text.length - 1) == "."))
-            {
+            while (text.indexOf(".") != -1 && (text.charAt(text.length - 1) == "0" || text.charAt(text.length - 1) == ".")) {
                 text = text.substr(0, text.length - 1);
             }
 
             return text + suffix;
         }
 
-        private function makeTextField(color:uint, size:int, bold:Boolean):TextField
-        {
+        private function makeTextField(color:uint, size:int, bold:Boolean):TextField {
             var field:TextField = new TextField();
             field.defaultTextFormat = new TextFormat("_sans", size, color, bold);
             field.selectable = false;

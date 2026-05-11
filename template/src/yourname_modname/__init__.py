@@ -1,1 +1,0 @@
-"""Internal package for the template mod."""

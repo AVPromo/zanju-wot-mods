@@ -8,14 +8,14 @@ Usage:
 Output: dist/<mod-id>_<version>.wotmod
 
 Optional prebuild hooks:
-- If mods/<name>/ui-src/compile_ui.py exists, it is run before packaging that mod.
-- Generated packaged assets should land under mods/<name>/ui-src/build/res/.
-- build.py stages both mods/<name>/res/ and generated ui-src/build/res/ into the final archive.
+- If mods/<name>/ui/compile_ui.py exists, it is run before packaging that mod.
+- Generated packaged assets should land under mods/<name>/ui/build/res/.
+- build.py stages both mods/<name>/res/ and generated ui/build/res/ into the final archive.
 
 Internal .wotmod layout:
     meta.xml
     res/scripts/client/gui/mods/<file>.pyc  (compiled from mods/<name>/src/)
-    res/...                                 (from mods/<name>/res/ plus generated ui-src/build/res/)
+    res/...                                 (from mods/<name>/res/ plus generated ui/build/res/)
 
 Additional release output:
     dist/<mod-id>_<version>/README.txt
@@ -25,8 +25,9 @@ Additional release output:
 Config files are NOT bundled.
 Ship them separately to: <WoT install>/mods/configs/<mod-folder-name>/
 
-Note: the template/ directory is a scaffold for new mods — it is not built here.
-Copy it to mods/<new-mod-name>/ to start a new mod.
+Optional authored source layout:
+    mods/<name>/config.json                →  mods/configs/<mod-folder-name>/config.json
+    mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml
 """
 
 import os
@@ -71,7 +72,7 @@ def compile_py2_to_pyc(py2_exe, src_path, out_pyc_path):
 
 
 def run_optional_prebuild(mod_dir):
-    hook_path = os.path.join(mod_dir, 'ui-src', 'compile_ui.py')
+    hook_path = os.path.join(mod_dir, 'ui', 'compile_ui.py')
     if not os.path.isfile(hook_path):
         return
 
@@ -108,9 +109,71 @@ def copy_tree_contents(src_dir, dst_dir):
             shutil.copy2(src_path, dst_path)
 
 
-def stage_resource_trees(mod_dir, staged_res_dir):
+def copy_file(src_path, dst_path):
+    dst_parent = os.path.dirname(dst_path)
+    if dst_parent:
+        os.makedirs(dst_parent, exist_ok=True)
+    shutil.copy2(src_path, dst_path)
+
+
+def directory_has_entries(path):
+    return os.path.isdir(path) and bool(os.listdir(path))
+
+
+def resolve_config_source(mod_dir):
+    flat_config_path = os.path.join(mod_dir, 'config.json')
+    legacy_config_dir = os.path.join(mod_dir, 'config')
+
+    has_flat_config = os.path.isfile(flat_config_path)
+    has_legacy_config_dir = directory_has_entries(legacy_config_dir)
+
+    if has_flat_config and has_legacy_config_dir:
+        raise RuntimeError(
+            '{} defines both config.json and config/; keep exactly one config source.'.format(
+                os.path.basename(mod_dir)
+            )
+        )
+    if has_flat_config:
+        return 'file', flat_config_path
+    if has_legacy_config_dir:
+        return 'dir', legacy_config_dir
+    return None
+
+
+def stage_i18n_resources(mod_dir, mod_id, staged_res_dir):
+    i18n_dir = os.path.join(mod_dir, 'i18n')
+    if not os.path.isdir(i18n_dir):
+        return
+
+    legacy_text_dir = os.path.join(mod_dir, 'res', 'mods', mod_id, 'text')
+    if directory_has_entries(legacy_text_dir):
+        raise RuntimeError(
+            '{} defines both i18n/ and res/mods/{}/text/; keep exactly one localisation source.'.format(
+                os.path.basename(mod_dir),
+                mod_id,
+            )
+        )
+
+    copy_tree_contents(i18n_dir, os.path.join(staged_res_dir, 'mods', mod_id, 'text'))
+
+
+def stage_resource_trees(mod_dir, mod_id, staged_res_dir):
     copy_tree_contents(os.path.join(mod_dir, 'res'), staged_res_dir)
-    copy_tree_contents(os.path.join(mod_dir, 'ui-src', 'build', 'res'), staged_res_dir)
+    stage_i18n_resources(mod_dir, mod_id, staged_res_dir)
+    copy_tree_contents(os.path.join(mod_dir, 'ui', 'build', 'res'), staged_res_dir)
+
+
+def copy_config_source(mod_dir, dst_config_dir):
+    config_source = resolve_config_source(mod_dir)
+    if not config_source:
+        return None
+
+    source_kind, source_path = config_source
+    if source_kind == 'dir':
+        copy_tree_contents(source_path, dst_config_dir)
+    else:
+        copy_file(source_path, os.path.join(dst_config_dir, 'config.json'))
+    return source_path
 
 
 def write_release_readme(readme_path, archive_name, mod_name, wot_client_version):
@@ -148,10 +211,12 @@ def create_release_bundle(mod_dir, mod_name, meta, output_path):
     os.makedirs(package_dir, exist_ok=True)
     shutil.copy2(output_path, os.path.join(package_dir, archive_name))
 
-    config_dir = os.path.join(mod_dir, 'config')
-    if os.path.isdir(config_dir):
+    config_source_path = copy_config_source(
+        mod_dir,
+        os.path.join(bundle_root, 'mods', 'configs', mod_name),
+    )
+    if config_source_path:
         bundle_config_dir = os.path.join(bundle_root, 'mods', 'configs', mod_name)
-        copy_tree_contents(config_dir, bundle_config_dir)
 
     write_release_readme(
         os.path.join(bundle_root, 'README.txt'),
@@ -219,7 +284,7 @@ def build_mod(mod_name, py2_exe):
 
             # Stage packaged resources from committed source plus generated build output.
             staged_res_dir = os.path.join(temp_dir, 'staged_res')
-            stage_resource_trees(mod_dir, staged_res_dir)
+            stage_resource_trees(mod_dir, mod_id, staged_res_dir)
             if os.path.isdir(staged_res_dir):
                 for dirpath, dirnames, filenames in os.walk(staged_res_dir):
                     dirnames[:] = sorted(dirnames)
@@ -235,10 +300,11 @@ def build_mod(mod_name, py2_exe):
     release_bundle_dir = create_release_bundle(mod_dir, mod_name, meta, output_path)
     print('  Release bundle: {}'.format(release_bundle_dir))
 
-    config_dir = os.path.join(mod_dir, 'config')
-    if os.path.isdir(config_dir):
+    config_source = resolve_config_source(mod_dir)
+    if config_source:
+        _, config_source_path = config_source
         print('  Config (ship separately):')
-        print('    Source: {}'.format(config_dir))
+        print('    Source: {}'.format(config_source_path))
         print('    Deploy to: <WoT install>/mods/configs/{}/'.format(mod_name))
 
     return True

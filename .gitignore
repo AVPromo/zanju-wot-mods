@@ -4,4 +4,4 @@ __pycache__/
 *.py[cod]
 dist/
 .tmp/
-mods/*/ui-src/build/
+mods/*/ui/build/

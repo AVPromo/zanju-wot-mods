@@ -110,6 +110,37 @@ def copy_tree_contents(src_dir, dst_dir):
             shutil.copy2(src_path, dst_path)
 
 
+def copy_file(src_path, dst_path):
+    dst_parent = os.path.dirname(dst_path)
+    if dst_parent:
+        os.makedirs(dst_parent, exist_ok=True)
+    shutil.copy2(src_path, dst_path)
+
+
+def directory_has_entries(path):
+    return os.path.isdir(path) and bool(os.listdir(path))
+
+
+def resolve_config_source(mod_dir):
+    flat_config_path = os.path.join(mod_dir, 'config.json')
+    legacy_config_dir = os.path.join(mod_dir, 'config')
+
+    has_flat_config = os.path.isfile(flat_config_path)
+    has_legacy_config_dir = directory_has_entries(legacy_config_dir)
+
+    if has_flat_config and has_legacy_config_dir:
+        raise RuntimeError(
+            '{} defines both config.json and config/; keep exactly one config source.'.format(
+                os.path.basename(mod_dir)
+            )
+        )
+    if has_flat_config:
+        return 'file', flat_config_path
+    if has_legacy_config_dir:
+        return 'dir', legacy_config_dir
+    return None
+
+
 def deploy_mod(game_dir, mod_name, target_wot_version):
     meta = read_meta(mod_name)
     mod_id = meta['id']
@@ -132,10 +163,14 @@ def deploy_mod(game_dir, mod_name, target_wot_version):
     except PermissionError:
         print('SKIP package (in use): {}'.format(dst_archive))
 
-    src_config_dir = os.path.join(MODS_DIR, mod_name, 'config')
-    if os.path.isdir(src_config_dir):
+    config_source = resolve_config_source(os.path.join(MODS_DIR, mod_name))
+    if config_source:
         dst_config_dir = os.path.join(game_dir, 'mods', 'configs', mod_name)
-        copy_tree_contents(src_config_dir, dst_config_dir)
+        source_kind, source_path = config_source
+        if source_kind == 'dir':
+            copy_tree_contents(source_path, dst_config_dir)
+        else:
+            copy_file(source_path, os.path.join(dst_config_dir, 'config.json'))
         print('Deployed config:  {}'.format(dst_config_dir))
 
 

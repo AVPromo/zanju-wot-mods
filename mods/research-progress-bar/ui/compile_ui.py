@@ -16,7 +16,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--source-file',
-        default=os.path.join(SCRIPT_DIR, 'src', 'ResearchProgressBarLobby.as'),
+        default=os.path.join(SCRIPT_DIR, 'ResearchProgressBarLobby.as'),
         help='Path to the ActionScript entrypoint.',
     )
     parser.add_argument(
@@ -25,14 +25,14 @@ def parse_args(argv=None):
         help='Path to the compiled SWF output.',
     )
     parser.add_argument(
-        '--stub-source-dir',
-        default=os.path.join(SCRIPT_DIR, 'stubs-src'),
-        help='Directory containing local ActionScript stub sources.',
+        '--api-source-dir',
+        default=os.path.join(SCRIPT_DIR, 'wot-api'),
+        help='Directory containing local ActionScript WoT API mirror sources.',
     )
     parser.add_argument(
-        '--stub-swc',
-        default=os.path.join(SCRIPT_DIR, 'build', 'wot-stubs.swc'),
-        help='Path to the generated stub SWC.',
+        '--api-swc',
+        default=os.path.join(SCRIPT_DIR, 'build', 'wot-api.swc'),
+        help='Path to the generated WoT API mirror SWC.',
     )
     parser.add_argument(
         '--target-player',
@@ -66,19 +66,19 @@ def main(argv=None):
 
     source_dir = os.path.dirname(os.path.abspath(args.source_file))
     output_dir = os.path.dirname(os.path.abspath(args.output_file))
-    stub_dir = os.path.dirname(os.path.abspath(args.stub_swc))
+    api_dir = os.path.dirname(os.path.abspath(args.api_swc))
 
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(stub_dir, exist_ok=True)
+    os.makedirs(api_dir, exist_ok=True)
 
-    stub_arguments = [
+    api_arguments = [
         compc,
         '-output',
-        os.path.abspath(args.stub_swc),
-        '-source-path={}'.format(os.path.abspath(args.stub_source_dir)),
-        '-include-sources={}'.format(os.path.abspath(args.stub_source_dir)),
+        os.path.abspath(args.api_swc),
+        '-source-path={}'.format(os.path.abspath(args.api_source_dir)),
+        '-include-sources={}'.format(os.path.abspath(args.api_source_dir)),
     ]
-    run_cmd(stub_arguments)
+    run_cmd(api_arguments)
 
     arguments = [
         mxmlc,
@@ -86,7 +86,7 @@ def main(argv=None):
         os.path.abspath(args.output_file),
         '-source-path',
         source_dir,
-        '-external-library-path+={}'.format(os.path.abspath(args.stub_swc)),
+        '-external-library-path+={}'.format(os.path.abspath(args.api_swc)),
         '-static-link-runtime-shared-libraries=true',
         '-target-player={}'.format(args.target_player),
         '-swf-version={}'.format(args.swf_version),
