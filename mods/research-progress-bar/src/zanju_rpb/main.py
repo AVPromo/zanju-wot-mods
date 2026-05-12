@@ -55,6 +55,11 @@ from skeletons.gui.shared import IItemsCache
 _logger = logging.getLogger('zanju.researchprogressbar')
 _lobby_state_logger = logging.getLogger('gui.lobby_state_machine.lobby_state_machine')
 
+try:
+    _STRING_TYPES = (basestring,)
+except NameError:
+    _STRING_TYPES = (str,)
+
 # ---------------------------------------------------------------------------
 # Config defaults — overridden by _load_config() at startup
 # ---------------------------------------------------------------------------
@@ -111,6 +116,13 @@ _T11_UI_NAME_HOOK_SPECS = (
 _t11_ui_name_cache = {}
 _t11_ui_name_hook_records = []
 _t11_ui_name_probe_miss_count = 0
+_LAYOUT_REFRESH_VIEW_ALIASES = frozenset((
+    'lobbyMenu',
+    'settingsWindow',
+    'simpleDialog',
+))
+_LAYOUT_REFRESH_RETRY_DELAY = 1.0
+_LAYOUT_REFRESH_RETRY_COUNT = 8
 
 
 def _load_config():
@@ -2025,6 +2037,11 @@ class _ScaleformGarageView(View):
             return self.flashObject.as_ping()
         return None
 
+    def as_refreshLayoutS(self):
+        if self._isDAAPIInited():
+            return self.flashObject.as_refreshLayout()
+        return None
+
     def _populate(self):
         super(_ScaleformGarageView, self)._populate()
         if _mod is not None:
@@ -2059,6 +2076,9 @@ class ResearchProgressBar(object):
         self._active = False
         self._pending_update_callback = None
         self._visibility_probe_callback = None
+        self._layout_refresh_callback = None
+        self._layout_refresh_attempts_remaining = 0
+        self._layout_refresh_reason = None
         self._update_in_progress = False
         self._t11_method_probe_offsets = {}
         self._scaleform_view = None
@@ -2209,6 +2229,7 @@ class ResearchProgressBar(object):
         self._active = False
         self._cancel_pending_update()
         self._cancel_visibility_probe()
+        self._cancel_layout_refresh_retry()
         self._detach_lobby_route_log_handler()
         _uninstall_t11_ui_name_hooks()
         g_currentPreviewVehicle.onChanged -= self._on_preview_vehicle_changed
@@ -2369,7 +2390,7 @@ class ResearchProgressBar(object):
         finally:
             self._scaleform_container_manager = None
 
-    def _get_active_view_alias(self, layer):
+    def _get_topmost_view_for_layer(self, layer):
         container_manager = self._scaleform_container_manager
         if container_manager is None:
             app = self._get_lobby_app()
@@ -2383,21 +2404,25 @@ class ResearchProgressBar(object):
                 return None
             get_topmost_view = getattr(container, 'getTopmostView', None)
             if callable(get_topmost_view):
-                view = get_topmost_view()
-            else:
-                view = None
-                num_children = getattr(container, 'numChildren', 0)
-                if callable(num_children):
-                    num_children = num_children()
-                get_child_at = getattr(container, 'getChildAt', None)
-                if view is None and callable(get_child_at) and num_children:
-                    view = get_child_at(num_children - 1)
-            if view is None:
-                return None
-            return self._get_view_alias(view)
+                return get_topmost_view()
+
+            view = None
+            num_children = getattr(container, 'numChildren', 0)
+            if callable(num_children):
+                num_children = num_children()
+            get_child_at = getattr(container, 'getChildAt', None)
+            if view is None and callable(get_child_at) and num_children:
+                view = get_child_at(num_children - 1)
+            return view
         except Exception:
-            _logger.exception('Failed to resolve active lobby view alias for layer=%s', layer)
+            _logger.exception('Failed to resolve topmost lobby view for layer=%s', layer)
             return None
+
+    def _get_active_view_alias(self, layer):
+        view = self._get_topmost_view_for_layer(layer)
+        if view is None:
+            return None
+        return self._get_view_alias(view)
 
     def _get_view_alias(self, view):
         if view is None:
@@ -2411,6 +2436,25 @@ class ResearchProgressBar(object):
                 if config_alias is not None:
                     alias = config_alias
         return alias
+
+    def _get_layout_wulf_view_alias(self, view):
+        alias = self._get_view_alias(view)
+        if alias:
+            return alias
+
+        for candidate in (getattr(view, '_View__key', None), getattr(view, '_View__settings', None)):
+            if candidate is None:
+                continue
+            for attr in ('alias', 'name'):
+                value = getattr(candidate, attr, None)
+                if value:
+                    return value
+            if isinstance(candidate, (list, tuple)) and candidate:
+                first = candidate[0]
+                if isinstance(first, _STRING_TYPES) and first:
+                    return first
+
+        return None
 
     def _get_scaleform_context(self, incoming_view=None):
         active_sub_view_alias = self._get_active_view_alias(WindowLayer.SUB_VIEW)
@@ -2520,8 +2564,65 @@ class ResearchProgressBar(object):
             self._scaleform_view.as_setVisibleS(is_visible)
             self._scaleform_view_visible = is_visible
             _logger.info('Scaleform garage view visibility -> %s (%s)', is_visible, reason)
+            if is_visible:
+                refresh_reason = 'visible:{0}'.format(reason)
+                self._refresh_scaleform_layout(refresh_reason)
+                self._schedule_layout_refresh_retry(refresh_reason)
         except Exception:
             _logger.exception('Failed to set scaleform garage view visibility=%s (%s)', is_visible, reason)
+
+    def _refresh_scaleform_layout(self, reason):
+        if self._scaleform_view is None:
+            return
+
+        try:
+            self._scaleform_view.as_refreshLayoutS()
+            _logger.info('Scaleform garage view layout refresh (%s)', reason)
+        except Exception:
+            _logger.exception('Failed to refresh scaleform garage view layout (%s)', reason)
+
+    def _cancel_layout_refresh_retry(self):
+        callback_id = self._layout_refresh_callback
+        self._layout_refresh_callback = None
+        self._layout_refresh_attempts_remaining = 0
+        self._layout_refresh_reason = None
+        if callback_id is None:
+            return
+        try:
+            BigWorld.cancelCallback(callback_id)
+        except Exception:
+            pass
+
+    def _schedule_layout_refresh_retry(self, reason):
+        if not self._active or self._scaleform_view is None:
+            return
+
+        self._cancel_layout_refresh_retry()
+        self._layout_refresh_reason = reason
+        self._layout_refresh_attempts_remaining = _LAYOUT_REFRESH_RETRY_COUNT
+        self._layout_refresh_callback = BigWorld.callback(
+            _LAYOUT_REFRESH_RETRY_DELAY,
+            self._run_layout_refresh_retry,
+        )
+
+    def _run_layout_refresh_retry(self):
+        reason = self._layout_refresh_reason or 'delayed'
+        self._layout_refresh_callback = None
+        if not self._active or self._scaleform_view is None:
+            self._layout_refresh_attempts_remaining = 0
+            self._layout_refresh_reason = None
+            return
+
+        self._refresh_scaleform_layout('{0}:retry'.format(reason))
+        self._layout_refresh_attempts_remaining -= 1
+        if self._layout_refresh_attempts_remaining <= 0:
+            self._layout_refresh_reason = None
+            return
+
+        self._layout_refresh_callback = BigWorld.callback(
+            _LAYOUT_REFRESH_RETRY_DELAY,
+            self._run_layout_refresh_retry,
+        )
 
     def _sync_scaleform_view(self, reason, incoming_view=None):
         context, block_reason = self._evaluate_scaleform_visibility(reason, incoming_view)
@@ -2576,6 +2677,7 @@ class ResearchProgressBar(object):
 
         self._log_control_debug('gui_space_left', 'space={0}'.format(space_id))
 
+        self._cancel_layout_refresh_retry()
         self._detach_scaleform_container_hooks()
         self._scaleform_view_requested = False
         if self._scaleform_view is not None:
@@ -2609,6 +2711,7 @@ class ResearchProgressBar(object):
     def _on_scaleform_view_disposed(self, view):
         self._log_control_debug('scaleform_disposed', 'alias={0}'.format(self._get_view_alias(view)))
         if self._scaleform_view is view:
+            self._cancel_layout_refresh_retry()
             self._scaleform_view = None
             self._scaleform_view_visible = None
         self._scaleform_view_requested = False
@@ -2797,10 +2900,18 @@ class ResearchProgressBar(object):
 
         if getattr(view, 'alias', None) == SCALEFORM_VIEW_ALIAS:
             return
+
+        alias = self._get_view_alias(view)
+
         self._log_control_debug(
             'view_added_to_container',
-            'alias={0} layer={1}'.format(self._get_view_alias(view), getattr(view, 'layer', None)),
+            'alias={0} layer={1}'.format(alias, getattr(view, 'layer', None)),
         )
+
+        if alias in _LAYOUT_REFRESH_VIEW_ALIASES:
+            self._refresh_scaleform_layout('view_added:{0}'.format(alias))
+            self._schedule_layout_refresh_retry('view_added:{0}'.format(alias))
+
         if self._should_show_scaleform_view('view_added_to_container', view):
             self._schedule_update('view_added_to_container')
         else:

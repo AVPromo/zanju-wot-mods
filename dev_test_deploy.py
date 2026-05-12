@@ -4,8 +4,8 @@ Development/test deployment helper for WoT mods.
 What it does:
 1. Reads WOT_GAME_DIR from .env in repo root.
 2. Builds mods via build.py (all mods by default, or selected mods via args).
-3. Detects the newest installed WoT version folder under <WOT_GAME_DIR>/mods/.
-4. Deploys each .wotmod to <WOT_GAME_DIR>/mods/<latest_version>/.
+3. Detects installed WoT version folders under <WOT_GAME_DIR>/mods/.
+4. Deploys each .wotmod to every detected <WOT_GAME_DIR>/mods/<version>/.
 5. Deploys config files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
 
 Usage:
@@ -70,7 +70,7 @@ def parse_version_key(name):
     return tuple(int(part) for part in parts)
 
 
-def resolve_latest_mods_version(game_dir):
+def resolve_installed_mods_versions(game_dir):
     mods_root = os.path.join(game_dir, 'mods')
     if not os.path.isdir(mods_root):
         raise RuntimeError('WoT mods directory not found: {}'.format(mods_root))
@@ -90,7 +90,8 @@ def resolve_latest_mods_version(game_dir):
             'No WoT version folders found under {}'.format(mods_root)
         )
 
-    return max(version_dirs, key=lambda item: item[0])[1]
+    version_dirs.sort(key=lambda item: item[0])
+    return [name for _, name in version_dirs]
 
 
 def build_mods(mod_names):
@@ -197,13 +198,14 @@ def main():
         if not os.path.isdir(mod_dir):
             raise RuntimeError('Mod directory not found: {}'.format(mod_dir))
 
-    target_wot_version = resolve_latest_mods_version(game_dir)
-    print('Target WoT mods version: {}'.format(target_wot_version))
+    target_wot_versions = resolve_installed_mods_versions(game_dir)
+    print('Target WoT mods versions: {}'.format(', '.join(target_wot_versions)))
 
     build_mods(mod_names)
 
     for mod_name in mod_names:
-        deploy_mod(game_dir, mod_name, target_wot_version)
+        for target_wot_version in target_wot_versions:
+            deploy_mod(game_dir, mod_name, target_wot_version)
 
     print('Done. Development deployment finished for {} mod(s).'.format(len(mod_names)))
 

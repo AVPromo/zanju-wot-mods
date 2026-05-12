@@ -778,3 +778,110 @@ Vehicle.VEHICLE_STATE.IN_PREMIUM_IGR_ONLY     = 'inPremiumIgrOnly'
 | gui/veh_post_progression/ | https://github.com/Armagomen/wot_decompiled/tree/main/client/gui/veh_post_progression |
 | StatsRequester.py | https://github.com/Armagomen/wot_decompiled/blob/main/client/gui/shared/utils/requesters/StatsRequester.py |
 | Vehicle.py (GUI item) | https://github.com/Armagomen/wot_decompiled/blob/main/client/gui/shared/gui_items/Vehicle.py |
+
+---
+
+## 11. Garage UI / Lobby Surface Reference
+
+> Source: live runtime inspection in WoT 2.2.1.x from this repository's garage-widget work. These notes are observational and patch-fragile; unlike the earlier sections, they are not derived from the 2.1.1.0 decompiled tree.
+
+### Core imports and entry points
+
+```python
+from frameworks.wulf import WindowLayer
+from gui.shared.personality import ServicesLocator
+import logging
+
+app = ServicesLocator.appLoader.getDefLobbyApp() or ServicesLocator.appLoader.getApp()
+container_manager = app.containerManager
+route_logger = logging.getLogger('gui.lobby_state_machine.lobby_state_machine')
+
+sub_view = container_manager.getContainer(WindowLayer.SUB_VIEW).getTopmostView()
+top_sub_view = container_manager.getContainer(WindowLayer.TOP_SUB_VIEW).getTopmostView()
+window_view = container_manager.getContainer(WindowLayer.WINDOW).getTopmostView()
+top_window_view = container_manager.getContainer(WindowLayer.TOP_WINDOW).getTopmostView()
+```
+
+Operational notes:
+
+- `containerManager.onViewAddedToContainer` is a useful resync hook when hangar subviews change without a full GUI-space transition.
+- In this client build, `getContainer(layer).getTopmostView()` works reliably for active-view discovery; `getView()` without arguments raised `TypeError` during probing.
+- Vehicle setup pages can stay inside the hangar subview and only announce themselves through lobby-state route changes.
+
+### Default hangar route / visibility signals
+
+- Default-hangar routes observed in the lobby state machine:
+    - `subScope/subLayer/hangar`
+    - `subScope/subLayer/hangar/{root}`
+- After battle or mode-selector returns, the route can briefly be the default hangar while the active sub-view alias is still `None`; treat that `None` as provisional or a custom hangar widget may stay hidden until the next container event.
+
+### Reachable ownership paths
+
+```python
+app.containerManager._ContainerManager__scopeController._ScopeController__subControllers
+
+lobby_controller._ScopeController__mainView
+lobby_main_view._BaseDAAPIComponent__components['lobbyHeaderOverlapping']
+lobby_main_view._BaseDAAPIComponent__components['lobbyFooterOverlapping']
+lobby_header_inject._injectView
+lobby_footer_inject._injectView
+
+hangar_controller._ScopeController__mainView
+hangar_main_view._WulfPackageLayoutAdapter__window
+hangar_main_view.content                  # RandomHangar
+hangar_main_view.content._childrenByUid   # presenter map
+```
+
+Verified reachable roots:
+
+- `LobbyHeaderInject` and `LobbyFooterInject` expose injected header/footer views through `_injectView`.
+- `LobbyHeader` and `LobbyFooter` are reachable as direct Wulf targets; one inspected build exposed `LobbyHeader(uniqueID=5, layoutID=489)` and `LobbyFooter(uniqueID=15, layoutID=488)`.
+- The broad Wulf reachability path can already reach `LobbyView -> hangar WulfPackageLayoutAdapter -> content RandomHangar`.
+
+### Verified presenter owners
+
+| Garage region | Reachable owner | Useful model / payload note |
+|---|---|---|
+| Left menu | `MainMenuPresenter` | `MainMenuModel(menuItems=...)` |
+| Missions / events | `UserMissionsPresenter` | `UserMissionsWidgetModel` plus BattlePass / Events / Quests children |
+| Vehicle info | `VehiclesInfoPresenter` | `VehiclesInfoModel(...)` |
+| Vehicle parameter panel | `HangarVehicleParamsPresenter` | exposes stats groups / params lists |
+| Other reachable hangar presenters | `LoadoutPresenter`, `CrewPresenter`, `VehicleInventoryPresenter` | semantically useful, but not geometry-bearing |
+| Top header | `lobbyHeaderOverlapping` -> `LobbyHeaderInject` -> `_injectView` | ownership only |
+| Bottom footer | `lobbyFooterOverlapping` -> `LobbyFooterInject` -> `_injectView` | ownership only |
+
+### Native geometry boundary
+
+Confirmed usable native-facing anchors:
+
+- `FightButton_HintArea` is exposed as a concrete AS3 display object and is the only reliable default-hangar pixel anchor confirmed so far.
+- `ModeSelectorWidgetsBtn_HintArea` becomes reachable when the mode selector is open and can act as an explicit bottom barrier in that state.
+
+Negative findings from normal Python / Wulf / AS3 probing:
+
+- `PyObjectView` proxy roots exposed only metadata such as `layoutID`, `viewFlags`, `viewModel`, and `viewStatus`.
+- `PyObjectViewModel` roots remained effectively opaque for geometry discovery; no useful attrs or child paths were exposed in the focused scans.
+- AS3 `stage.getObjectsUnderPoint()` sampling in the default hangar only surfaced:
+    - `VehicleHitAreaUI`
+    - `mono/hangar/main`
+    - `FightButton_HintArea`
+- No stable `bounds`, `rect`, `position`, `size`, or similar geometry fields were surfaced for the target native widgets.
+
+Practical recommendation:
+
+- For normal Python/AS3 modding, treat exact native garage widget rectangles as unavailable except for `FightButton_HintArea`.
+- Use fight-button anchoring, conservative inferred avoid-zones, or user calibration instead of continuing to expand Wulf/AS3 geometry probes.
+
+## 12. Deferred Native Introspection Paths
+
+If exact native garage bounds are still required, the remaining realistic paths are:
+
+1. Static Gameface bundle discovery for `mono/hangar/header`, `mono/hangar/main`, and `mono/hangar/footer`.
+2. A private in-process Gameface inspection proof of concept.
+3. A private native-hooking proof of concept if no Gameface inspection surface exists.
+4. External vision or manual calibration if the product need is only robust placement, not exact engine geometry.
+
+Stop criteria:
+
+- If Gameface/runtime inspection still cannot return geometry with stable identity, close the exact-box effort and keep heuristic placement.
+- Keep any injected or native tooling separate from the public `.wotmod` runtime.

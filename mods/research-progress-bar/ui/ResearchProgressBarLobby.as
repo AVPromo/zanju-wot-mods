@@ -1,4 +1,6 @@
 package {
+    import flash.display.DisplayObject;
+    import flash.display.DisplayObjectContainer;
     import flash.display.Bitmap;
     import flash.display.BitmapData;
     import flash.display.Loader;
@@ -10,9 +12,11 @@ package {
     import flash.geom.Rectangle;
     import flash.net.URLRequest;
     import flash.text.TextField;
+    import flash.text.TextFieldAutoSize;
     import flash.text.TextFormat;
     import flash.text.TextFormatAlign;
     import flash.utils.Dictionary;
+    import flash.utils.getQualifiedClassName;
     import net.wg.infrastructure.base.AbstractView;
 
     [SWF(width="1920", height="220", frameRate="30", backgroundColor="#000000")]
@@ -55,15 +59,38 @@ package {
 
         private static const SIDE_MARGIN:Number = 600;
         private static const TOP_MARGIN:Number = 105;
+        private static const BAR_WIDTH_RATIO:Number = 0.375;
+        private static const BAR_DEFAULT_TOP_RATIO:Number = 0.0875;
+        private static const BAR_TOP_GAP_RATIO:Number = 0.0291666667;
+        private static const BAR_TOP_GAP_MIN:Number = 20;
+        private static const BAR_TOP_GAP_MAX:Number = 36;
+        private static const BAR_MIN_STAGE_SIDE_MARGIN:Number = 24;
+        private static const BAR_TOP_OVERFLOW:Number = 44;
+        private static const BAR_SIDE_SAFE_OFFSET:Number = 15;
+        private static const LEFT_COUNTER_OFFSET:Number = 3;
+        private static const LAYOUT_DISTANCE_BUCKETS:Array = [
+            { minWidth: 2560, verticalDistance: 86, horizontalDistance: 367 },
+            { minWidth: 1920, verticalDistance: 55, horizontalDistance: 367 },
+            { minWidth: 1600, verticalDistance: 51, horizontalDistance: 271 },
+            { minWidth: 0, verticalDistance: 43, horizontalDistance: 271 }
+        ];
         private static const MIN_BAR_WIDTH:Number = 80;
         private static const BAR_HEIGHT:Number = 8;
+        private static const BAR_ASSEMBLY_ABOVE_HEIGHT:Number = 22;
+        private static const BAR_ASSEMBLY_BELOW_HEIGHT:Number = 3;
+        private static const BAR_ASSEMBLY_HEIGHT:Number = 33;
         private static const LABEL_COLOR:uint = 0xE6DDC8;
         private static const COUNTER_GAP:Number = 14;
         private static const COUNTER_VALUE_WIDTH:Number = 60;
         private static const COUNTER_TEXT_GAP:Number = 5;
         private static const COUNTER_CAPTION_WIDTH:Number = 110;
+        private static const COUNTER_TOP_OFFSET:Number = 5;
+        private static const COUNTER_FONT_SIZE:int = 15;
+        private static const COUNTER_FIELD_HEIGHT:Number = 18;
+        private static const RIGHT_COUNTER_VALUE_OFFSET:Number = 3;
         private static const MODE_BUTTON_Y_OFFSET:Number = 18;
         private static const MODE_BUTTON_GAP:Number = 6;
+        private static const MODE_BUTTON_BAR_GAP:Number = 15;
         private static const MODE_BUTTON_HEIGHT:Number = 20;
         private static const MODE_BUTTON_BOTTOM_PADDING:Number = 1;
         private static const MODE_BUTTON_PADDING_X:Number = 10;
@@ -205,6 +232,8 @@ package {
         private var tooltipContent:Sprite;
         private var _context:Object;
         private var _selectedModeId:String;
+        private var _barX:Number = SIDE_MARGIN;
+        private var _barY:Number = TOP_MARGIN;
         private var _barWidth:Number = MIN_BAR_WIDTH;
         private var _isReady:Boolean = false;
         private var _markerIconBitmapByType:Object = {};
@@ -213,6 +242,8 @@ package {
         private var _modeIdByButton:Dictionary = new Dictionary(true);
         private var _activeCounterLayout:String = "";
         private var _activeBarFillMode:String = "";
+        private var _lastStageWidth:Number = -1;
+        private var _lastStageHeight:Number = -1;
 
         public function ResearchProgressBarLobby() {
             super();
@@ -223,30 +254,76 @@ package {
             mouseEnabled = false;
             mouseChildren = true;
             build();
-
-            if (stage != null) {
-                stage.addEventListener(Event.RESIZE, onStageResize);
-                stage.addEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove, false, 0, true);
-                stage.addEventListener(Event.MOUSE_LEAVE, onStageMouseLeave, false, 0, true);
-            }
+            removeEventListener(Event.ENTER_FRAME, onEnterFrame);
+            addEventListener(Event.ENTER_FRAME, onEnterFrame, false, 0, true);
+            attachStageListeners();
         }
 
         override protected function onDispose():void {
             hideMarkerTooltip();
             clearModeButtons();
-            if (stage != null) {
-                stage.removeEventListener(Event.RESIZE, onStageResize);
-                stage.removeEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
-                stage.removeEventListener(Event.MOUSE_LEAVE, onStageMouseLeave);
-            }
+            removeEventListener(Event.ENTER_FRAME, onEnterFrame);
+            detachStageListeners();
             super.onDispose();
         }
 
         override protected function nextFrameAfterPopulateHandler():void {
             super.nextFrameAfterPopulateHandler();
             _isReady = true;
+            attachStageListeners();
             layoutFromStage();
-            updateBarFromContext();
+            updateTrackedStageSize();
+            updateBarFromContext(false);
+        }
+
+        private function onEnterFrame(event:Event):void {
+            if (!_isReady || stage == null) {
+                return;
+            }
+
+            if (!updateTrackedStageSize()) {
+                return;
+            }
+
+            layoutFromStage();
+            updateBarFromContext(false);
+        }
+
+        private function updateTrackedStageSize():Boolean {
+            if (stage == null) {
+                return false;
+            }
+
+            if (_lastStageWidth == stage.stageWidth && _lastStageHeight == stage.stageHeight) {
+                return false;
+            }
+
+            _lastStageWidth = stage.stageWidth;
+            _lastStageHeight = stage.stageHeight;
+            return true;
+        }
+
+        private function attachStageListeners():void {
+            if (stage == null) {
+                return;
+            }
+
+            stage.removeEventListener(Event.RESIZE, onStageResize);
+            stage.removeEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
+            stage.removeEventListener(Event.MOUSE_LEAVE, onStageMouseLeave);
+            stage.addEventListener(Event.RESIZE, onStageResize);
+            stage.addEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove, false, 0, true);
+            stage.addEventListener(Event.MOUSE_LEAVE, onStageMouseLeave, false, 0, true);
+        }
+
+        private function detachStageListeners():void {
+            if (stage == null) {
+                return;
+            }
+
+            stage.removeEventListener(Event.RESIZE, onStageResize);
+            stage.removeEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
+            stage.removeEventListener(Event.MOUSE_LEAVE, onStageMouseLeave);
         }
 
         private function build():void {
@@ -263,10 +340,11 @@ package {
             addChild(totalPercentCaption);
 
             sideCounterLabel = makeCounterField();
+            alignTextField(sideCounterLabel, TextFormatAlign.LEFT);
             addChild(sideCounterLabel);
 
             sideCounterCaption = makeCounterCaptionField("");
-            alignTextField(sideCounterCaption, TextFormatAlign.RIGHT);
+            alignTextField(sideCounterCaption, TextFormatAlign.LEFT);
             addChild(sideCounterCaption);
 
             baseBar = createBitmap(ProgressBarBaseAsset);
@@ -325,7 +403,8 @@ package {
 
         private function onStageResize(event:Event):void {
             layoutFromStage();
-            updateBarFromContext();
+            updateTrackedStageSize();
+            updateBarFromContext(false);
         }
 
         private function onStageMouseMove(event:MouseEvent):void {
@@ -346,7 +425,7 @@ package {
             }
             _context.progress = Number(value);
             if (_isReady) {
-                updateBarFromContext();
+                updateBarFromContext(false);
             }
         }
 
@@ -361,6 +440,17 @@ package {
             }
         }
 
+        public function as_refreshLayout():void {
+            if (!_isReady) {
+                return;
+            }
+
+            attachStageListeners();
+            layoutFromStage();
+            updateTrackedStageSize();
+            updateBarFromContext(false);
+        }
+
         private function applyContext(data:Object):void {
             if (data == null) {
                 return;
@@ -372,11 +462,10 @@ package {
                 return;
             }
 
-            layoutFromStage();
-            updateBarFromContext();
+            updateBarFromContext(false);
         }
 
-        private function updateBarFromContext():void {
+        private function updateBarFromContext(relayout:Boolean = true):void {
             var modes:Array;
             var activeMode:Object;
             var barMaxValue:Number;
@@ -400,7 +489,9 @@ package {
                 return;
             }
 
-            layoutFromStage();
+            if (relayout) {
+                layoutFromStage();
+            }
 
             modes = resolveModes();
             syncSelectedMode(modes);
@@ -439,29 +530,29 @@ package {
                 freeBar.visible = false;
             }
 
-            baseBar.x = SIDE_MARGIN;
-            baseBar.y = TOP_MARGIN;
+            baseBar.x = _barX;
+            baseBar.y = _barY;
             baseBar.width = _barWidth;
             baseBar.height = BAR_HEIGHT;
 
-            completedBar.x = SIDE_MARGIN;
-            completedBar.y = TOP_MARGIN;
+            completedBar.x = _barX;
+            completedBar.y = _barY;
             completedBar.width = _barWidth;
             completedBar.height = BAR_HEIGHT;
 
-            combatBar.x = SIDE_MARGIN;
-            combatBar.y = TOP_MARGIN;
+            combatBar.x = _barX;
+            combatBar.y = _barY;
             combatBar.width = _barWidth;
             combatBar.height = BAR_HEIGHT;
 
-            freeBar.x = SIDE_MARGIN;
-            freeBar.y = TOP_MARGIN;
+            freeBar.x = _barX;
+            freeBar.y = _barY;
             freeBar.width = _barWidth;
             freeBar.height = BAR_HEIGHT;
 
-            drawMask(completedMaskShape, SIDE_MARGIN, TOP_MARGIN, completedWidth, BAR_HEIGHT);
-            drawMask(combatMaskShape, SIDE_MARGIN + completedWidth, TOP_MARGIN, primaryWidth, BAR_HEIGHT);
-            drawMask(freeMaskShape, SIDE_MARGIN + completedWidth + primaryWidth, TOP_MARGIN, secondaryWidth, BAR_HEIGHT);
+            drawMask(completedMaskShape, _barX, _barY, completedWidth, BAR_HEIGHT);
+            drawMask(combatMaskShape, _barX + completedWidth, _barY, primaryWidth, BAR_HEIGHT);
+            drawMask(freeMaskShape, _barX + completedWidth + primaryWidth, _barY, secondaryWidth, BAR_HEIGHT);
 
             markerPrimaryValue = primaryValue;
             markerSecondaryValue = secondaryValue;
@@ -476,9 +567,9 @@ package {
 
         private function clearBarPresentation():void {
             clearMarkers();
-            drawMask(completedMaskShape, SIDE_MARGIN, TOP_MARGIN, 0, BAR_HEIGHT);
-            drawMask(combatMaskShape, SIDE_MARGIN, TOP_MARGIN, 0, BAR_HEIGHT);
-            drawMask(freeMaskShape, SIDE_MARGIN, TOP_MARGIN, 0, BAR_HEIGHT);
+            drawMask(completedMaskShape, _barX, _barY, 0, BAR_HEIGHT);
+            drawMask(combatMaskShape, _barX, _barY, 0, BAR_HEIGHT);
+            drawMask(freeMaskShape, _barX, _barY, 0, BAR_HEIGHT);
             baseBar.visible = false;
             completedBar.visible = false;
             combatBar.visible = false;
@@ -534,9 +625,18 @@ package {
             this.sideCounterLabel.text = sideCounterText;
             this.sideCounterCaption.text = sideCounterCaption;
 
+            alignTextField(totalPercentLabel, TextFormatAlign.RIGHT);
+            alignTextField(totalPercentCaption, TextFormatAlign.RIGHT);
+            alignTextField(this.sideCounterLabel, TextFormatAlign.LEFT);
+            alignTextField(this.sideCounterCaption, TextFormatAlign.LEFT);
+            totalPercentLabel.width = COUNTER_VALUE_WIDTH;
+            totalPercentCaption.width = COUNTER_CAPTION_WIDTH;
+            this.sideCounterLabel.width = COUNTER_VALUE_WIDTH;
+            this.sideCounterCaption.width = COUNTER_CAPTION_WIDTH;
+
             if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS) {
-                alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
-                alignTextField(combatPercentCaption, TextFormatAlign.RIGHT);
+                alignTextField(combatPercentLabel, TextFormatAlign.LEFT);
+                alignTextField(combatPercentCaption, TextFormatAlign.LEFT);
                 combatPercentLabel.width = ELITE_STATUS_WIDTH;
                 combatPercentCaption.width = ELITE_STATUS_WIDTH;
                 combatPercentCaption.htmlText = buildEliteStatusCounterHtml(leftCounterCaption);
@@ -544,7 +644,7 @@ package {
             else {
                 combatPercentCaption.text = leftCounterCaption;
                 alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
-                alignTextField(combatPercentCaption, TextFormatAlign.LEFT);
+                alignTextField(combatPercentCaption, TextFormatAlign.RIGHT);
                 combatPercentLabel.width = COUNTER_VALUE_WIDTH;
                 combatPercentCaption.width = COUNTER_CAPTION_WIDTH;
             }
@@ -636,8 +736,10 @@ package {
         }
 
         private function rebuildModeButtons(modes:Array):void {
-            var cursorX:Number = SIDE_MARGIN;
-            var buttonY:Number = TOP_MARGIN + BAR_HEIGHT + MODE_BUTTON_Y_OFFSET;
+            var totalWidth:Number = measureModeButtonsWidth(modes);
+            var cursorX:Number = Math.max(BAR_MIN_STAGE_SIDE_MARGIN, _barX - MODE_BUTTON_BAR_GAP - totalWidth);
+            var buttonHeight:Number = MODE_BUTTON_HEIGHT + MODE_BUTTON_BOTTOM_PADDING;
+            var buttonY:Number = _barY + Math.round((BAR_HEIGHT - buttonHeight) * 0.5);
             var mode:Object;
             var button:Sprite;
 
@@ -696,7 +798,7 @@ package {
 
             _selectedModeId = modeId;
             hideMarkerTooltip();
-            updateBarFromContext();
+            updateBarFromContext(false);
         }
 
         private function resolveModeButtonLabel(mode:Object):String {
@@ -705,6 +807,32 @@ package {
             }
 
             return "Mode";
+        }
+
+        private function measureModeButtonsWidth(modes:Array):Number {
+            var totalWidth:Number = 0;
+            var mode:Object;
+
+            if (modes == null || modes.length == 0) {
+                return 0;
+            }
+
+            for each (mode in modes) {
+                totalWidth += measureModeButtonWidth(resolveModeButtonLabel(mode));
+            }
+
+            if (modes.length > 1) {
+                totalWidth += MODE_BUTTON_GAP * (modes.length - 1);
+            }
+
+            return totalWidth;
+        }
+
+        private function measureModeButtonWidth(label:String):Number {
+            var field:TextField = makeTextField(MODE_BUTTON_TEXT_COLOR, 12, true);
+
+            field.text = label;
+            return Math.max(MODE_BUTTON_MIN_WIDTH, field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
         }
 
         private function createModeButton(label:String, isSelected:Boolean):Sprite {
@@ -771,8 +899,8 @@ package {
                 );
                 markerX = Math.round(_barWidth * markerPositionValue / maxRequirementXp);
                 markerDisplay = createMarkerDisplay(marker, markerPositionValue, combatXp, freeXp);
-                markerDisplay.x = SIDE_MARGIN + markerX;
-                markerDisplay.y = TOP_MARGIN;
+                markerDisplay.x = _barX + markerX;
+                markerDisplay.y = _barY;
                 updateMarkerHitArea(markerDisplay);
                 markersContainer.addChild(markerDisplay);
             }
@@ -1669,7 +1797,7 @@ package {
                     catch (error:Error) {
                     }
                     if (_isReady && _context != null) {
-                        updateBarFromContext();
+                        updateBarFromContext(false);
                     }
                     return;
                 }
@@ -1766,66 +1894,284 @@ package {
         }
 
         private function layoutFromStage():void {
+            var leftEdge:Number;
+            var rightEdge:Number;
+            var sideInset:Number;
+            var maxWidth:Number;
+
             x = 0;
             y = 0;
             if (stage == null) {
+                _barX = SIDE_MARGIN;
+                _barY = TOP_MARGIN;
                 _barWidth = MIN_BAR_WIDTH;
                 return;
             }
-            _barWidth = Math.max(MIN_BAR_WIDTH, stage.stageWidth - SIDE_MARGIN * 2);
+
+            sideInset = resolveSideSafeInset();
+            leftEdge = sideInset;
+            rightEdge = Math.round(stage.stageWidth - sideInset);
+
+            if (rightEdge <= leftEdge + MIN_BAR_WIDTH) {
+                leftEdge = BAR_MIN_STAGE_SIDE_MARGIN;
+                rightEdge = stage.stageWidth - BAR_MIN_STAGE_SIDE_MARGIN;
+            }
+
+            _barX = Math.max(0, Math.round(leftEdge));
+            maxWidth = Math.max(MIN_BAR_WIDTH, stage.stageWidth - _barX - BAR_MIN_STAGE_SIDE_MARGIN);
+            _barWidth = clamp(Math.round(rightEdge - _barX), MIN_BAR_WIDTH, maxWidth);
+            _barY = resolveBarTopFromStage();
+        }
+
+        private function resolveSideSafeInset():Number {
+            return resolveRightRailCutoff() + BAR_SIDE_SAFE_OFFSET;
+        }
+
+        private function resolveLayoutDistanceBucket():Object {
+            var bucket:Object;
+
+            if (stage == null) {
+                return LAYOUT_DISTANCE_BUCKETS[LAYOUT_DISTANCE_BUCKETS.length - 1];
+            }
+
+            for each (bucket in LAYOUT_DISTANCE_BUCKETS) {
+                if (stage.stageWidth >= Number(bucket.minWidth)) {
+                    return bucket;
+                }
+            }
+
+            return LAYOUT_DISTANCE_BUCKETS[LAYOUT_DISTANCE_BUCKETS.length - 1];
+        }
+
+        private function resolveRightRailCutoff():Number {
+            return Number(resolveLayoutDistanceBucket().horizontalDistance);
+        }
+
+        private function resolveBarTopFromStage():Number {
+            var fallbackTop:Number;
+            var centeredAssemblyTop:Number;
+            var centeredBarTop:Number;
+            var fightButtonBounds:Rectangle;
+            var maxBarTop:Number;
+
+            if (stage == null) {
+                return TOP_MARGIN;
+            }
+
+            maxBarTop = Math.max(0, stage.stageHeight - BAR_HEIGHT - BAR_ASSEMBLY_BELOW_HEIGHT);
+            fallbackTop = clamp(Math.round(stage.stageHeight * BAR_DEFAULT_TOP_RATIO), BAR_ASSEMBLY_ABOVE_HEIGHT, maxBarTop);
+            fightButtonBounds = resolveFightButtonBounds();
+            if (fightButtonBounds == null) {
+                return fallbackTop;
+            }
+
+            centeredAssemblyTop = fightButtonBounds.bottom + Math.round((resolveVerticalBoundaryOffset() - BAR_ASSEMBLY_HEIGHT) * 0.5);
+            centeredBarTop = centeredAssemblyTop + BAR_ASSEMBLY_ABOVE_HEIGHT;
+            return clamp(centeredBarTop, BAR_ASSEMBLY_ABOVE_HEIGHT, maxBarTop);
+        }
+
+        private function resolveVerticalBoundaryOffset():Number {
+            return Number(resolveLayoutDistanceBucket().verticalDistance);
+        }
+
+        private function resolveFightButtonBounds():Rectangle {
+            if (stage == null) {
+                return null;
+            }
+
+            return findFightButtonBounds(stage);
+        }
+
+        private function findFightButtonBounds(container:DisplayObjectContainer):Rectangle {
+            var childCount:int;
+            var idx:int;
+            var child:DisplayObject;
+            var bounds:Rectangle;
+            var childContainer:DisplayObjectContainer;
+
+            if (container == null) {
+                return null;
+            }
+
+            try {
+                childCount = container.numChildren;
+            } catch (error:Error) {
+                return null;
+            }
+
+            for (idx = 0; idx < childCount; idx++) {
+                try {
+                    child = container.getChildAt(idx);
+                } catch (error:Error) {
+                    continue;
+                }
+
+                if (child == null || isOwnDisplayTree(child) || !child.visible || child.alpha <= 0.0) {
+                    continue;
+                }
+
+                if (isFightButtonDisplay(child)) {
+                    bounds = safeGetStageBounds(child);
+                    if (bounds != null) {
+                        return bounds;
+                    }
+                }
+
+                childContainer = child as DisplayObjectContainer;
+                if (childContainer != null) {
+                    bounds = findFightButtonBounds(childContainer);
+                    if (bounds != null) {
+                        return bounds;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private function isFightButtonDisplay(display:DisplayObject):Boolean {
+            var className:String = shortClassName(getQualifiedClassName(display)).toLowerCase();
+            var displayName:String = display.name != null ? String(display.name).toLowerCase() : "";
+
+            return displayName.indexOf("fightbutton") >= 0
+                || displayName.indexOf("battlebutton") >= 0
+                || displayName == "fightbutton_hintarea"
+                || (className.indexOf("tutorialhintzone") >= 0 && displayName.indexOf("hintarea") >= 0 && displayName.indexOf("fight") >= 0);
+        }
+
+        private function safeGetStageBounds(display:DisplayObject):Rectangle {
+            var bounds:Rectangle;
+
+            if (display == null || stage == null) {
+                return null;
+            }
+
+            try {
+                bounds = display.getBounds(stage);
+            } catch (error:Error) {
+                return null;
+            }
+
+            if (bounds == null || bounds.width < 8 || bounds.height < 8) {
+                return null;
+            }
+            if (bounds.right < 0 || bounds.bottom < 0 || bounds.x > stage.stageWidth || bounds.y > stage.stageHeight) {
+                return null;
+            }
+            if (bounds.width >= stage.stageWidth - 2 && bounds.height >= stage.stageHeight - 2) {
+                return null;
+            }
+
+            return bounds;
+        }
+
+        private function isOwnDisplayTree(display:DisplayObject):Boolean {
+            var current:DisplayObject = display;
+
+            while (current != null) {
+                if (current == this) {
+                    return true;
+                }
+                current = current.parent;
+            }
+
+            return false;
+        }
+
+        private function shortClassName(value:String):String {
+            var separator:int = value.lastIndexOf("::");
+            if (separator >= 0) {
+                return value.substring(separator + 2);
+            }
+            return value;
         }
 
         private function positionLabels():void {
-            var rightEdge:Number = SIDE_MARGIN + _barWidth;
-            var counterX:Number = rightEdge + COUNTER_GAP;
-            var counterCaptionX:Number = counterX + COUNTER_VALUE_WIDTH + COUNTER_TEXT_GAP;
-            var sideCounterRightX:Number = SIDE_MARGIN - COUNTER_GAP;
-            var sideCounterX:Number = sideCounterRightX - COUNTER_VALUE_WIDTH;
-            var sideCaptionRightX:Number = sideCounterX - COUNTER_TEXT_GAP;
-            var sideCaptionX:Number = sideCaptionRightX - COUNTER_CAPTION_WIDTH;
-            var eliteStatusX:Number = SIDE_MARGIN - COUNTER_GAP - ELITE_STATUS_WIDTH;
+            var counterTop:Number = _barY + BAR_HEIGHT + 1 + COUNTER_TOP_OFFSET;
+            var leftCounterX:Number = _barX - LEFT_COUNTER_OFFSET;
+            var rightCounterEdge:Number = _barX + _barWidth;
 
             if (_activeCounterLayout == COUNTER_LAYOUT_RIGHT_SINGLE) {
-                totalPercentLabel.x = counterX;
-                totalPercentLabel.y = resolveCenteredTextY(totalPercentLabel, TOP_MARGIN, BAR_HEIGHT);
-
-                totalPercentCaption.x = counterCaptionX;
-                totalPercentCaption.y = totalPercentLabel.y;
+                positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop);
                 return;
             }
 
             if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS) {
-                combatPercentLabel.x = eliteStatusX;
-                combatPercentLabel.y = TOP_MARGIN - combatPercentLabel.height - 1;
+                combatPercentLabel.x = leftCounterX;
+                combatPercentLabel.y = counterTop;
 
-                combatPercentCaption.x = eliteStatusX;
-                combatPercentCaption.y = TOP_MARGIN + BAR_HEIGHT + 1;
+                combatPercentCaption.x = leftCounterX;
+                combatPercentCaption.y = counterTop + combatPercentLabel.height;
 
-                totalPercentLabel.x = counterX;
-                totalPercentLabel.y = resolveCenteredTextY(totalPercentLabel, TOP_MARGIN, BAR_HEIGHT);
-
-                totalPercentCaption.x = counterCaptionX;
-                totalPercentCaption.y = totalPercentLabel.y;
+                positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop);
                 return;
             }
 
-            combatPercentLabel.x = counterX;
-            combatPercentLabel.y = TOP_MARGIN - combatPercentLabel.height - 1;
+            if (hasCounterText(sideCounterLabel) || hasCounterText(sideCounterCaption)) {
+                positionLeftCounterGroup(sideCounterLabel, sideCounterCaption, leftCounterX, counterTop);
+            }
 
-            combatPercentCaption.x = counterCaptionX;
-            combatPercentCaption.y = combatPercentLabel.y;
+            positionRightCounterGroup(combatPercentLabel, combatPercentCaption, rightCounterEdge, counterTop);
+            positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop + combatPercentLabel.height);
+        }
 
-            totalPercentLabel.x = counterX;
-            totalPercentLabel.y = TOP_MARGIN + BAR_HEIGHT + 1;
+        private function positionLeftCounterGroup(valueField:TextField, captionField:TextField, groupX:Number, groupY:Number):void {
+            var valueWidth:Number = resolveDisplayTextWidth(valueField);
+            var captionWidth:Number = hasCounterText(captionField) ? resolveDisplayTextWidth(captionField) : 0;
 
-            totalPercentCaption.x = counterCaptionX;
-            totalPercentCaption.y = totalPercentLabel.y;
+            valueField.width = valueWidth;
+            valueField.x = groupX;
+            valueField.y = groupY;
 
-            sideCounterLabel.x = sideCounterX;
-            sideCounterLabel.y = resolveCenteredTextY(sideCounterLabel, TOP_MARGIN, BAR_HEIGHT);
+            if (captionField != null) {
+                captionField.width = captionWidth;
+                captionField.x = groupX + valueWidth + (captionWidth > 0 ? COUNTER_TEXT_GAP : 0);
+                captionField.y = groupY;
+            }
+        }
 
-            sideCounterCaption.x = sideCaptionX;
-            sideCounterCaption.y = sideCounterLabel.y;
+        private function positionRightCounterGroup(valueField:TextField, captionField:TextField, rightEdge:Number, groupY:Number):void {
+            var captionWidth:Number = hasCounterText(captionField) ? COUNTER_CAPTION_WIDTH : 0;
+
+            valueField.width = COUNTER_VALUE_WIDTH;
+            valueField.x = rightEdge - COUNTER_VALUE_WIDTH + RIGHT_COUNTER_VALUE_OFFSET;
+            valueField.y = groupY;
+
+            if (captionField != null) {
+                captionField.width = captionWidth;
+                captionField.x = valueField.x - (captionWidth > 0 ? COUNTER_TEXT_GAP + COUNTER_CAPTION_WIDTH : 0);
+                captionField.y = groupY;
+            }
+        }
+
+        private function resolveDisplayTextWidth(field:TextField):Number {
+            if (field == null || field.text == null || field.text.length == 0) {
+                return 0;
+            }
+
+            return Math.max(1, Math.ceil(field.textWidth + 4));
+        }
+
+        private function positionCounterGroup(valueField:TextField, captionField:TextField, groupX:Number, groupY:Number):void {
+            valueField.x = groupX;
+            valueField.y = groupY;
+
+            if (captionField != null) {
+                captionField.x = groupX + COUNTER_VALUE_WIDTH + (hasCounterText(captionField) ? COUNTER_TEXT_GAP : 0);
+                captionField.y = groupY;
+            }
+        }
+
+        private function measureCounterGroupWidth(captionField:TextField):Number {
+            if (captionField != null && hasCounterText(captionField)) {
+                return COUNTER_VALUE_WIDTH + COUNTER_TEXT_GAP + COUNTER_CAPTION_WIDTH;
+            }
+
+            return COUNTER_VALUE_WIDTH;
+        }
+
+        private function hasCounterText(field:TextField):Boolean {
+            return field != null && field.text != null && field.text.length > 0;
         }
 
         private function resolveCenteredTextY(field:TextField, containerTop:Number, containerHeight:Number):Number {
@@ -1862,24 +2208,24 @@ package {
             field.width = 48;
             field.height = 22;
             field.x = -24;
-            field.y = markerTopY - field.height - 2;
+            field.y = markerTopY - field.height;
             field.text = text;
             return field;
         }
 
         private function makeCounterField():TextField {
-            var field:TextField = makeTextField(LABEL_COLOR, 13, true);
+            var field:TextField = makeTextField(LABEL_COLOR, COUNTER_FONT_SIZE, true);
             alignTextField(field, TextFormatAlign.RIGHT);
             field.width = COUNTER_VALUE_WIDTH;
-            field.height = 16;
+            field.height = COUNTER_FIELD_HEIGHT;
             return field;
         }
 
         private function makeCounterCaptionField(text:String):TextField {
-            var field:TextField = makeTextField(MARKER_VALUE_COLOR, 13, false);
+            var field:TextField = makeTextField(MARKER_VALUE_COLOR, COUNTER_FONT_SIZE, false);
             alignTextField(field, TextFormatAlign.LEFT);
             field.width = COUNTER_CAPTION_WIDTH;
-            field.height = 16;
+            field.height = COUNTER_FIELD_HEIGHT;
             field.text = text;
             return field;
         }

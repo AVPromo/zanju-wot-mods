@@ -7,9 +7,11 @@ MODE_FIELD_MODS = 'field_mods'
 MODE_TIER11_UPGRADES = 'tier11_upgrades'
 MODE_ELITE_PROGRESSION = 'elite_progression'
 
+RESEARCH_MARKER_BAR_ICON_SIZE = 24.0
+RESEARCH_MARKER_BAR_ICON_Y_OFFSET = 11.0
 ELITE_MAX_LEVEL = 350
 ELITE_MARKER_BAR_ICON_SIZE = 24.0
-ELITE_MARKER_BAR_ICON_Y_OFFSET = -4.0
+ELITE_MARKER_BAR_ICON_Y_OFFSET = 2.0
 ELITE_T11_COSMETIC_BAR_ICON_SIZE = 21.0
 ELITE_T11_COSMETIC_TOOLTIP_ICON_SIZE = 42.0
 ELITE_LEVEL_XP_SEGMENTS = (
@@ -439,7 +441,7 @@ def _elite_cumulative_xp_to_level(level):
 
 
 def _build_research_marker(item):
-    return {
+    marker = {
         'id': 'unlock_{0}'.format(item['intcd']),
         'positionValue': item['xp_cost'],
         'costXp': item['xp_cost'],
@@ -450,6 +452,10 @@ def _build_research_marker(item):
         'name': item.get('name'),
         'label': item['label'],
     }
+    marker['barIconYOffset'] = RESEARCH_MARKER_BAR_ICON_Y_OFFSET
+    if marker['itemType'] != 'vehicle':
+        marker['barIconSize'] = RESEARCH_MARKER_BAR_ICON_SIZE
+    return marker
 
 
 def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp):
