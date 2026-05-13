@@ -3,14 +3,11 @@ package {
     import flash.display.DisplayObjectContainer;
     import flash.display.Bitmap;
     import flash.display.BitmapData;
-    import flash.display.Loader;
     import flash.display.Shape;
     import flash.display.Sprite;
     import flash.events.Event;
-    import flash.events.IOErrorEvent;
     import flash.events.MouseEvent;
     import flash.geom.Rectangle;
-    import flash.net.URLRequest;
     import flash.text.TextField;
     import flash.text.TextFieldAutoSize;
     import flash.text.TextFormat;
@@ -57,6 +54,54 @@ package {
         [Embed(source="assets/rhomb.png")]
         private static const T11MajorUpgradeAsset:Class;
 
+        [Embed(source="assets/research_gun.png")]
+        private static const ResearchGunAsset:Class;
+
+        [Embed(source="assets/research_turret.png")]
+        private static const ResearchTurretAsset:Class;
+
+        [Embed(source="assets/research_engine.png")]
+        private static const ResearchEngineAsset:Class;
+
+        [Embed(source="assets/research_track.png")]
+        private static const ResearchTrackAsset:Class;
+
+        [Embed(source="assets/research_radio.png")]
+        private static const ResearchRadioAsset:Class;
+
+        [Embed(source="assets/research.png")]
+        private static const ResearchVehicleAsset:Class;
+
+        [Embed(source="assets/firepower_filter.png")]
+        private static const FirepowerFilterAsset:Class;
+
+        [Embed(source="assets/survivability_filter.png")]
+        private static const SurvivabilityFilterAsset:Class;
+
+        [Embed(source="assets/mobility_filter.png")]
+        private static const MobilityFilterAsset:Class;
+
+        [Embed(source="assets/stealth_filter.png")]
+        private static const StealthFilterAsset:Class;
+
+        [Embed(source="assets/prestige_bronze_1.png")]
+        private static const PrestigeBronzeAsset:Class;
+
+        [Embed(source="assets/prestige_silver_1.png")]
+        private static const PrestigeSilverAsset:Class;
+
+        [Embed(source="assets/prestige_gold_1.png")]
+        private static const PrestigeGoldAsset:Class;
+
+        [Embed(source="assets/prestige_enamel_1.png")]
+        private static const PrestigeEnamelAsset:Class;
+
+        [Embed(source="assets/prestige.png")]
+        private static const PrestigeEliteAsset:Class;
+
+        [Embed(source="assets/style.png")]
+        private static const StyleFilterAsset:Class;
+
         private static const SIDE_MARGIN:Number = 600;
         private static const TOP_MARGIN:Number = 105;
         private static const BAR_WIDTH_RATIO:Number = 0.375;
@@ -69,16 +114,16 @@ package {
         private static const BAR_SIDE_SAFE_OFFSET:Number = 15;
         private static const LEFT_COUNTER_OFFSET:Number = 3;
         private static const LAYOUT_DISTANCE_BUCKETS:Array = [
-            { minWidth: 2560, verticalDistance: 86, horizontalDistance: 367 },
-            { minWidth: 1920, verticalDistance: 55, horizontalDistance: 367 },
-            { minWidth: 1600, verticalDistance: 51, horizontalDistance: 271 },
-            { minWidth: 0, verticalDistance: 43, horizontalDistance: 271 }
+            { minWidth: 2560, verticalDistance: 81, horizontalDistance: 367 },
+            { minWidth: 1920, verticalDistance: 50, horizontalDistance: 367 },
+            { minWidth: 1600, verticalDistance: 46, horizontalDistance: 271 },
+            { minWidth: 0, verticalDistance: 38, horizontalDistance: 271 }
         ];
         private static const MIN_BAR_WIDTH:Number = 80;
         private static const BAR_HEIGHT:Number = 8;
-        private static const BAR_ASSEMBLY_ABOVE_HEIGHT:Number = 22;
+        private static const BAR_ASSEMBLY_ABOVE_HEIGHT:Number = 25;
         private static const BAR_ASSEMBLY_BELOW_HEIGHT:Number = 3;
-        private static const BAR_ASSEMBLY_HEIGHT:Number = 33;
+        private static const BAR_ASSEMBLY_HEIGHT:Number = 36;
         private static const LABEL_COLOR:uint = 0xE6DDC8;
         private static const COUNTER_GAP:Number = 14;
         private static const COUNTER_VALUE_WIDTH:Number = 60;
@@ -102,8 +147,8 @@ package {
         private static const MODE_BUTTON_BORDER_COLOR:uint = 0x6C5B47;
         private static const MODE_BUTTON_BORDER_ACTIVE_COLOR:uint = 0xA48745;
         private static const MARKER_VALUE_COLOR:uint = 0xB8AC97;
-        private static const MARKER_ICON_SIZE:Number = 48;
-        private static const MARKER_ICON_Y_OFFSET:Number = 7;
+        private static const MARKER_ICON_SIZE:Number = 20;
+        private static const MARKER_ICON_GAP:Number = 2;
         private static const TOOLTIP_BACKGROUND_COLOR:uint = 0x0B0B0B;
         private static const TOOLTIP_BACKGROUND_ALPHA:Number = 0.93;
         private static const TOOLTIP_BORDER_COLOR:uint = 0x7A6954;
@@ -113,10 +158,10 @@ package {
         private static const TOOLTIP_PADDING_X:Number = 8;
         private static const TOOLTIP_PADDING_Y:Number = 6;
         private static const TOOLTIP_PADDING_BOTTOM:Number = 8;
-        private static const TOOLTIP_OFFSET_Y:Number = 10;
+        private static const TOOLTIP_OFFSET_Y:Number = 15;
         private static const TOOLTIP_ICON_SIZE:Number = MARKER_ICON_SIZE;
-        private static const TOOLTIP_COMPACT_ICON_SIZE:Number = 32;
-        private static const TOOLTIP_ICON_LAYOUT_WIDTH:Number = 18;
+        private static const TOOLTIP_COMPACT_ICON_SIZE:Number = TOOLTIP_ICON_SIZE;
+        private static const TOOLTIP_ICON_LAYOUT_WIDTH:Number = TOOLTIP_ICON_SIZE;
         private static const TOOLTIP_ICON_GAP:Number = 6;
         private static const TOOLTIP_ROW_GAP:Number = 3;
         private static const TOOLTIP_COMPACT_ROW_GAP:Number = 1;
@@ -150,67 +195,30 @@ package {
             major_upgrade: "Major Upgrade",
             unknown: "Research Item"
         };
-        private static const MARKER_ICON_PATHS:Object = {
-            gun: [
-                "../maps/icons/hangar/vehicleMenu/small/research_gun.png",
-                "img://gui/maps/icons/hangar/vehicleMenu/small/research_gun.png"
-            ],
-            turret: [
-                "../maps/icons/hangar/vehicleMenu/small/research_turret.png",
-                "img://gui/maps/icons/hangar/vehicleMenu/small/research_turret.png"
-            ],
-            engine: [
-                "../maps/icons/hangar/vehicleMenu/small/research_engine.png",
-                "img://gui/maps/icons/hangar/vehicleMenu/small/research_engine.png"
-            ],
-            suspension: [
-                "../maps/icons/hangar/vehicleMenu/small/research_track.png",
-                "img://gui/maps/icons/hangar/vehicleMenu/small/research_track.png"
-            ],
-            radio: [
-                "../maps/icons/hangar/vehicleMenu/small/research_radio.png",
-                "img://gui/maps/icons/hangar/vehicleMenu/small/research_radio.png"
-            ],
-            vehicle: [
-                "../maps/icons/hangar/vehicleMenu/small/research.png",
-                "img://gui/maps/icons/hangar/vehicleMenu/small/research.png"
-            ],
-            firepower: [
-                "../maps/icons/specialization/firepower_filter.png",
-                "img://gui/maps/icons/specialization/firepower_filter.png"
-            ],
-            survivability: [
-                "../maps/icons/specialization/survivability_filter.png",
-                "img://gui/maps/icons/specialization/survivability_filter.png"
-            ],
-            mobility: [
-                "../maps/icons/specialization/mobility_filter.png",
-                "img://gui/maps/icons/specialization/mobility_filter.png"
-            ],
-            stealth: [
-                "../maps/icons/specialization/stealth_filter.png",
-                "img://gui/maps/icons/specialization/stealth_filter.png"
-            ],
-            reconnaissance: [
-                "../maps/icons/specialization/stealth_filter.png",
-                "img://gui/maps/icons/specialization/stealth_filter.png"
-            ],
-            scouting: [
-                "../maps/icons/specialization/stealth_filter.png",
-                "img://gui/maps/icons/specialization/stealth_filter.png"
-            ],
-            minor_upgrade: null,
-            major_upgrade: null,
-            special: null,
-            mechanic: null,
-            mechanics: null
-        };
         private static const MARKER_ICON_EMBEDDED:Object = {
+            gun: ResearchGunAsset,
+            turret: ResearchTurretAsset,
+            engine: ResearchEngineAsset,
+            suspension: ResearchTrackAsset,
+            radio: ResearchRadioAsset,
+            vehicle: ResearchVehicleAsset,
+            firepower: FirepowerFilterAsset,
+            survivability: SurvivabilityFilterAsset,
+            mobility: MobilityFilterAsset,
+            stealth: StealthFilterAsset,
+            reconnaissance: StealthFilterAsset,
+            scouting: StealthFilterAsset,
             minor_upgrade: T11MinorUpgradeAsset,
             major_upgrade: T11MajorUpgradeAsset,
             special: T11CogAsset,
             mechanic: T11StarAsset,
-            mechanics: T11StarAsset
+            mechanics: T11StarAsset,
+            "elite:bronze": PrestigeBronzeAsset,
+            "elite:silver": PrestigeSilverAsset,
+            "elite:gold": PrestigeGoldAsset,
+            "elite:red_gold": PrestigeEnamelAsset,
+            "elite:prestige_elite": PrestigeEliteAsset,
+            "elite:t11_cosmetic": StyleFilterAsset
         };
         private var combatPercentLabel:TextField;
         private var combatPercentCaption:TextField;
@@ -236,8 +244,6 @@ package {
         private var _barY:Number = TOP_MARGIN;
         private var _barWidth:Number = MIN_BAR_WIDTH;
         private var _isReady:Boolean = false;
-        private var _markerIconBitmapByType:Object = {};
-        private var _markerIconLoadStateByType:Object = {};
         private var _markerTooltipDataByDisplay:Dictionary = new Dictionary(true);
         private var _modeIdByButton:Dictionary = new Dictionary(true);
         private var _activeCounterLayout:String = "";
@@ -928,7 +934,6 @@ package {
             var markerBitmap:Bitmap = createMarkerBitmap(marker, markerProgressValue, combatXp, freeXp);
             var markerIcon:Bitmap;
             var markerLabel:TextField;
-            var markerLabelText:String = marker != null && marker.label !== undefined ? String(marker.label) : "";
 
             markerBitmap.x = -Math.round(markerBitmap.width / 2);
             markerBitmap.y = -Math.round((markerBitmap.height - BAR_HEIGHT) / 2);
@@ -938,8 +943,8 @@ package {
             if (markerIcon != null) {
                 markerSprite.addChild(markerIcon);
             }
-            else if (markerLabelText.length > 0) {
-                markerLabel = makeMarkerLabelField(markerLabelText, markerBitmap.y);
+            else if (shouldUseMarkerLabelFallback(marker)) {
+                markerLabel = makeMarkerLabelField(String(marker.label), markerBitmap.y);
                 markerSprite.addChild(markerLabel);
             }
 
@@ -1008,6 +1013,21 @@ package {
 
         private function shouldHideBarIcon(marker:Object):Boolean {
             return marker != null && marker.hideBarIcon !== undefined && Boolean(marker.hideBarIcon);
+        }
+
+        private function shouldUseMarkerLabelFallback(marker:Object):Boolean {
+            var markerLabel:String;
+
+            if (marker == null || marker.label === undefined || marker.label == null) {
+                return false;
+            }
+
+            markerLabel = String(marker.label);
+            if (markerLabel.length == 0) {
+                return false;
+            }
+
+            return shouldHideBarIcon(marker) || resolveMarkerEmbeddedIconKey(marker).length == 0;
         }
 
         private function onMarkerMouseOver(event:MouseEvent):void {
@@ -1216,7 +1236,6 @@ package {
                 for each (prereq in prereqs) {
                     row = createTooltipIconTextRow(
                         prereq != null && prereq.item_type !== undefined ? String(prereq.item_type) : "unknown",
-                        prereq != null && prereq.label !== undefined ? String(prereq.label) : "?",
                         resolveTooltipItemLabel(prereq),
                         TOOLTIP_BODY_SIZE,
                         TOOLTIP_TEXT_COLOR,
@@ -1351,23 +1370,12 @@ package {
             var titleX:Number = 0;
 
             if (!shouldHideTooltipIcon(marker)) {
-                icon = createTooltipMarkerIconForMarker(marker, marker != null && marker.label !== undefined ? String(marker.label) : "?", tooltipIconSize, tooltipIconLayoutWidth);
-            }
-            else {
-                icon = createTransparentTooltipIconPlaceholder(tooltipIconSize, tooltipIconLayoutWidth);
+                icon = createTooltipMarkerIconForMarker(marker, tooltipIconSize, tooltipIconLayoutWidth);
             }
 
             if (icon != null) {
                 row.addChild(icon);
                 titleX = tooltipIconLayoutWidth + TOOLTIP_ICON_GAP;
-            }
-
-            if (isT11Marker(marker)) {
-                titleX += 5;
-            }
-
-            if (isEliteMarker(marker)) {
-                titleX += 10;
             }
 
             titleField.x = titleX;
@@ -1423,16 +1431,12 @@ package {
         }
 
         private function resolveMarkerTooltipIconSize(marker:Object):Number {
-            if (marker != null && marker.tooltipIconSize !== undefined && marker.tooltipIconSize != null) {
-                return Number(marker.tooltipIconSize);
-            }
-
             return TOOLTIP_ICON_SIZE;
         }
 
-        private function createTooltipIconTextRow(itemType:String, fallbackLabel:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite {
+        private function createTooltipIconTextRow(itemType:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite {
             var row:Sprite = new Sprite();
-            var icon:Sprite = createTooltipMarkerIcon(itemType, fallbackLabel, iconSize);
+            var icon:Sprite = createTooltipMarkerIcon(itemType, iconSize);
             var field:TextField = makeTooltipRowField(text, size, color, bold);
             var rowHeight:Number;
 
@@ -1440,24 +1444,15 @@ package {
                 row.addChild(icon);
             }
 
-            field.x = TOOLTIP_ICON_LAYOUT_WIDTH + TOOLTIP_ICON_GAP;
+            field.x = icon != null ? TOOLTIP_ICON_LAYOUT_WIDTH + TOOLTIP_ICON_GAP : 0;
             row.addChild(field);
 
-            rowHeight = Math.max(iconSize, field.height);
+            rowHeight = Math.max(icon != null ? iconSize : 0, field.height);
             if (icon != null) {
                 icon.y = Math.round((rowHeight - iconSize) / 2);
             }
             field.y = Math.round((rowHeight - field.height) / 2);
             return row;
-        }
-
-        private function createTransparentTooltipIconPlaceholder(iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
-            var iconSprite:Sprite = new Sprite();
-
-            iconSprite.graphics.beginFill(0xFFFFFF, 0.0);
-            iconSprite.graphics.drawRect(0, 0, layoutWidth, iconSize);
-            iconSprite.graphics.endFill();
-            return iconSprite;
         }
 
         private function createTooltipTextRow(text:String, size:int, color:uint, bold:Boolean):Sprite {
@@ -1467,59 +1462,37 @@ package {
             return row;
         }
 
-        private function createTooltipMarkerIcon(itemType:String, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
+        private function createTooltipMarkerIcon(itemType:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = getMarkerIconBitmapData(itemType);
             var iconBitmap:Bitmap;
-            var scale:Number;
-            var labelField:TextField;
 
-            if (bitmapData != null) {
-                iconBitmap = new Bitmap(bitmapData);
-                iconBitmap.smoothing = true;
-                scale = iconSize / Math.max(iconBitmap.width, iconBitmap.height);
-                iconBitmap.scaleX = scale;
-                iconBitmap.scaleY = scale;
-                iconBitmap.x = Math.round((layoutWidth - iconBitmap.width) / 2);
-                iconBitmap.y = Math.round((iconSize - iconBitmap.height) / 2);
-                iconSprite.addChild(iconBitmap);
-                return iconSprite;
+            if (bitmapData == null) {
+                return null;
             }
 
-            labelField = makeTooltipRowField(fallbackLabel, TOOLTIP_BODY_SIZE, TOOLTIP_TEXT_COLOR, true);
-            labelField.width = layoutWidth;
-            labelField.height = iconSize;
-            alignTextField(labelField, TextFormatAlign.CENTER);
-            labelField.y = Math.round((iconSize - labelField.height) / 2);
-            iconSprite.addChild(labelField);
+            iconBitmap = new Bitmap(bitmapData);
+            iconBitmap.smoothing = true;
+            iconBitmap.x = 0;
+            iconBitmap.y = 0;
+            iconSprite.addChild(iconBitmap);
             return iconSprite;
         }
 
-        private function createTooltipMarkerIconForMarker(marker:Object, fallbackLabel:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
+        private function createTooltipMarkerIconForMarker(marker:Object, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = getMarkerIconBitmapDataForMarker(marker);
             var iconBitmap:Bitmap;
-            var scale:Number;
-            var labelField:TextField;
 
-            if (bitmapData != null) {
-                iconBitmap = new Bitmap(bitmapData);
-                iconBitmap.smoothing = true;
-                scale = iconSize / Math.max(iconBitmap.width, iconBitmap.height);
-                iconBitmap.scaleX = scale;
-                iconBitmap.scaleY = scale;
-                iconBitmap.x = Math.round((layoutWidth - iconBitmap.width) / 2);
-                iconBitmap.y = Math.round((iconSize - iconBitmap.height) / 2);
-                iconSprite.addChild(iconBitmap);
-                return iconSprite;
+            if (bitmapData == null) {
+                return null;
             }
 
-            labelField = makeTooltipRowField(fallbackLabel, TOOLTIP_BODY_SIZE, TOOLTIP_TEXT_COLOR, true);
-            labelField.width = layoutWidth;
-            labelField.height = iconSize;
-            alignTextField(labelField, TextFormatAlign.CENTER);
-            labelField.y = Math.round((iconSize - labelField.height) / 2);
-            iconSprite.addChild(labelField);
+            iconBitmap = new Bitmap(bitmapData);
+            iconBitmap.smoothing = true;
+            iconBitmap.x = 0;
+            iconBitmap.y = 0;
+            iconSprite.addChild(iconBitmap);
             return iconSprite;
         }
 
@@ -1634,10 +1607,7 @@ package {
 
         private function createMarkerIcon(marker:Object, markerTopY:Number):Bitmap {
             var bitmapData:BitmapData = getMarkerBarIconBitmapDataForMarker(marker);
-            var iconSize:Number;
             var icon:Bitmap;
-            var scale:Number;
-            var yOffset:Number;
 
             if (shouldHideBarIcon(marker)) {
                 return null;
@@ -1649,13 +1619,8 @@ package {
 
             icon = new Bitmap(bitmapData);
             icon.smoothing = true;
-            iconSize = marker != null && marker.barIconSize !== undefined ? Number(marker.barIconSize) : MARKER_ICON_SIZE;
-            yOffset = marker != null && marker.barIconYOffset !== undefined ? Number(marker.barIconYOffset) : MARKER_ICON_Y_OFFSET;
-            scale = iconSize / Math.max(icon.width, icon.height);
-            icon.scaleX = scale;
-            icon.scaleY = scale;
             icon.x = -Math.round(icon.width / 2);
-            icon.y = markerTopY - icon.height + yOffset;
+            icon.y = markerTopY - MARKER_ICON_GAP - icon.height;
             return icon;
         }
 
@@ -1707,8 +1672,39 @@ package {
             return "";
         }
 
+        private function resolveMarkerEmbeddedIconKey(marker:Object):String {
+            var iconCacheKey:String;
+            var barItemType:String;
+            var itemType:String;
+
+            if (marker == null) {
+                return "";
+            }
+
+            if (marker.iconCacheKey !== undefined && marker.iconCacheKey != null) {
+                iconCacheKey = String(marker.iconCacheKey);
+                if (MARKER_ICON_EMBEDDED.hasOwnProperty(iconCacheKey)) {
+                    return iconCacheKey;
+                }
+            }
+
+            barItemType = resolveMarkerBarItemType(marker);
+            if (barItemType.length > 0 && MARKER_ICON_EMBEDDED.hasOwnProperty(barItemType)) {
+                return barItemType;
+            }
+
+            if (marker.itemType !== undefined && marker.itemType != null) {
+                itemType = String(marker.itemType);
+                if (MARKER_ICON_EMBEDDED.hasOwnProperty(itemType)) {
+                    return itemType;
+                }
+            }
+
+            return "";
+        }
+
         private function getMarkerIconBitmapDataForMarker(marker:Object):BitmapData {
-            return getMarkerIconBitmapDataByKey(resolveMarkerIconKey(marker), resolveMarkerIconPaths(marker));
+            return getEmbeddedMarkerIconBitmapData(resolveMarkerEmbeddedIconKey(marker));
         }
 
         private function getEmbeddedMarkerIconBitmapData(itemType:String):BitmapData {
@@ -1727,160 +1723,7 @@ package {
         }
 
         private function getMarkerIconBitmapData(itemType:String):BitmapData {
-            var embedded:BitmapData = getEmbeddedMarkerIconBitmapData(itemType);
-            if (embedded != null) {
-                return embedded;
-            }
-            return getMarkerIconBitmapDataByKey(itemType != null ? itemType : "", getMarkerIconPaths(itemType));
-        }
-
-        private function getMarkerIconBitmapDataByKey(iconKey:String, paths:Array):BitmapData {
-            var normalizedType:String = iconKey != null ? iconKey : "";
-            var embeddedBitmapData:BitmapData;
-
-            embeddedBitmapData = getEmbeddedMarkerIconBitmapData(normalizedType);
-            if (embeddedBitmapData != null) {
-                return embeddedBitmapData;
-            }
-
-            if (_markerIconBitmapByType.hasOwnProperty(normalizedType)) {
-                return _markerIconBitmapByType[normalizedType] as BitmapData;
-            }
-
-            if (_markerIconLoadStateByType[normalizedType] === "failed") {
-                return null;
-            }
-
-            if (_markerIconLoadStateByType[normalizedType] !== "loading") {
-                beginMarkerIconLoad(normalizedType, paths);
-            }
-
-            return null;
-        }
-
-        private function beginMarkerIconLoad(iconKey:String, paths:Array):void {
-            if (paths == null || paths.length == 0) {
-                _markerIconLoadStateByType[iconKey] = "failed";
-                return;
-            }
-
-            _markerIconLoadStateByType[iconKey] = "loading";
-            loadMarkerIconCandidate(iconKey, paths, 0);
-        }
-
-        private function loadMarkerIconCandidate(iconKey:String, paths:Array, pathIndex:int):void {
-            var path:String;
-            var loader:Loader;
-            var onComplete:Function;
-            var onError:Function;
-
-            if (paths == null || pathIndex >= paths.length) {
-                _markerIconLoadStateByType[iconKey] = "failed";
-                return;
-            }
-
-            path = String(paths[pathIndex]);
-            loader = new Loader();
-
-            onComplete = function(event:Event):void {
-                var loadedBitmap:Bitmap = loader.content as Bitmap;
-
-                loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onComplete);
-                loader.contentLoaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
-
-                if (loadedBitmap != null && loadedBitmap.bitmapData != null) {
-                    _markerIconBitmapByType[iconKey] = loadedBitmap.bitmapData.clone();
-                    _markerIconLoadStateByType[iconKey] = "ready";
-                    try {
-                        loader.unload();
-                    }
-                    catch (error:Error) {
-                    }
-                    if (_isReady && _context != null) {
-                        updateBarFromContext(false);
-                    }
-                    return;
-                }
-
-                try {
-                    loader.unload();
-                }
-                catch (error2:Error) {
-                }
-                loadMarkerIconCandidate(iconKey, paths, pathIndex + 1);
-            };
-
-            onError = function(event:IOErrorEvent):void {
-                loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onComplete);
-                loader.contentLoaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
-                try {
-                    loader.unload();
-                }
-                catch (error:Error) {
-                }
-                loadMarkerIconCandidate(iconKey, paths, pathIndex + 1);
-            };
-
-            loader.contentLoaderInfo.addEventListener(Event.COMPLETE, onComplete, false, 0, true);
-            loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onError, false, 0, true);
-
-            try {
-                loader.load(new URLRequest(path));
-            }
-            catch (error:Error) {
-                loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onComplete);
-                loader.contentLoaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
-                loadMarkerIconCandidate(iconKey, paths, pathIndex + 1);
-            }
-        }
-
-        private function resolveMarkerIconKey(marker:Object):String {
-            var customPaths:Array = marker != null && marker.iconPaths is Array ? marker.iconPaths as Array : null;
-            var cacheKey:String;
-            var itemType:String;
-
-            if (customPaths != null && customPaths.length > 0) {
-                if (marker != null && marker.iconCacheKey !== undefined && marker.iconCacheKey != null) {
-                    cacheKey = String(marker.iconCacheKey);
-                    if (cacheKey.length > 0) {
-                        return cacheKey;
-                    }
-                }
-                return "custom:" + customPaths.join("|");
-            }
-
-            itemType = marker != null && marker.itemType !== undefined ? String(marker.itemType) : "";
-            return itemType;
-        }
-
-        private function resolveMarkerIconPaths(marker:Object):Array {
-            var combined:Array = [];
-            var customPaths:Array = marker != null && marker.iconPaths is Array ? marker.iconPaths as Array : null;
-            var itemType:String = marker != null && marker.itemType !== undefined ? String(marker.itemType) : "";
-            var fallbackPaths:Array = getMarkerIconPaths(itemType);
-            var i:int;
-
-            if (customPaths != null) {
-                for (i = 0; i < customPaths.length; i++) {
-                    combined.push(customPaths[i]);
-                }
-            }
-
-            if (fallbackPaths != null) {
-                for (i = 0; i < fallbackPaths.length; i++) {
-                    combined.push(fallbackPaths[i]);
-                }
-            }
-
-            return combined.length > 0 ? combined : null;
-        }
-
-        private function getMarkerIconPaths(itemType:String):Array {
-            if (itemType == null || itemType.length == 0 || !MARKER_ICON_PATHS.hasOwnProperty(itemType)) {
-                return null;
-            }
-
-            return MARKER_ICON_PATHS[itemType] as Array;
+            return getEmbeddedMarkerIconBitmapData(itemType);
         }
 
         private function drawMask(shape:Shape, posX:Number, posY:Number, width:Number, height:Number):void {

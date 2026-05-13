@@ -7,13 +7,7 @@ MODE_FIELD_MODS = 'field_mods'
 MODE_TIER11_UPGRADES = 'tier11_upgrades'
 MODE_ELITE_PROGRESSION = 'elite_progression'
 
-RESEARCH_MARKER_BAR_ICON_SIZE = 24.0
-RESEARCH_MARKER_BAR_ICON_Y_OFFSET = 11.0
 ELITE_MAX_LEVEL = 350
-ELITE_MARKER_BAR_ICON_SIZE = 24.0
-ELITE_MARKER_BAR_ICON_Y_OFFSET = 2.0
-ELITE_T11_COSMETIC_BAR_ICON_SIZE = 21.0
-ELITE_T11_COSMETIC_TOOLTIP_ICON_SIZE = 42.0
 ELITE_LEVEL_XP_SEGMENTS = (
     (1, 5, 1000),
     (5, 20, 1500),
@@ -22,12 +16,12 @@ ELITE_LEVEL_XP_SEGMENTS = (
     (250, ELITE_MAX_LEVEL, 4000),
 )
 ELITE_COLOR_MARKERS = (
-    ('metal', 'Metal Badge', 1, 'iron/1.png'),
-    ('bronze', 'Bronze Badge', 20, 'bronze/1.png'),
-    ('silver', 'Silver Badge', 70, 'silver/1.png'),
-    ('gold', 'Gold Badge', 150, 'gold/1.png'),
-    ('red_gold', 'Red Gold Badge', 250, 'enamel/1.png'),
-    ('prestige_elite', 'Prestige Elite Badge', ELITE_MAX_LEVEL, 'prestige.png'),
+    ('metal', 'Metal Badge', 1),
+    ('bronze', 'Bronze Badge', 20),
+    ('silver', 'Silver Badge', 70),
+    ('gold', 'Gold Badge', 150),
+    ('red_gold', 'Red Gold Badge', 250),
+    ('prestige_elite', 'Prestige Elite Badge', ELITE_MAX_LEVEL),
 )
 ELITE_T11_COSMETIC_MARKERS = (
     ('stat_tracker', 'Stat Tracker', 35),
@@ -343,7 +337,7 @@ def _build_elite_mode(data):
 
 def _build_elite_markers(current_total_xp, include_t11_cosmetics=False):
     markers = []
-    for marker_key, marker_name, level, icon_path in ELITE_COLOR_MARKERS:
+    for marker_key, marker_name, level in ELITE_COLOR_MARKERS:
         if level <= 1:
             continue
         position_value = _elite_cumulative_xp_to_level(level)
@@ -357,10 +351,7 @@ def _build_elite_markers(current_total_xp, include_t11_cosmetics=False):
             'name': marker_name,
             'level': level,
             'label': '',
-            'iconPaths': _build_elite_icon_paths(icon_path),
             'iconCacheKey': 'elite:{0}'.format(marker_key),
-            'barIconSize': ELITE_MARKER_BAR_ICON_SIZE,
-            'barIconYOffset': ELITE_MARKER_BAR_ICON_Y_OFFSET,
             'hideTooltipIcon': False,
             'hideBarIcon': False,
             'markerState': 'completed' if position_value <= current_total_xp else 'locked',
@@ -380,11 +371,7 @@ def _build_elite_markers(current_total_xp, include_t11_cosmetics=False):
                 'name': marker_name,
                 'level': level,
                 'label': '',
-                'iconPaths': _build_elite_t11_cosmetic_icon_paths(),
                 'iconCacheKey': 'elite:t11_cosmetic',
-                'barIconSize': ELITE_T11_COSMETIC_BAR_ICON_SIZE,
-                'tooltipIconSize': ELITE_T11_COSMETIC_TOOLTIP_ICON_SIZE,
-                'barIconYOffset': ELITE_MARKER_BAR_ICON_Y_OFFSET,
                 'hideTooltipIcon': False,
                 'hideBarIcon': False,
                 'markerState': 'completed' if position_value <= current_total_xp else 'locked',
@@ -393,20 +380,6 @@ def _build_elite_markers(current_total_xp, include_t11_cosmetics=False):
                 'isAvailable': True,
             })
     return markers
-
-
-def _build_elite_icon_paths(icon_path):
-    return [
-        '../maps/icons/prestige/emblem/48x48/{0}'.format(icon_path),
-        'img://gui/maps/icons/prestige/emblem/48x48/{0}'.format(icon_path),
-    ]
-
-
-def _build_elite_t11_cosmetic_icon_paths():
-    return [
-        '../maps/icons/storage/filters/style.png',
-        'img://gui/maps/icons/storage/filters/style.png',
-    ]
 
 
 def _elite_total_required_xp():
@@ -441,7 +414,7 @@ def _elite_cumulative_xp_to_level(level):
 
 
 def _build_research_marker(item):
-    marker = {
+    return {
         'id': 'unlock_{0}'.format(item['intcd']),
         'positionValue': item['xp_cost'],
         'costXp': item['xp_cost'],
@@ -452,10 +425,6 @@ def _build_research_marker(item):
         'name': item.get('name'),
         'label': item['label'],
     }
-    marker['barIconYOffset'] = RESEARCH_MARKER_BAR_ICON_Y_OFFSET
-    if marker['itemType'] != 'vehicle':
-        marker['barIconSize'] = RESEARCH_MARKER_BAR_ICON_SIZE
-    return marker
 
 
 def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp):
@@ -814,9 +783,6 @@ def _apply_t11_bar_icon(marker, show_bar_icon=True):
     if bar_item_type:
         marker['barItemType'] = bar_item_type
 
-    if bar_item_type or marker.get('iconPaths') or category in ('special', 'mechanic', 'mechanics'):
-        marker['barIconSize'] = 24.0
-        marker['barIconYOffset'] = 2
     return marker
 
 

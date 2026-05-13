@@ -475,6 +475,44 @@ Practical consequence:
 - After the player opens the Tier XI upgrades UI, the presenter path can be observed safely and the resulting prices can be cached/reused during that session.
 - This makes the presenter/model bridge useful for validation and opportunistic caching, but not sufficient by itself for a default hangar feature that must work before the upgrades UI is opened.
 
+### Tier XI image path resolution notes
+
+For Tier XI upgrade icons, the useful runtime input is usually `action_node['image_name']` plus the XP bucket and category. The reliable image paths discovered for this repository are:
+
+- Normal skill-tree nodes resolve under:
+
+```text
+gui/maps/icons/skillTree/tree/perks/{branch}/skills/{size}/{image_name}.png
+```
+
+Where:
+
+- `branch` is one of `common`, `major`, `final`, `special`
+- `size` is usually worth probing in this order: `small`, then `large`
+
+Preferred branch order by bucket:
+
+- `small_10k`: prefer `special` first when `category == 'special'`, otherwise try `common` first; then fall back through the remaining branches.
+- `big_20k`: prefer `major` first; then fall back through the remaining branches.
+- `big_25k`: prefer `final` first; then fall back through the remaining branches.
+
+Feature-switch style icons can live outside the normal skill-tree branch and should also probe:
+
+```text
+gui/maps/icons/vehPostProgression/actionItems/modificationWithFeature/{size}/{image_name}.png
+```
+
+Where `size` is typically `120x80` or `192x120`.
+
+Practical loading strategy for this repo:
+
+- Build an ordered candidate list from `(bucket, category, image_name)`.
+- Probe the preferred `skillTree/tree/perks/...` branches first.
+- Then probe `vehPostProgression/actionItems/modificationWithFeature/...` for feature-switch style nodes.
+- If no exact image resolves, keep a category-icon fallback (`firepower`, `survivability`, `mobility`, `scouting/reconnaissance`, `special`, `mechanics`) instead of showing nothing.
+
+The current repository implementation of this probe order is `_build_t11_action_icon_paths()` in `mods/research-progress-bar/src/zanju_rpb/scaleform_modes.py`.
+
 ### `PostProgressionAvailability` enum values
 
 ```python
