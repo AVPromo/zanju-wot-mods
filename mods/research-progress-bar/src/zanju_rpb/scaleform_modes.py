@@ -7,6 +7,10 @@ MODE_FIELD_MODS = 'field_mods'
 MODE_TIER11_UPGRADES = 'tier11_upgrades'
 MODE_ELITE_PROGRESSION = 'elite_progression'
 
+ELITE_MODE_ON = 'on'
+ELITE_MODE_CUSTOMIZATION_ONLY = 'customization_only'
+ELITE_MODE_OFF = 'off'
+
 ELITE_MAX_LEVEL = 350
 ELITE_LEVEL_XP_SEGMENTS = (
     (1, 5, 1000),
@@ -39,23 +43,27 @@ T11_CATEGORY_SORT_ORDER = {
 }
 
 
-def build_scaleform_view_payload(vehicle, data):
+def build_scaleform_view_payload(vehicle, data, mode_preferences=None):
     """Builds the full Scaleform payload or None when no mode is available."""
+    preferences = _normalize_mode_preferences(mode_preferences)
     modes = []
 
-    research_mode = _build_regular_research_mode(data)
-    if research_mode is not None:
-        modes.append(research_mode)
+    if preferences['showResearch']:
+        research_mode = _build_regular_research_mode(data)
+        if research_mode is not None:
+            modes.append(research_mode)
 
-    field_mods_mode = _build_field_mods_mode(data)
-    if field_mods_mode is not None:
-        modes.append(field_mods_mode)
+    if preferences['showFieldMods']:
+        field_mods_mode = _build_field_mods_mode(data)
+        if field_mods_mode is not None:
+            modes.append(field_mods_mode)
 
-    tier11_mode = _build_tier11_mode(data)
-    if tier11_mode is not None:
-        modes.append(tier11_mode)
+    if preferences['showUpgrades']:
+        tier11_mode = _build_tier11_mode(data)
+        if tier11_mode is not None:
+            modes.append(tier11_mode)
 
-    elite_mode = _build_elite_mode(data)
+    elite_mode = _build_elite_mode(data, preferences['eliteMode'])
     if elite_mode is not None:
         modes.append(elite_mode)
 
@@ -66,6 +74,20 @@ def build_scaleform_view_payload(vehicle, data):
         'vehicleLabel': _build_vehicle_label(vehicle, data),
         'selectedModeId': modes[0]['id'],
         'modes': modes,
+    }
+
+
+def _normalize_mode_preferences(mode_preferences):
+    preferences = dict(mode_preferences or {})
+    elite_mode = preferences.get('eliteMode') or ELITE_MODE_ON
+    if elite_mode not in (ELITE_MODE_ON, ELITE_MODE_CUSTOMIZATION_ONLY, ELITE_MODE_OFF):
+        elite_mode = ELITE_MODE_ON
+
+    return {
+        'showResearch': bool(preferences.get('showResearch', True)),
+        'showFieldMods': bool(preferences.get('showFieldMods', True)),
+        'showUpgrades': bool(preferences.get('showUpgrades', True)),
+        'eliteMode': elite_mode,
     }
 
 
@@ -285,7 +307,10 @@ def _build_tier11_mode(data):
     )
 
 
-def _build_elite_mode(data):
+def _build_elite_mode(data, elite_mode=ELITE_MODE_ON):
+    if elite_mode == ELITE_MODE_OFF:
+        return None
+
     tech_tree = dict(data.get('tech_tree') or {})
     field_mods = data.get('field_mods') or {}
     vehicle_data = data.get('vehicle') or {}
@@ -293,6 +318,14 @@ def _build_elite_mode(data):
     elite_progression = data.get('elite_progression') or {}
     if not _is_elite_progression_mode_enabled(tech_tree, elite_progression):
         return None
+
+    include_t11_cosmetics = _is_tier11_mode_enabled(field_mods, tech_tree)
+    if elite_mode == ELITE_MODE_CUSTOMIZATION_ONLY and not include_t11_cosmetics:
+        return None
+
+    progress_cap = _elite_total_required_xp()
+    if elite_mode == ELITE_MODE_CUSTOMIZATION_ONLY:
+        progress_cap = _elite_customization_total_required_xp()
 
     current_level = _to_int(elite_progression.get('current_level'))
     if current_level is None:
@@ -317,48 +350,54 @@ def _build_elite_mode(data):
             _elite_total_required_xp(),
             _elite_cumulative_xp_to_level(current_level) + current_xp,
         )
+    total_progress = min(progress_cap, total_progress)
 
     return _make_mode(
         MODE_ELITE_PROGRESSION,
         'Elite',
-        _elite_total_required_xp(),
+        progress_cap,
         0.0,
         0.0,
         'Elite Level {0}'.format(current_level),
         '{0} / {1} Base XP'.format(current_xp, next_level_xp),
-        _format_percent(total_progress, _elite_total_required_xp()),
+        _format_percent(total_progress, progress_cap),
         'Base XP',
-        markers=_build_elite_markers(total_progress, _is_tier11_mode_enabled(field_mods, tech_tree)),
+        markers=_build_elite_markers(
+            total_progress,
+            include_badges=(elite_mode == ELITE_MODE_ON),
+            include_t11_cosmetics=include_t11_cosmetics,
+        ),
         completed_value=total_progress,
         counter_layout='elite_status',
         bar_fill_mode='completed_only',
     )
 
 
-def _build_elite_markers(current_total_xp, include_t11_cosmetics=False):
+def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosmetics=False):
     markers = []
-    for marker_key, marker_name, level in ELITE_COLOR_MARKERS:
-        if level <= 1:
-            continue
-        position_value = _elite_cumulative_xp_to_level(level)
-        if level >= ELITE_MAX_LEVEL:
-            position_value = _elite_total_required_xp()
-        markers.append({
-            'id': 'elite_{0}'.format(marker_key),
-            'positionValue': position_value,
-            'costXp': position_value,
-            'itemType': 'unknown',
-            'name': marker_name,
-            'level': level,
-            'label': '',
-            'iconCacheKey': 'elite:{0}'.format(marker_key),
-            'hideTooltipIcon': False,
-            'hideBarIcon': False,
-            'markerState': 'completed' if position_value <= current_total_xp else 'locked',
-            'singleProgressRow': True,
-            'progressLabel': 'Base XP',
-            'isAvailable': True,
-        })
+    if include_badges:
+        for marker_key, marker_name, level in ELITE_COLOR_MARKERS:
+            if level <= 1:
+                continue
+            position_value = _elite_cumulative_xp_to_level(level)
+            if level >= ELITE_MAX_LEVEL:
+                position_value = _elite_total_required_xp()
+            markers.append({
+                'id': 'elite_{0}'.format(marker_key),
+                'positionValue': position_value,
+                'costXp': position_value,
+                'itemType': 'unknown',
+                'name': marker_name,
+                'level': level,
+                'label': '',
+                'iconCacheKey': 'elite:{0}'.format(marker_key),
+                'hideTooltipIcon': False,
+                'hideBarIcon': False,
+                'markerState': 'completed' if position_value <= current_total_xp else 'locked',
+                'singleProgressRow': True,
+                'progressLabel': 'Base XP',
+                'isAvailable': True,
+            })
 
     if include_t11_cosmetics:
         for marker_key, marker_name, level in ELITE_T11_COSMETIC_MARKERS:
@@ -384,6 +423,11 @@ def _build_elite_markers(current_total_xp, include_t11_cosmetics=False):
 
 def _elite_total_required_xp():
     return _elite_cumulative_xp_to_level(ELITE_MAX_LEVEL)
+
+
+def _elite_customization_total_required_xp():
+    max_marker_level = max([level for _, _, level in ELITE_T11_COSMETIC_MARKERS] or [ELITE_MAX_LEVEL])
+    return _elite_cumulative_xp_to_level(max_marker_level)
 
 
 def _elite_required_xp_for_level(level):

@@ -28,6 +28,9 @@ Notes:
 - `build.py research-progress-bar` and `dev_test_cycle.py research-progress-bar` now invoke `ui/compile_ui.py` automatically before packaging, so manual UI builds are mainly for faster SWF-only iteration.
 - Files under `ui/build/` are generated artifacts and should not be committed.
 - The final user-facing release bundle is emitted under `dist/` with the `.wotmod`, copied config, and install README.
+- The Python side now registers an optional `ModsSettingsAPI` template for `enabled`, `Research`, `Field Mods`, `Upgrades`, and `Elite`; the Elite control is a radio group with `On`, `Customization only`, and `Off`.
+- That in-game settings path is additive only: if `ModsSettingsAPI`, `ModsListAPI`, or `OpenWG Gameface` is missing, the mod should keep working from `mods/configs/research-progress-bar/config.json` without crashing.
+- Changes made through the in-game configurator are persisted back to `mods/configs/research-progress-bar/config.json` so manual edits and UI edits stay on the same config path.
 - The Python side keeps the `SFWindow` loaded and toggles SWF visibility for supported hide/show cases instead of destroying and reloading it for transient popups.
 - Repository config source lives in `mods/research-progress-bar/config.json` and ships to `mods/configs/research-progress-bar/config.json`.
 - `scaleformPrototypeEnabled` controls the active custom SWF path.

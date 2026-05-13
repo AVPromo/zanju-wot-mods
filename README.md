@@ -79,5 +79,8 @@ python dev_test_cycle.py research-progress-bar
 - Test every patch cycle (especially micro-patches) before release.
 - For this WoT stack, keep a thin top-level `mod_*.py` bootstrap under `src/`; package-only entrypoints were not auto-discovered.
 - For multi-file mods, keep implementation in a unique package under `src/`, include `__init__.py`, avoid bootstrap/package name collisions, and prefer relative intra-package imports.
+- `research-progress-bar` now exposes a minimal optional in-game settings UI through `ModsSettingsAPI`; that dependency chain is `ModsSettingsAPI` -> `ModsListAPI` -> `OpenWG Gameface`.
+- The current `research-progress-bar` configurator surface is `Research`, `Field Mods`, `Upgrades`, and `Elite`; `Elite` uses `On` / `Customization only` / `Off` instead of a plain checkbox.
+- Keep mod-to-mod UI dependencies soft. `research-progress-bar` must keep working from `mods/configs/research-progress-bar/config.json` when the configurator stack is not installed.
 - Future work: automate publishing the `dist/` release bundle through GitHub Releases/CI. That workflow is intentionally not implemented yet.
 - For research-progress-bar crash boundaries and safe probe settings, see `docs/05-debugging-and-compatibility.md` section 8.

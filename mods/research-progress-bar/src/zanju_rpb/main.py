@@ -66,8 +66,9 @@ except NameError:
 _config = {
     'enabled': True,
     'showTechTree': True,
-    'showEliteProgress': True,
     'showFieldMods': True,
+    'showUpgrades': True,
+    'eliteMode': 'on',
     # Emits verbose field-mod internals to python.log for parser tuning.
     # Keep disabled for normal use and enable only for targeted diagnostics.
     'debugFieldMods': False,
@@ -94,6 +95,47 @@ _config = {
     'tier11MethodProbeMaxStepsPerUpdate': 1,
     'scaleformPrototypeEnabled': True,
 }
+
+_CONFIG_PERSISTED_KEYS = (
+    'enabled',
+    'showTechTree',
+    'showFieldMods',
+    'showUpgrades',
+    'eliteMode',
+    'debugFieldMods',
+    'fieldModsProbeMode',
+    'extractNextStepXPLightweight',
+    'parseNextStepXPFromSettings',
+    'parseNextStepXPFromRawTree',
+    'tier11WideNetProbe',
+    'tier11MethodProbeEnabled',
+    'tier11MethodProbeName',
+    'tier11MethodProbeMaxStepsPerUpdate',
+    'scaleformPrototypeEnabled',
+)
+
+_MODS_SETTINGS_USER_KEYS = (
+    'enabled',
+    'showTechTree',
+    'showFieldMods',
+    'showUpgrades',
+    'showEliteProgress',
+)
+
+_mods_settings_sync_in_progress = False
+
+_ELITE_MODE_ON = 'on'
+_ELITE_MODE_CUSTOMIZATION_ONLY = 'customization_only'
+_ELITE_MODE_OFF = 'off'
+_ELITE_MODE_VALUES = (
+    _ELITE_MODE_ON,
+    _ELITE_MODE_CUSTOMIZATION_ONLY,
+    _ELITE_MODE_OFF,
+)
+_ELITE_MODE_INDEX_BY_VALUE = dict(
+    (value, index) for index, value in enumerate(_ELITE_MODE_VALUES)
+)
+_MODS_SETTINGS_SCHEMA_VERSION = 2
 
 _ROUTE_PATH_RE = re.compile(r'\((subScope/[^)]*)\)')
 _T11_CATEGORY_HINT_RE = re.compile(
@@ -125,18 +167,237 @@ _LAYOUT_REFRESH_RETRY_DELAY = 1.0
 _LAYOUT_REFRESH_RETRY_COUNT = 8
 
 
+def _get_config_path():
+    import os
+    return os.path.join('mods', 'configs', 'research-progress-bar', 'config.json')
+
+
 def _load_config():
-    import json, os
+    import io, json, os
     try:
-        path = os.path.join(
-            'mods', 'configs', 'research-progress-bar', 'config.json'
-        )
+        path = _get_config_path()
         if os.path.isfile(path):
-            with open(path, 'r') as fh:
-                _config.update(json.load(fh))
+            with io.open(path, 'r', encoding='utf-8') as fh:
+                loaded = json.load(fh)
+            if isinstance(loaded, dict):
+                _config.update(loaded)
+            _normalize_display_config()
             _logger.info('Config loaded from %s', path)
     except Exception:
         _logger.exception('Failed to load config, using defaults')
+    _normalize_display_config()
+
+
+def _normalize_elite_mode(value):
+    if isinstance(value, bool):
+        return _ELITE_MODE_ON if value else _ELITE_MODE_OFF
+    if isinstance(value, Integral):
+        index = int(value)
+        if index >= 0 and index < len(_ELITE_MODE_VALUES):
+            return _ELITE_MODE_VALUES[index]
+        return _ELITE_MODE_ON
+    if isinstance(value, _STRING_TYPES):
+        normalized = value.strip().lower().replace('-', '_').replace(' ', '_')
+        if normalized in _ELITE_MODE_INDEX_BY_VALUE:
+            return normalized
+        if normalized in ('customization', 'customisation', 'cosmetics_only'):
+            return _ELITE_MODE_CUSTOMIZATION_ONLY
+        if normalized in ('true', 'enabled'):
+            return _ELITE_MODE_ON
+        if normalized in ('false', 'disabled'):
+            return _ELITE_MODE_OFF
+    return _ELITE_MODE_ON
+
+
+def _normalize_display_config():
+    legacy_elite_value = _config.get('showEliteProgress', _config.get('eliteMode', _ELITE_MODE_ON))
+    for key in ('enabled', 'showTechTree', 'showFieldMods', 'showUpgrades'):
+        _config[key] = bool(_config.get(key, True))
+    _config['eliteMode'] = _normalize_elite_mode(_config.get('eliteMode', legacy_elite_value))
+
+
+def _build_mode_preferences():
+    return {
+        'showResearch': bool(_config.get('showTechTree', True)),
+        'showFieldMods': bool(_config.get('showFieldMods', True)),
+        'showUpgrades': bool(_config.get('showUpgrades', True)),
+        'eliteMode': _normalize_elite_mode(_config.get('eliteMode', _ELITE_MODE_ON)),
+    }
+
+
+def _save_config():
+    import io, json, os
+
+    path = _get_config_path()
+    data = {}
+    try:
+        if os.path.isfile(path):
+            with io.open(path, 'r', encoding='utf-8') as fh:
+                existing = json.load(fh)
+            if isinstance(existing, dict):
+                data.update(existing)
+    except Exception:
+        _logger.exception('Failed to read existing config before save, rewriting %s', path)
+        data = {}
+
+    try:
+        directory = os.path.dirname(path)
+        if directory and not os.path.isdir(directory):
+            os.makedirs(directory)
+
+        data['configVersion'] = data.get('configVersion', 1)
+        data.pop('showEliteProgress', None)
+        for key in _CONFIG_PERSISTED_KEYS:
+            data[key] = _config.get(key)
+
+        payload = json.dumps(data, indent=4, sort_keys=False)
+        if not payload.endswith('\n'):
+            payload += '\n'
+
+        with io.open(path, 'w', encoding='utf-8') as fh:
+            fh.write(payload)
+
+        _logger.info('Config saved to %s', path)
+    except Exception:
+        _logger.exception('Failed to save config to %s', path)
+
+
+def _build_mod_settings_state():
+    return {
+        'enabled': bool(_config.get('enabled', True)),
+        'showTechTree': bool(_config.get('showTechTree', True)),
+        'showFieldMods': bool(_config.get('showFieldMods', True)),
+        'showUpgrades': bool(_config.get('showUpgrades', True)),
+        'showEliteProgress': _ELITE_MODE_INDEX_BY_VALUE.get(
+            _normalize_elite_mode(_config.get('eliteMode', _ELITE_MODE_ON)),
+            0,
+        ),
+    }
+
+
+def _mods_settings_native(value):
+    if type(value).__name__ == 'unicode':
+        return value.encode('utf-8')
+    if isinstance(value, list):
+        return [_mods_settings_native(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_mods_settings_native(item) for item in value)
+    if isinstance(value, dict):
+        converted = {}
+        try:
+            items = value.iteritems()
+        except AttributeError:
+            items = value.items()
+        for key, item in items:
+            converted[_mods_settings_native(key)] = _mods_settings_native(item)
+        return converted
+    return value
+
+
+def _build_mod_settings_template():
+    settings = _build_mod_settings_state()
+    return _mods_settings_native({
+        'modDisplayName': 'Research Progress Bar',
+        'settingsVersion': _MODS_SETTINGS_SCHEMA_VERSION,
+        'enabled': settings['enabled'],
+        'column1': [
+            {
+                'type': 'CheckBox',
+                'text': 'Research',
+                'tooltip': '{HEADER}Research{/HEADER}{BODY}Show XP progress towards the next researchable module or vehicle.{/BODY}',
+                'value': settings['showTechTree'],
+                'varName': 'showTechTree',
+            },
+            {
+                'type': 'CheckBox',
+                'text': 'Field Mods',
+                'tooltip': '{HEADER}Field Mods{/HEADER}{BODY}Show field modification progress for elite vehicles with field modification levels.{/BODY}',
+                'value': settings['showFieldMods'],
+                'varName': 'showFieldMods',
+            },
+            {
+                'type': 'CheckBox',
+                'text': 'Upgrades',
+                'tooltip': '{HEADER}Upgrades{/HEADER}{BODY}Show tier XI upgrade progress when the selected vehicle uses the skill tree upgrade path.{/BODY}',
+                'value': settings['showUpgrades'],
+                'varName': 'showUpgrades',
+            },
+            {
+                'type': 'RadioButtonGroup',
+                'text': 'Elite',
+                'tooltip': '{HEADER}Elite{/HEADER}{BODY}On shows badge and customization milestones. Customization only hides badge markers and keeps non-badge rewards like Stat Tracker, Volumetric Style, and Gun Sleeve. Off hides Elite mode entirely.{/BODY}',
+                'options': [
+                    {'label': 'On'},
+                    {'label': 'Customization only'},
+                    {'label': 'Off'},
+                ],
+                'value': settings['showEliteProgress'],
+                'varName': 'showEliteProgress',
+            },
+        ],
+    })
+
+
+def _get_mods_settings_api():
+    try:
+        from gui.modsSettingsApi import g_modsSettingsApi
+        return g_modsSettingsApi
+    except Exception:
+        return None
+
+
+def _on_mod_settings_changed(linkage, new_settings):
+    if linkage != MOD_ID or _mods_settings_sync_in_progress:
+        return
+    if not isinstance(new_settings, dict):
+        return
+
+    changed_keys = []
+    for key in _MODS_SETTINGS_USER_KEYS:
+        if key not in new_settings:
+            continue
+        config_key = key
+        if key == 'showEliteProgress':
+            config_key = 'eliteMode'
+            new_value = _normalize_elite_mode(new_settings.get(key))
+        else:
+            new_value = bool(new_settings.get(key))
+        if _config.get(config_key) != new_value:
+            _config[config_key] = new_value
+            changed_keys.append(config_key)
+
+    if not changed_keys:
+        return
+
+    _save_config()
+    _logger.info('Applied ModsSettingsApi changes: %s', ', '.join(changed_keys))
+    if _mod is not None:
+        _mod.on_external_config_changed(
+            'mods_settings_api:{0}'.format(','.join(changed_keys))
+        )
+
+
+def _register_mod_settings():
+    global _mods_settings_sync_in_progress
+
+    api = _get_mods_settings_api()
+    if api is None:
+        _logger.info('ModsSettingsApi not found; in-game settings are unavailable')
+        return False
+
+    try:
+        api.setModTemplate(MOD_ID, _build_mod_settings_template(), _on_mod_settings_changed)
+        _mods_settings_sync_in_progress = True
+        try:
+            api.updateModSettings(MOD_ID, _mods_settings_native(_build_mod_settings_state()))
+        finally:
+            _mods_settings_sync_in_progress = False
+        _logger.info('ModsSettingsApi integration registered')
+        return True
+    except Exception:
+        _mods_settings_sync_in_progress = False
+        _logger.exception('Failed to register ModsSettingsApi integration')
+        return False
 
 
 def _next_available_unlock(vehicle, unlocks_set, available_unlocks=None):
@@ -2238,6 +2499,23 @@ class ResearchProgressBar(object):
         self._log_control_debug('stop', 'hooks_attached=False')
         self._clear_vehicle_binding_targets()
 
+    def on_external_config_changed(self, reason):
+        if not self._active:
+            return
+
+        self._cancel_pending_update()
+        self._cancel_visibility_probe()
+        self._cancel_layout_refresh_retry()
+        self._scaleform_payload = None
+        self._log_control_debug('config_changed', 'reason={0}'.format(reason))
+
+        if not _config.get('enabled', True):
+            if self._scaleform_view is not None:
+                self._set_scaleform_view_visible(False, reason)
+            return
+
+        self._schedule_update(reason)
+
     def _start_scaleform_view(self):
         if not _config.get('scaleformPrototypeEnabled', True):
             return
@@ -2718,7 +2996,7 @@ class ResearchProgressBar(object):
         _logger.info('Scaleform garage view disposed')
 
     def _build_scaleform_payload(self, vehicle, data):
-        return build_scaleform_view_payload(vehicle, data)
+        return build_scaleform_view_payload(vehicle, data, _build_mode_preferences())
 
     def _push_scaleform_payload(self):
         if self._scaleform_view is None or self._scaleform_payload is None:
@@ -3244,7 +3522,8 @@ class ResearchProgressBar(object):
             lines = ['Vehicle: {0} (Tier unknown)'.format(name)]
 
         tt = data['tech_tree']
-        if _config.get('showTechTree'):
+        mode_preferences = _build_mode_preferences()
+        if mode_preferences.get('showResearch'):
             if tt['is_fully_elite']:
                 lines.append('Tech tree: COMPLETE (fully elite)')
             elif tt['next_cost']:
@@ -3263,20 +3542,19 @@ class ResearchProgressBar(object):
                 lines.append('Tech tree: no available unlocks')
 
         el = data['elite']
-        if _config.get('showEliteProgress') and el['total'] > 0:
-            lines.append('Elite mods: {0}% ({1}/{2})'.format(el['pct'], el['unlocked'], el['total']))
+        elite_mode = mode_preferences.get('eliteMode')
+        if elite_mode != _ELITE_MODE_OFF and el['total'] > 0:
+            if elite_mode == _ELITE_MODE_CUSTOMIZATION_ONLY:
+                lines.append('Elite: customization milestones only')
+            else:
+                lines.append('Elite mods: {0}% ({1}/{2})'.format(el['pct'], el['unlocked'], el['total']))
 
         vehicle_is_elite = bool(tt.get('is_elite'))
         fm = data['field_mods']
-        if _config.get('showFieldMods'):
-            if fm['is_veh_skill_tree'] and fm['total_steps'] > 0:
-                pct = int(fm['unlocked_steps'] * 100 / fm['total_steps'])
-                lines.append(
-                    'Upgrades: {0}% ({1}/{2}, completion={3})'.format(
-                        pct, fm['unlocked_steps'], fm['total_steps'], fm['completion_name']
-                    )
-                )
-            elif not vehicle_is_elite:
+        show_field_mods = mode_preferences.get('showFieldMods')
+        show_upgrades = mode_preferences.get('showUpgrades')
+        if show_field_mods:
+            if not vehicle_is_elite:
                 lines.append('Field mods: requires elite vehicle status')
             elif not fm['exists']:
                 lines.append('Field mods: not available for this vehicle')
@@ -3293,25 +3571,47 @@ class ResearchProgressBar(object):
             else:
                 lines.append('Field mods: available but no steps resolved')
 
-            if fm['is_veh_skill_tree']:
-                lines.append('Upgrades: skill tree progress shown by steps')
-
-            if (fm['is_veh_skill_tree'] or vehicle_is_elite) and fm['next_purchasable_step_id'] is not None:
+            if (not fm['is_veh_skill_tree']) and vehicle_is_elite and fm['next_purchasable_step_id'] is not None:
                 if fm['next_purchasable_step_xp'] is not None:
                     lines.append(
-                        '{0} next: {1} XP required'.format(
-                            'Upgrades' if fm['is_veh_skill_tree'] else 'Field mods',
+                        'Field mods next: {0} XP required'.format(
                             fm['next_purchasable_step_xp']
                         )
                     )
                 else:
                     lines.append(
-                        '{0} next: step available at level {1}'.format(
-                            'Upgrades' if fm['is_veh_skill_tree'] else 'Field mods',
+                        'Field mods next: step available at level {0}'.format(
                             fm['next_purchasable_step_level']
                         )
                     )
 
+        if show_upgrades:
+            if fm['is_veh_skill_tree'] and fm['total_steps'] > 0:
+                pct = int(fm['unlocked_steps'] * 100 / fm['total_steps'])
+                lines.append(
+                    'Upgrades: {0}% ({1}/{2}, completion={3})'.format(
+                        pct, fm['unlocked_steps'], fm['total_steps'], fm['completion_name']
+                    )
+                )
+                lines.append('Upgrades: skill tree progress shown by steps')
+            elif fm['is_veh_skill_tree']:
+                lines.append('Upgrades: available but no steps resolved')
+
+            if fm['is_veh_skill_tree'] and fm['next_purchasable_step_id'] is not None:
+                if fm['next_purchasable_step_xp'] is not None:
+                    lines.append(
+                        'Upgrades next: {0} XP required'.format(
+                            fm['next_purchasable_step_xp']
+                        )
+                    )
+                else:
+                    lines.append(
+                        'Upgrades next: step available at level {0}'.format(
+                            fm['next_purchasable_step_level']
+                        )
+                    )
+
+        if show_field_mods or show_upgrades:
             self._log_field_mods_debug(vehicle, fm)
 
             tier_plan = fm.get('tier_plan') or {}
@@ -3359,6 +3659,7 @@ def init():
     try:
         _load_config()
         _mod = ResearchProgressBar()
+        _register_mod_settings()
         _mod.start()
         _logger.info('%s initialized', MOD_ID)
     except Exception:
