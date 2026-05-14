@@ -2,6 +2,8 @@
     "_comment": "Config for zanju.researchprogressbar. Place at: mods/configs/research-progress-bar/config.json",
     "configVersion": 1,
     "enabled": true,
+    "_language_comment": "auto | <language-code>; runtime loads mods/configs/research-progress-bar/i18n/<code>.yml with English fallback",
+    "language": "auto",
     "showTechTree": true,
     "showFieldMods": true,
     "showUpgrades": true,

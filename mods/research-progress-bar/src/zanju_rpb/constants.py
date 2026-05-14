@@ -5,6 +5,7 @@ from gui.Scaleform.daapi.settings.views import VIEW_ALIAS
 
 
 MOD_ID = 'zanju.researchprogressbar'
+MOD_CONFIG_DIR_NAME = 'research-progress-bar'
 MOD_VERSION = '0.1.0.0'
 SCALEFORM_VIEW_ALIAS = 'ResearchProgressBarLobby'
 SCALEFORM_FILE_NAME = 'research-progress-bar-lobby.swf'
@@ -29,14 +30,4 @@ _UNLOCK_MARKER_TYPE_BY_GUI_NAME = {
     'vehicleChassis': 'suspension',
     'vehicleRadio': 'radio',
     'vehicle': 'vehicle',
-}
-
-_UNLOCK_MARKER_LABEL_BY_TYPE = {
-    'gun': 'G',
-    'turret': 'T',
-    'engine': 'E',
-    'suspension': 'S',
-    'radio': 'R',
-    'vehicle': 'V',
-    'unknown': '?',
 }

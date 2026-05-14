@@ -943,7 +943,7 @@ package {
             if (markerIcon != null) {
                 markerSprite.addChild(markerIcon);
             }
-            else if (shouldUseMarkerLabelFallback(marker)) {
+            else if (shouldShowMarkerLabel(marker)) {
                 markerLabel = makeMarkerLabelField(String(marker.label), markerBitmap.y);
                 markerSprite.addChild(markerLabel);
             }
@@ -1015,10 +1015,14 @@ package {
             return marker != null && marker.hideBarIcon !== undefined && Boolean(marker.hideBarIcon);
         }
 
-        private function shouldUseMarkerLabelFallback(marker:Object):Boolean {
+        private function shouldShowMarkerLabel(marker:Object):Boolean {
             var markerLabel:String;
 
             if (marker == null || marker.label === undefined || marker.label == null) {
+                return false;
+            }
+
+            if (!(marker.showBarLabel !== undefined && Boolean(marker.showBarLabel))) {
                 return false;
             }
 
@@ -1027,7 +1031,7 @@ package {
                 return false;
             }
 
-            return shouldHideBarIcon(marker) || resolveMarkerEmbeddedIconKey(marker).length == 0;
+            return true;
         }
 
         private function onMarkerMouseOver(event:MouseEvent):void {

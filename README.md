@@ -81,6 +81,7 @@ python dev_test_cycle.py research-progress-bar
 - For multi-file mods, keep implementation in a unique package under `src/`, include `__init__.py`, avoid bootstrap/package name collisions, and prefer relative intra-package imports.
 - `research-progress-bar` now exposes a minimal optional in-game settings UI through `ModsSettingsAPI`; that dependency chain is `ModsSettingsAPI` -> `ModsListAPI` -> `OpenWG Gameface`.
 - The current `research-progress-bar` configurator surface is `Research`, `Field Mods`, `Upgrades`, and `Elite`; `Elite` uses `On` / `Customization only` / `Off` instead of a plain checkbox.
+- `research-progress-bar` runtime strings now load from `mods/configs/research-progress-bar/i18n/<language>.yml` with English fallback; `build.py` also stages authored `i18n/*.yml` into the packaged `res/mods/<meta.id>/text/` path for future WoT-native text resolution.
 - Keep mod-to-mod UI dependencies soft. `research-progress-bar` must keep working from `mods/configs/research-progress-bar/config.json` when the configurator stack is not installed.
 - Future work: automate publishing the `dist/` release bundle through GitHub Releases/CI. That workflow is intentionally not implemented yet.
 - For research-progress-bar crash boundaries and safe probe settings, see `docs/05-debugging-and-compatibility.md` section 8.

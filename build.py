@@ -28,6 +28,7 @@ Ship them separately to: <WoT install>/mods/configs/<mod-folder-name>/
 Optional authored source layout:
     mods/<name>/config.json                →  mods/configs/<mod-folder-name>/config.json
     mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml
+                                            and mods/configs/<mod-folder-name>/i18n/*.yml
 """
 
 import os
@@ -176,6 +177,15 @@ def copy_config_source(mod_dir, dst_config_dir):
     return source_path
 
 
+def copy_i18n_source(mod_dir, dst_i18n_dir):
+    i18n_dir = os.path.join(mod_dir, 'i18n')
+    if not directory_has_entries(i18n_dir):
+        return None
+
+    copy_tree_contents(i18n_dir, dst_i18n_dir)
+    return i18n_dir
+
+
 def write_release_readme(readme_path, archive_name, mod_name, wot_client_version):
     lines = [
         'World of Tanks mod release bundle',
@@ -193,6 +203,7 @@ def write_release_readme(readme_path, archive_name, mod_name, wot_client_version
         'Notes:',
         '  - The .wotmod package belongs under mods/{0}/.'.format(wot_client_version),
         '  - The config folder belongs under mods/configs/{0}/.'.format(mod_name),
+        '  - Optional language files live under mods/configs/{0}/i18n/ with English fallback.'.format(mod_name),
     ]
     with open(readme_path, 'w', encoding='utf-8') as fh:
         fh.write('\n'.join(lines) + '\n')
@@ -211,12 +222,9 @@ def create_release_bundle(mod_dir, mod_name, meta, output_path):
     os.makedirs(package_dir, exist_ok=True)
     shutil.copy2(output_path, os.path.join(package_dir, archive_name))
 
-    config_source_path = copy_config_source(
-        mod_dir,
-        os.path.join(bundle_root, 'mods', 'configs', mod_name),
-    )
-    if config_source_path:
-        bundle_config_dir = os.path.join(bundle_root, 'mods', 'configs', mod_name)
+    bundle_config_dir = os.path.join(bundle_root, 'mods', 'configs', mod_name)
+    copy_config_source(mod_dir, bundle_config_dir)
+    copy_i18n_source(mod_dir, os.path.join(bundle_config_dir, 'i18n'))
 
     write_release_readme(
         os.path.join(bundle_root, 'README.txt'),

@@ -1,15 +1,68 @@
-# English localisation for zanju.researchprogressbar
+MOD_NAME: "Zanju's Research Progress Bar"
+MOD_DESCRIPTION: "Shows XP progress toward research, field modifications, tier XI upgrades, and elite milestones for the selected vehicle."
 
-MOD_NAME: "Research Progress Bar"
-MOD_DESCRIPTION: "Shows XP progress toward next unlock, elite status, field mods, and prestige."
+# Mode labels
+MODE_RESEARCH: "Research"
+MODE_FIELD_MODS: "Field Mods"
+MODE_UPGRADES: "Upgrades"
+MODE_ELITE: "Elite"
 
-# Progress bar labels
-LABEL_TECH_TREE: "Research"
-LABEL_ELITE_PROGRESS: "Elite Modules"
-LABEL_FIELD_MODS: "Field Mods"
-LABEL_PRESTIGE: "Prestige"
+# Configurator labels
+SETTING_ENABLED: "Enable / Disable mod"
+SETTING_RESEARCH: "Research"
+SETTING_FIELD_MODS: "Field Mods"
+SETTING_UPGRADES: "Upgrades"
+SETTING_ELITE: "Elite"
+SETTING_ELITE_OPTION_ON: "On"
+SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY: "Customization only"
+SETTING_ELITE_OPTION_OFF: "Off"
+
+# Configurator tooltips
+TOOLTIP_RESEARCH_HEADER: "Research"
+TOOLTIP_RESEARCH_BODY: "Show XP progress toward the next researchable module or vehicle."
+TOOLTIP_FIELD_MODS_HEADER: "Field Mods"
+TOOLTIP_FIELD_MODS_BODY: "Show field modification progress for elite vehicles that support field modifications."
+TOOLTIP_UPGRADES_HEADER: "Upgrades"
+TOOLTIP_UPGRADES_BODY: "Show tier XI upgrade tree progress."
+TOOLTIP_ELITE_HEADER: "Elite"
+TOOLTIP_ELITE_BODY: "<b>On</b>: Show elite badges and tier XI customization elements.\n<b>Customization only</b>: Show tier XI customization elements and hide elite badges.\n<b>Off</b>: Hide elite progress entirely."
+
+# Counter captions
+CAPTION_VEHICLE_XP: "Vehicle XP"
+CAPTION_TOTAL_XP: "Total XP"
+CAPTION_BASE_XP: "Base XP"
+CAPTION_UNLOCKED: "Unlocked"
+CAPTION_LOCKED: "Locked"
+
+# Vehicle label formats
+VEHICLE_LABEL_TIER_FORMAT: "{name} (Tier {tier})"
+VEHICLE_LABEL_TIER_UNKNOWN_FORMAT: "{name} (Tier unknown)"
+
+# Elite labels
+ELITE_LEVEL_FORMAT: "Elite Level {level}"
+ELITE_BASE_XP_PROGRESS_FORMAT: "{current} / {target} Base XP"
+ELITE_BADGE_METAL: "Metal Badge"
+ELITE_BADGE_BRONZE: "Bronze Badge"
+ELITE_BADGE_SILVER: "Silver Badge"
+ELITE_BADGE_GOLD: "Gold Badge"
+ELITE_BADGE_RED_GOLD: "Red Gold Badge"
+ELITE_BADGE_PRESTIGE: "Prestige Elite Badge"
+ELITE_REWARD_STAT_TRACKER: "Stat Tracker"
+ELITE_REWARD_VOLUMETRIC_STYLE: "Volumetric Style"
+ELITE_REWARD_GUN_SLEEVE: "Gun Sleeve"
+
+# Upgrade labels
+UPGRADE_MINOR: "Minor Upgrade"
+UPGRADE_MAJOR: "Major Upgrade"
+UPGRADE_FINAL: "Final Upgrade"
+UPGRADE_ALL_OTHER_NODES: "All Other Nodes"
 
 # Status strings
 STATUS_COMPLETE: "Complete"
 STATUS_NO_UNLOCKS: "No available unlocks"
+STATUS_TIER_UNKNOWN: "Tier unknown"
+STATUS_FIELD_MODS_REQUIRES_ELITE: "Field mods require elite vehicle status"
+STATUS_FIELD_MODS_NOT_AVAILABLE: "Field mods are not available for this vehicle"
+STATUS_FIELD_MODS_NO_STEPS: "Field mods available but no steps resolved"
+STATUS_UPGRADES_NO_STEPS: "Upgrades available but no steps resolved"
 STATUS_PHASE2_PENDING: "Detailed breakdown coming in Phase 2"

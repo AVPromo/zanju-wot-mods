@@ -35,6 +35,7 @@ from helpers import dependency
 from helpers import i18n
 from items import getTypeOfCompactDescr
 from .constants import (
+    MOD_CONFIG_DIR_NAME,
     MOD_ID,
     MOD_VERSION,
     SCALEFORM_FILE_NAME,
@@ -42,11 +43,13 @@ from .constants import (
     _HANGAR_VIEW_ALIASES,
     _NAVIGATING_ROUTE_PREFIX,
     _TIER_FIELD_MOD_RULES,
-    _UNLOCK_MARKER_LABEL_BY_TYPE,
     _UNLOCK_MARKER_TYPE_BY_GUI_NAME,
     _VISIBLE_ROUTE_PREFIX,
     _VISIBILITY_PROBE_DELAY,
 )
+from .localization import get_text as _loc
+from .localization import make_tooltip as _loc_tooltip
+from .localization import set_language_override as _set_language_override
 from .scaleform_modes import build_scaleform_view_payload
 from skeletons.gui.app_loader import GuiGlobalSpaceID as SPACE_ID
 from skeletons.gui.game_control import IVehiclePostProgressionController
@@ -65,6 +68,7 @@ except NameError:
 # ---------------------------------------------------------------------------
 _config = {
     'enabled': True,
+    'language': 'auto',
     'showTechTree': True,
     'showFieldMods': True,
     'showUpgrades': True,
@@ -98,6 +102,7 @@ _config = {
 
 _CONFIG_PERSISTED_KEYS = (
     'enabled',
+    'language',
     'showTechTree',
     'showFieldMods',
     'showUpgrades',
@@ -135,7 +140,7 @@ _ELITE_MODE_VALUES = (
 _ELITE_MODE_INDEX_BY_VALUE = dict(
     (value, index) for index, value in enumerate(_ELITE_MODE_VALUES)
 )
-_MODS_SETTINGS_SCHEMA_VERSION = 2
+_MODS_SETTINGS_SCHEMA_VERSION = 6
 
 _ROUTE_PATH_RE = re.compile(r'\((subScope/[^)]*)\)')
 _T11_CATEGORY_HINT_RE = re.compile(
@@ -169,7 +174,7 @@ _LAYOUT_REFRESH_RETRY_COUNT = 8
 
 def _get_config_path():
     import os
-    return os.path.join('mods', 'configs', 'research-progress-bar', 'config.json')
+    return os.path.join('mods', 'configs', MOD_CONFIG_DIR_NAME, 'config.json')
 
 
 def _load_config():
@@ -211,9 +216,17 @@ def _normalize_elite_mode(value):
 
 def _normalize_display_config():
     legacy_elite_value = _config.get('showEliteProgress', _config.get('eliteMode', _ELITE_MODE_ON))
+    language = _config.get('language', 'auto')
+    if not isinstance(language, _STRING_TYPES):
+        language = 'auto'
+    language = language.strip().lower().replace('-', '_') or 'auto'
+    if language in ('client', 'default', 'system'):
+        language = 'auto'
+    _config['language'] = language
     for key in ('enabled', 'showTechTree', 'showFieldMods', 'showUpgrades'):
         _config[key] = bool(_config.get(key, True))
     _config['eliteMode'] = _normalize_elite_mode(_config.get('eliteMode', legacy_elite_value))
+    _set_language_override(_config.get('language', 'auto'))
 
 
 def _build_mode_preferences():
@@ -297,39 +310,61 @@ def _mods_settings_native(value):
 def _build_mod_settings_template():
     settings = _build_mod_settings_state()
     return _mods_settings_native({
-        'modDisplayName': 'Research Progress Bar',
+        'modDisplayName': _loc('MOD_NAME', "Zanju's Research Progress Bar"),
         'settingsVersion': _MODS_SETTINGS_SCHEMA_VERSION,
         'enabled': settings['enabled'],
         'column1': [
             {
                 'type': 'CheckBox',
-                'text': 'Research',
-                'tooltip': '{HEADER}Research{/HEADER}{BODY}Show XP progress towards the next researchable module or vehicle.{/BODY}',
+                'text': _loc('SETTING_RESEARCH', 'Research'),
+                'tooltip': _loc_tooltip(
+                    'TOOLTIP_RESEARCH_HEADER',
+                    'TOOLTIP_RESEARCH_BODY',
+                    'Research',
+                    'Show XP progress toward the next researchable module or vehicle.',
+                ),
                 'value': settings['showTechTree'],
                 'varName': 'showTechTree',
             },
             {
                 'type': 'CheckBox',
-                'text': 'Field Mods',
-                'tooltip': '{HEADER}Field Mods{/HEADER}{BODY}Show field modification progress for elite vehicles with field modification levels.{/BODY}',
+                'text': _loc('SETTING_FIELD_MODS', 'Field Mods'),
+                'tooltip': _loc_tooltip(
+                    'TOOLTIP_FIELD_MODS_HEADER',
+                    'TOOLTIP_FIELD_MODS_BODY',
+                    'Field Mods',
+                    'Show field modification progress for elite vehicles that support field modifications.',
+                ),
                 'value': settings['showFieldMods'],
                 'varName': 'showFieldMods',
             },
             {
                 'type': 'CheckBox',
-                'text': 'Upgrades',
-                'tooltip': '{HEADER}Upgrades{/HEADER}{BODY}Show tier XI upgrade progress when the selected vehicle uses the skill tree upgrade path.{/BODY}',
+                'text': _loc('SETTING_UPGRADES', 'Upgrades'),
+                'tooltip': _loc_tooltip(
+                    'TOOLTIP_UPGRADES_HEADER',
+                    'TOOLTIP_UPGRADES_BODY',
+                    'Upgrades',
+                    'Show tier XI upgrade tree progress.',
+                ),
                 'value': settings['showUpgrades'],
                 'varName': 'showUpgrades',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': 'Elite',
-                'tooltip': '{HEADER}Elite{/HEADER}{BODY}On shows badge and customization milestones. Customization only hides badge markers and keeps non-badge rewards like Stat Tracker, Volumetric Style, and Gun Sleeve. Off hides Elite mode entirely.{/BODY}',
+                'text': _loc('SETTING_ELITE', 'Elite'),
+                'tooltip': _loc_tooltip(
+                    'TOOLTIP_ELITE_HEADER',
+                    'TOOLTIP_ELITE_BODY',
+                    'Elite',
+                    '<b>On</b>: Show elite badges and tier XI customization elements.\n'
+                    '<b>Customization only</b>: Show tier XI customization elements and hide elite badges.\n'
+                    '<b>Off</b>: Hide elite progress entirely.',
+                ),
                 'options': [
-                    {'label': 'On'},
-                    {'label': 'Customization only'},
-                    {'label': 'Off'},
+                    {'label': _loc('SETTING_ELITE_OPTION_ON', 'On')},
+                    {'label': _loc('SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY', 'Customization only')},
+                    {'label': _loc('SETTING_ELITE_OPTION_OFF', 'Off')},
                 ],
                 'value': settings['showEliteProgress'],
                 'varName': 'showEliteProgress',
@@ -454,7 +489,6 @@ def _build_unlock_marker_ref(intcd, items=None):
     return {
         'item_type': item_type,
         'name': _resolve_unlock_display_name(intcd, items),
-        'label': _UNLOCK_MARKER_LABEL_BY_TYPE.get(item_type, '?'),
     }
 
 def _resolve_unlock_display_names(intcds, items=None):
@@ -477,7 +511,6 @@ def _build_unlock_marker(xp_cost, intcd, items=None, is_available=True, missing_
         'is_available': is_available,
         'missing_prereq_names': _resolve_unlock_display_names(missing_prereq_intcds, items),
         'missing_prereqs': [_build_unlock_marker_ref(prereq_intcd, items) for prereq_intcd in missing_prereq_intcds],
-        'label': _UNLOCK_MARKER_LABEL_BY_TYPE.get(item_type, '?'),
     }
 
 

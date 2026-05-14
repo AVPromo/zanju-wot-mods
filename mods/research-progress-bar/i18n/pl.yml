@@ -1,0 +1,68 @@
+MOD_NAME: "Zanju's Research Progress Bar"
+MOD_DESCRIPTION: "Pokazuje postęp PD badań, modyfikacji polowych, ulepszeń XI poziomu i etapów elity dla wybranego pojazdu."
+
+# Mode labels
+MODE_RESEARCH: "Badania"
+MODE_FIELD_MODS: "Modyfikacje polowe"
+MODE_UPGRADES: "Ulepszenia"
+MODE_ELITE: "Elita"
+
+# Configurator labels
+SETTING_ENABLED: "Włącz / wyłącz mod"
+SETTING_RESEARCH: "Badania"
+SETTING_FIELD_MODS: "Modyfikacje polowe"
+SETTING_UPGRADES: "Ulepszenia"
+SETTING_ELITE: "Elita"
+SETTING_ELITE_OPTION_ON: "Włączone"
+SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY: "Tylko personalizacja"
+SETTING_ELITE_OPTION_OFF: "Wyłączone"
+
+# Configurator tooltips
+TOOLTIP_RESEARCH_HEADER: "Badania"
+TOOLTIP_RESEARCH_BODY: "Pokaż postęp PD do następnego modułu lub pojazdu do zbadania."
+TOOLTIP_FIELD_MODS_HEADER: "Modyfikacje polowe"
+TOOLTIP_FIELD_MODS_BODY: "Pokaż postęp modyfikacji polowych dla elitarnych pojazdów, które je obsługują."
+TOOLTIP_UPGRADES_HEADER: "Ulepszenia"
+TOOLTIP_UPGRADES_BODY: "Pokaż postęp drzewka ulepszeń XI poziomu."
+TOOLTIP_ELITE_HEADER: "Elita"
+TOOLTIP_ELITE_BODY: "<b>Włączone</b>: Pokaż elitarne odznaki i elementy personalizacji XI poziomu.\n<b>Tylko personalizacja</b>: Pokaż elementy personalizacji XI poziomu i ukryj elitarne odznaki.\n<b>Wyłączone</b>: Ukryj postęp elity."
+
+# Counter captions
+CAPTION_VEHICLE_XP: "PD pojazdu"
+CAPTION_TOTAL_XP: "Łączne PD"
+CAPTION_BASE_XP: "Bazowe PD"
+CAPTION_UNLOCKED: "Odblokowano"
+CAPTION_LOCKED: "Zablokowano"
+
+# Vehicle label formats
+VEHICLE_LABEL_TIER_FORMAT: "{name} (Poziom {tier})"
+VEHICLE_LABEL_TIER_UNKNOWN_FORMAT: "{name} (Nieznany poziom)"
+
+# Elite labels
+ELITE_LEVEL_FORMAT: "Poziom elity {level}"
+ELITE_BASE_XP_PROGRESS_FORMAT: "{current} / {target} bazowego PD"
+ELITE_BADGE_METAL: "Metalowa odznaka"
+ELITE_BADGE_BRONZE: "Brązowa odznaka"
+ELITE_BADGE_SILVER: "Srebrna odznaka"
+ELITE_BADGE_GOLD: "Złota odznaka"
+ELITE_BADGE_RED_GOLD: "Czerwono-złota odznaka"
+ELITE_BADGE_PRESTIGE: "Prestiżowa elitarna odznaka"
+ELITE_REWARD_STAT_TRACKER: "Stat Tracker"
+ELITE_REWARD_VOLUMETRIC_STYLE: "Styl wolumetryczny"
+ELITE_REWARD_GUN_SLEEVE: "Osłona działa"
+
+# Upgrade labels
+UPGRADE_MINOR: "Drobne ulepszenie"
+UPGRADE_MAJOR: "Główne ulepszenie"
+UPGRADE_FINAL: "Końcowe ulepszenie"
+UPGRADE_ALL_OTHER_NODES: "Wszystkie pozostałe węzły"
+
+# Status strings
+STATUS_COMPLETE: "Ukończono"
+STATUS_NO_UNLOCKS: "Brak dostępnych odblokowań"
+STATUS_TIER_UNKNOWN: "Nieznany poziom"
+STATUS_FIELD_MODS_REQUIRES_ELITE: "Modyfikacje polowe wymagają statusu pojazdu elitarnego"
+STATUS_FIELD_MODS_NOT_AVAILABLE: "Modyfikacje polowe nie są dostępne dla tego pojazdu"
+STATUS_FIELD_MODS_NO_STEPS: "Modyfikacje polowe są dostępne, ale nie udało się określić etapów"
+STATUS_UPGRADES_NO_STEPS: "Ulepszenia są dostępne, ale nie udało się określić etapów"
+STATUS_PHASE2_PENDING: "Szczegółowe zestawienie pojawi się w etapie 2"

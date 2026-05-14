@@ -14,6 +14,8 @@ Behavior:
 - With mod args: cycles only selected mods
 - With --dry-run: runs cleanup in dry-run mode and skips deploy
 - With --fresh-log: truncates python.log before cycle (no archive, opt-in)
+- The cycle updates files on disk only; WoT must be restarted to load changed
+    Python/UI/package assets.
 """
 
 from __future__ import annotations
@@ -51,7 +53,7 @@ def is_wot_running():
         )
         output = (result.stdout or '').lower()
         # Common WoT executable names seen across installs/launchers.
-        names = ['worldoftanks.exe', 'worldoftanks64.exe']
+        names = ['worldoftanks', 'worldoftanks64', 'worldoftanks.exe', 'worldoftanks64.exe']
         return any(name in output for name in names)
     except Exception:
         return False
@@ -99,6 +101,13 @@ def parse_args(argv):
 
 def main():
     dry_run, fresh_log_flag, mod_names = parse_args(sys.argv[1:])
+    wot_running_before_cycle = is_wot_running()
+
+    if wot_running_before_cycle:
+        print(
+            'WARNING: WoT appears to be running. The cycle can update files on disk,'
+            ' but the current client session will not hot-reload Python/UI/package changes.'
+        )
 
     if fresh_log_flag:
         fresh_log(dry_run)
@@ -119,6 +128,10 @@ def main():
     run_cmd(deploy_cmd)
 
     print('Done. Cleanup + deploy cycle completed.')
+    if wot_running_before_cycle:
+        print('Next step: restart WoT to load the updated mod package.')
+    else:
+        print('Next step: launch WoT to load the updated mod package.')
 
 
 if __name__ == '__main__':

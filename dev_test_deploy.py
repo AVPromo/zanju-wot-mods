@@ -6,11 +6,15 @@ What it does:
 2. Builds mods via build.py (all mods by default, or selected mods via args).
 3. Detects installed WoT version folders under <WOT_GAME_DIR>/mods/.
 4. Deploys each .wotmod to every detected <WOT_GAME_DIR>/mods/<version>/.
-5. Deploys config files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
+5. Deploys config files and optional i18n files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
 
 Usage:
     python dev_test_deploy.py
     python dev_test_deploy.py research-progress-bar
+
+Note:
+    Deployment updates files on disk only. A running WoT client will not hot-reload
+    Python/UI/package changes from the copied .wotmod.
 """
 
 from __future__ import annotations
@@ -40,6 +44,21 @@ def load_env(path):
             key, value = line.split('=', 1)
             env[key.strip()] = value.strip().strip('"').strip("'")
     return env
+
+
+def is_wot_running():
+    try:
+        result = subprocess.run(
+            ['tasklist'],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        output = (result.stdout or '').lower()
+        names = ['worldoftanks', 'worldoftanks64', 'worldoftanks.exe', 'worldoftanks64.exe']
+        return any(name in output for name in names)
+    except Exception:
+        return False
 
 
 def read_meta(mod_name):
@@ -142,6 +161,13 @@ def resolve_config_source(mod_dir):
     return None
 
 
+def resolve_i18n_source(mod_dir):
+    i18n_dir = os.path.join(mod_dir, 'i18n')
+    if directory_has_entries(i18n_dir):
+        return i18n_dir
+    return None
+
+
 def deploy_mod(game_dir, mod_name, target_wot_version):
     meta = read_meta(mod_name)
     mod_id = meta['id']
@@ -164,14 +190,22 @@ def deploy_mod(game_dir, mod_name, target_wot_version):
     except PermissionError:
         print('SKIP package (in use): {}'.format(dst_archive))
 
-    config_source = resolve_config_source(os.path.join(MODS_DIR, mod_name))
+    mod_dir = os.path.join(MODS_DIR, mod_name)
+    dst_config_dir = os.path.join(game_dir, 'mods', 'configs', mod_name)
+
+    config_source = resolve_config_source(mod_dir)
     if config_source:
-        dst_config_dir = os.path.join(game_dir, 'mods', 'configs', mod_name)
         source_kind, source_path = config_source
         if source_kind == 'dir':
             copy_tree_contents(source_path, dst_config_dir)
         else:
             copy_file(source_path, os.path.join(dst_config_dir, 'config.json'))
+
+    i18n_source = resolve_i18n_source(mod_dir)
+    if i18n_source:
+        copy_tree_contents(i18n_source, os.path.join(dst_config_dir, 'i18n'))
+
+    if config_source or i18n_source:
         print('Deployed config:  {}'.format(dst_config_dir))
 
 
@@ -185,6 +219,13 @@ def main():
         )
     if not os.path.isdir(game_dir):
         raise RuntimeError('WOT_GAME_DIR does not exist: {}'.format(game_dir))
+
+    wot_running = is_wot_running()
+    if wot_running:
+        print(
+            'WARNING: WoT appears to be running. Deployment will update files on disk,'
+            ' but the current client session will not hot-reload Python/UI/package changes.'
+        )
 
     requested_mods = sys.argv[1:]
     mod_names = requested_mods if requested_mods else discover_mods()
@@ -208,6 +249,10 @@ def main():
             deploy_mod(game_dir, mod_name, target_wot_version)
 
     print('Done. Development deployment finished for {} mod(s).'.format(len(mod_names)))
+    if wot_running:
+        print('Next step: restart WoT to load the updated mod package.')
+    else:
+        print('Next step: launch WoT to load the updated mod package.')
 
 
 if __name__ == '__main__':
