@@ -1,6 +1,4 @@
 package {
-    import flash.display.DisplayObject;
-    import flash.display.DisplayObjectContainer;
     import flash.display.Bitmap;
     import flash.display.BitmapData;
     import flash.display.Shape;
@@ -13,7 +11,6 @@ package {
     import flash.text.TextFormat;
     import flash.text.TextFormatAlign;
     import flash.utils.Dictionary;
-    import flash.utils.getQualifiedClassName;
     import net.wg.infrastructure.base.AbstractView;
 
     [SWF(width="1920", height="220", frameRate="30", backgroundColor="#000000")]
@@ -114,10 +111,10 @@ package {
         private static const BAR_SIDE_SAFE_OFFSET:Number = 15;
         private static const LEFT_COUNTER_OFFSET:Number = 3;
         private static const LAYOUT_DISTANCE_BUCKETS:Array = [
-            { minWidth: 2560, verticalDistance: 81, horizontalDistance: 367 },
-            { minWidth: 1920, verticalDistance: 50, horizontalDistance: 367 },
-            { minWidth: 1600, verticalDistance: 46, horizontalDistance: 271 },
-            { minWidth: 0, verticalDistance: 38, horizontalDistance: 271 }
+            { minWidth: 2560, buttonBottom: 74, verticalDistance: 81, horizontalDistance: 367 },
+            { minWidth: 1920, buttonBottom: 70, verticalDistance: 50, horizontalDistance: 367 },
+            { minWidth: 1600, buttonBottom: 53, verticalDistance: 46, horizontalDistance: 271 },
+            { minWidth: 0, buttonBottom: 51, verticalDistance: 38, horizontalDistance: 271 }
         ];
         private static const MIN_BAR_WIDTH:Number = 80;
         private static const BAR_HEIGHT:Number = 8;
@@ -409,7 +406,6 @@ package {
 
         private function onStageResize(event:Event):void {
             layoutFromStage();
-            updateTrackedStageSize();
             updateBarFromContext(false);
         }
 
@@ -1795,142 +1791,26 @@ package {
         }
 
         private function resolveBarTopFromStage():Number {
-            var fallbackTop:Number;
             var centeredAssemblyTop:Number;
             var centeredBarTop:Number;
-            var fightButtonBounds:Rectangle;
             var maxBarTop:Number;
+            var buttonBottom:Number;
 
             if (stage == null) {
                 return TOP_MARGIN;
             }
 
             maxBarTop = Math.max(0, stage.stageHeight - BAR_HEIGHT - BAR_ASSEMBLY_BELOW_HEIGHT);
-            fallbackTop = clamp(Math.round(stage.stageHeight * BAR_DEFAULT_TOP_RATIO), BAR_ASSEMBLY_ABOVE_HEIGHT, maxBarTop);
-            fightButtonBounds = resolveFightButtonBounds();
-            if (fightButtonBounds == null) {
-                return fallbackTop;
-            }
-
-            centeredAssemblyTop = fightButtonBounds.bottom + Math.round((resolveVerticalBoundaryOffset() - BAR_ASSEMBLY_HEIGHT) * 0.5);
+            // Runtime fight-button bounds stay stale across resolution changes, so use
+            // measured button-bottom anchors for each width bucket instead of probing WoT's UI tree.
+            buttonBottom = Number(resolveLayoutDistanceBucket().buttonBottom);
+            centeredAssemblyTop = buttonBottom + Math.round((resolveVerticalBoundaryOffset() - BAR_ASSEMBLY_HEIGHT) * 0.5);
             centeredBarTop = centeredAssemblyTop + BAR_ASSEMBLY_ABOVE_HEIGHT;
             return clamp(centeredBarTop, BAR_ASSEMBLY_ABOVE_HEIGHT, maxBarTop);
         }
 
         private function resolveVerticalBoundaryOffset():Number {
             return Number(resolveLayoutDistanceBucket().verticalDistance);
-        }
-
-        private function resolveFightButtonBounds():Rectangle {
-            if (stage == null) {
-                return null;
-            }
-
-            return findFightButtonBounds(stage);
-        }
-
-        private function findFightButtonBounds(container:DisplayObjectContainer):Rectangle {
-            var childCount:int;
-            var idx:int;
-            var child:DisplayObject;
-            var bounds:Rectangle;
-            var childContainer:DisplayObjectContainer;
-
-            if (container == null) {
-                return null;
-            }
-
-            try {
-                childCount = container.numChildren;
-            } catch (error:Error) {
-                return null;
-            }
-
-            for (idx = 0; idx < childCount; idx++) {
-                try {
-                    child = container.getChildAt(idx);
-                } catch (error:Error) {
-                    continue;
-                }
-
-                if (child == null || isOwnDisplayTree(child) || !child.visible || child.alpha <= 0.0) {
-                    continue;
-                }
-
-                if (isFightButtonDisplay(child)) {
-                    bounds = safeGetStageBounds(child);
-                    if (bounds != null) {
-                        return bounds;
-                    }
-                }
-
-                childContainer = child as DisplayObjectContainer;
-                if (childContainer != null) {
-                    bounds = findFightButtonBounds(childContainer);
-                    if (bounds != null) {
-                        return bounds;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private function isFightButtonDisplay(display:DisplayObject):Boolean {
-            var className:String = shortClassName(getQualifiedClassName(display)).toLowerCase();
-            var displayName:String = display.name != null ? String(display.name).toLowerCase() : "";
-
-            return displayName.indexOf("fightbutton") >= 0
-                || displayName.indexOf("battlebutton") >= 0
-                || displayName == "fightbutton_hintarea"
-                || (className.indexOf("tutorialhintzone") >= 0 && displayName.indexOf("hintarea") >= 0 && displayName.indexOf("fight") >= 0);
-        }
-
-        private function safeGetStageBounds(display:DisplayObject):Rectangle {
-            var bounds:Rectangle;
-
-            if (display == null || stage == null) {
-                return null;
-            }
-
-            try {
-                bounds = display.getBounds(stage);
-            } catch (error:Error) {
-                return null;
-            }
-
-            if (bounds == null || bounds.width < 8 || bounds.height < 8) {
-                return null;
-            }
-            if (bounds.right < 0 || bounds.bottom < 0 || bounds.x > stage.stageWidth || bounds.y > stage.stageHeight) {
-                return null;
-            }
-            if (bounds.width >= stage.stageWidth - 2 && bounds.height >= stage.stageHeight - 2) {
-                return null;
-            }
-
-            return bounds;
-        }
-
-        private function isOwnDisplayTree(display:DisplayObject):Boolean {
-            var current:DisplayObject = display;
-
-            while (current != null) {
-                if (current == this) {
-                    return true;
-                }
-                current = current.parent;
-            }
-
-            return false;
-        }
-
-        private function shortClassName(value:String):String {
-            var separator:int = value.lastIndexOf("::");
-            if (separator >= 0) {
-                return value.substring(separator + 2);
-            }
-            return value;
         }
 
         private function positionLabels():void {

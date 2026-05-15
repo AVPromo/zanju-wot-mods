@@ -168,8 +168,12 @@ _LAYOUT_REFRESH_VIEW_ALIASES = frozenset((
     'settingsWindow',
     'simpleDialog',
 ))
-_LAYOUT_REFRESH_RETRY_DELAY = 1.0
-_LAYOUT_REFRESH_RETRY_COUNT = 8
+_SCALEFORM_DISPOSE_SUB_VIEW_ALIASES = frozenset((
+    'vehicleHub',
+))
+_SCALEFORM_DISPOSE_ROUTE_PREFIXES = (
+    'subScope/subLayer/vehicleHub',
+)
 
 
 def _get_config_path():
@@ -2370,9 +2374,6 @@ class ResearchProgressBar(object):
         self._active = False
         self._pending_update_callback = None
         self._visibility_probe_callback = None
-        self._layout_refresh_callback = None
-        self._layout_refresh_attempts_remaining = 0
-        self._layout_refresh_reason = None
         self._update_in_progress = False
         self._t11_method_probe_offsets = {}
         self._scaleform_view = None
@@ -2523,7 +2524,6 @@ class ResearchProgressBar(object):
         self._active = False
         self._cancel_pending_update()
         self._cancel_visibility_probe()
-        self._cancel_layout_refresh_retry()
         self._detach_lobby_route_log_handler()
         _uninstall_t11_ui_name_hooks()
         g_currentPreviewVehicle.onChanged -= self._on_preview_vehicle_changed
@@ -2538,7 +2538,6 @@ class ResearchProgressBar(object):
 
         self._cancel_pending_update()
         self._cancel_visibility_probe()
-        self._cancel_layout_refresh_retry()
         self._scaleform_payload = None
         self._log_control_debug('config_changed', 'reason={0}'.format(reason))
 
@@ -2878,7 +2877,6 @@ class ResearchProgressBar(object):
             if is_visible:
                 refresh_reason = 'visible:{0}'.format(reason)
                 self._refresh_scaleform_layout(refresh_reason)
-                self._schedule_layout_refresh_retry(refresh_reason)
         except Exception:
             _logger.exception('Failed to set scaleform garage view visibility=%s (%s)', is_visible, reason)
 
@@ -2892,47 +2890,30 @@ class ResearchProgressBar(object):
         except Exception:
             _logger.exception('Failed to refresh scaleform garage view layout (%s)', reason)
 
-    def _cancel_layout_refresh_retry(self):
-        callback_id = self._layout_refresh_callback
-        self._layout_refresh_callback = None
-        self._layout_refresh_attempts_remaining = 0
-        self._layout_refresh_reason = None
-        if callback_id is None:
+    def _dispose_scaleform_view(self, reason):
+        if self._scaleform_view is None:
             return
+
+        view = self._scaleform_view
+        self._scaleform_view = None
+        self._scaleform_view_visible = None
+        self._scaleform_view_requested = False
         try:
-            BigWorld.cancelCallback(callback_id)
+            view.destroy()
+            _logger.info('Disposed scaleform garage view (%s)', reason)
         except Exception:
-            pass
+            _logger.exception('Failed to dispose scaleform garage view (%s)', reason)
 
-    def _schedule_layout_refresh_retry(self, reason):
-        if not self._active or self._scaleform_view is None:
-            return
+    def _should_dispose_scaleform_view_for_block(self, context):
+        route_path = self._current_lobby_route_path or ''
+        if route_path.startswith(_SCALEFORM_DISPOSE_ROUTE_PREFIXES):
+            return True
 
-        self._cancel_layout_refresh_retry()
-        self._layout_refresh_reason = reason
-        self._layout_refresh_attempts_remaining = _LAYOUT_REFRESH_RETRY_COUNT
-        self._layout_refresh_callback = BigWorld.callback(
-            _LAYOUT_REFRESH_RETRY_DELAY,
-            self._run_layout_refresh_retry,
-        )
-
-    def _run_layout_refresh_retry(self):
-        reason = self._layout_refresh_reason or 'delayed'
-        self._layout_refresh_callback = None
-        if not self._active or self._scaleform_view is None:
-            self._layout_refresh_attempts_remaining = 0
-            self._layout_refresh_reason = None
-            return
-
-        self._refresh_scaleform_layout('{0}:retry'.format(reason))
-        self._layout_refresh_attempts_remaining -= 1
-        if self._layout_refresh_attempts_remaining <= 0:
-            self._layout_refresh_reason = None
-            return
-
-        self._layout_refresh_callback = BigWorld.callback(
-            _LAYOUT_REFRESH_RETRY_DELAY,
-            self._run_layout_refresh_retry,
+        incoming_alias = context.get('incoming_alias')
+        active_sub_view_alias = context.get('active_sub_view_alias')
+        return (
+            incoming_alias in _SCALEFORM_DISPOSE_SUB_VIEW_ALIASES
+            or active_sub_view_alias in _SCALEFORM_DISPOSE_SUB_VIEW_ALIASES
         )
 
     def _sync_scaleform_view(self, reason, incoming_view=None):
@@ -2951,7 +2932,10 @@ class ResearchProgressBar(object):
             self._cancel_visibility_probe()
 
         if self._scaleform_view is not None:
-            self._set_scaleform_view_visible(False, reason)
+            if self._should_dispose_scaleform_view_for_block(context):
+                self._dispose_scaleform_view('blocked:{0}'.format(reason))
+            else:
+                self._set_scaleform_view_visible(False, reason)
 
         return False
 
@@ -2988,17 +2972,9 @@ class ResearchProgressBar(object):
 
         self._log_control_debug('gui_space_left', 'space={0}'.format(space_id))
 
-        self._cancel_layout_refresh_retry()
         self._detach_scaleform_container_hooks()
         self._scaleform_view_requested = False
-        if self._scaleform_view is not None:
-            try:
-                self._scaleform_view.destroy()
-            except Exception:
-                _logger.exception('Failed to dispose scaleform garage view on lobby exit')
-            finally:
-                self._scaleform_view = None
-                self._scaleform_view_visible = None
+        self._dispose_scaleform_view('lobby_exit')
 
     def _on_scaleform_view_populated(self, view):
         self._scaleform_view_requested = False
@@ -3022,7 +2998,6 @@ class ResearchProgressBar(object):
     def _on_scaleform_view_disposed(self, view):
         self._log_control_debug('scaleform_disposed', 'alias={0}'.format(self._get_view_alias(view)))
         if self._scaleform_view is view:
-            self._cancel_layout_refresh_retry()
             self._scaleform_view = None
             self._scaleform_view_visible = None
         self._scaleform_view_requested = False
@@ -3221,7 +3196,6 @@ class ResearchProgressBar(object):
 
         if alias in _LAYOUT_REFRESH_VIEW_ALIASES:
             self._refresh_scaleform_layout('view_added:{0}'.format(alias))
-            self._schedule_layout_refresh_retry('view_added:{0}'.format(alias))
 
         if self._should_show_scaleform_view('view_added_to_container', view):
             self._schedule_update('view_added_to_container')
