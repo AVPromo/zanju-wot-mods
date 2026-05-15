@@ -1,87 +1,43 @@
-# World of Tanks Modding Knowledge Base
+# Zanju's WoT Mods
 
-This repository contains a practical knowledge base and mod development workspace for World of Tanks, based on:
+Source repository for World of Tanks mods, build tooling, and game-facing technical notes.
 
-- Local installation analysis from `C:\Games\World_of_Tanks_EU` (current version seen: `2.2.1.1`)
-- Public mod sources from `https://github.com/Kurzdor/wotmods-public/`
-- Web references (KoreanRandom, WG fair-play pages)
+## Included Mods
 
-## Repository Layout
+- [Zanju's Research Progress Bar](mods/research-progress-bar/README.md)  
+  Custom hangar progress bar covering research, field modifications, Tier XI upgrade-tree progress, and elite progress modes.
 
-```
-mods/                          # one subdirectory per mod
-  research-progress-bar/       # first mod
-    meta.xml
-    src/                       # Python source: top-level mod_*.py bootstrap + optional package
-    res/                       # committed runtime-shaped assets
-    i18n/                      # authored localisation sources staged into res/mods/<meta.id>/text/
-    config.json                # authored config source staged into mods/configs/<mod-name>/
-    ui/                        # ActionScript source, assets, WoT API mirror, and generated UI build output
-docs/                          # knowledge base
-build.py                       # packages mods/ → dist/*.wotmod and dist/<release-bundle>/
-dist/                          # gitignored release/export output
-```
+WIP or experimental mods are intentionally not listed here as public entry points.
 
-## Build
+## Install And Use
 
-```powershell
-python build.py                        # build all mods
-python build.py research-progress-bar  # build one mod
-```
+Use this path if you want to install a prepared mod package and keep it updated.
 
-Requires Python 3.6+ (tested on 3.14.4). No third-party packages needed.
+- [Installing Mods](docs/installing-mods.md)
 
-Build outputs are split intentionally:
+## Build From Source
 
-- Generated intermediate assets live under gitignored build directories such as `mods/<mod-name>/ui/build/`.
-- Final user-facing export bundles live under gitignored `dist/`.
-- Commit source files and default config sources; do not commit generated `.swf`, `.pyc`, or `.wotmod` artifacts.
+Use this path if you want to build `.wotmod` packages yourself without changing the code.
 
-## Dev Commands
+- Prerequisites: Python 3, Python 2.7, and `.env` configured with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE`
+- UI builds additionally need Java and Apache Flex SDK
 
-Set `WOT_GAME_DIR` in `.env` first (example in `.env.example`).
-Set `WOT_PYTHON2_EXE` as well; it is required in this repo's current stack so build output includes Python 2 `.pyc` scripts.
+- [Building From Source](docs/building-from-source.md)
+- [Architecture](docs/architecture.md)
 
-```powershell
-# Build + deploy all mods (default)
-python dev_test_deploy.py
+## Develop And Extend
 
-# Remove deployed package + config for all mods
-python dev_test_cleanup.py
+Use this path if you want to change code, add features, or create new mods in this workspace.
 
-# Preview cleanup targets without deleting
-python dev_test_cleanup.py --dry-run
+- Prerequisites: Python 3, Python 2.7, a local WoT install, and `.env` configured with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE`
+- UI and reverse-engineering work additionally need Java, Apache Flex SDK, and FFDec
 
-# Fast local iteration: cleanup + deploy
-python dev_test_cycle.py
+- [Developing Mods](docs/developing-mods.md)
+- [Architecture](docs/architecture.md)
+- [Technical Reference](docs/reference/README.md)
+- [Debugging](docs/debugging.md)
 
-# Fast local iteration with clean python.log (no archive, opt-in)
-python dev_test_cycle.py --fresh-log
+## Reference
 
-# Target one mod only
-python dev_test_cycle.py research-progress-bar
-```
-
-`dev_test_deploy.py`, `dev_test_cleanup.py`, and `dev_test_cycle.py` auto-target the newest numeric folder under `WOT_GAME_DIR/mods/`.
-
-## Start Here
-
-1. Read `docs/01-mod-architecture.md`
-2. Read `docs/02-local-install-findings.md`
-3. Follow `docs/03-dev-workflow.md`
-4. Keep `docs/04-ecosystem-links.md` open while developing
-5. Use `docs/05-debugging-and-compatibility.md` when something breaks
-
-## Important
-
-- Always re-check fair play policy before shipping a mod update.
-- Treat external examples as patterns, not guaranteed up-to-date APIs.
-- Test every patch cycle (especially micro-patches) before release.
-- For this WoT stack, keep a thin top-level `mod_*.py` bootstrap under `src/`; package-only entrypoints were not auto-discovered.
-- For multi-file mods, keep implementation in a unique package under `src/`, include `__init__.py`, avoid bootstrap/package name collisions, and prefer relative intra-package imports.
-- `research-progress-bar` now exposes a minimal optional in-game settings UI through `ModsSettingsAPI`; that dependency chain is `ModsSettingsAPI` -> `ModsListAPI` -> `OpenWG Gameface`.
-- The current `research-progress-bar` configurator surface is `Research`, `Field Mods`, `Upgrades`, and `Elite`; `Elite` uses `On` / `Customization only` / `Off` instead of a plain checkbox.
-- `research-progress-bar` runtime strings now load from `mods/configs/research-progress-bar/i18n/<language>.yml` with English fallback; `build.py` also stages authored `i18n/*.yml` into the packaged `res/mods/<meta.id>/text/` path for future WoT-native text resolution.
-- Keep mod-to-mod UI dependencies soft. `research-progress-bar` must keep working from `mods/configs/research-progress-bar/config.json` when the configurator stack is not installed.
-- Future work: automate publishing the `dist/` release bundle through GitHub Releases/CI. That workflow is intentionally not implemented yet.
-- For research-progress-bar crash boundaries and safe probe settings, see `docs/05-debugging-and-compatibility.md` section 8.
+- [Technical Reference](docs/reference/README.md)
+- [Resources And External Links](docs/resources.md)

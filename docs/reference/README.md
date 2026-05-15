@@ -1,0 +1,12 @@
+# Technical Reference
+
+This section collects practical WoT modding knowledge in a reference-oriented format.
+Use it when you need import paths, runtime locations, API entry points, or version-scoped implementation notes.
+
+## Reference Pages
+
+- [Runtime Layout And Packaging](runtime-layout-and-packaging.md)
+- [Python Runtime And Data Access](python-runtime-and-data-access.md)
+- [Research, XP, And Post-Progression](research-xp-and-post-progression.md)
+- [Events And Callbacks](events-and-callbacks.md)
+- [UI And Scaleform](ui-and-scaleform.md)
