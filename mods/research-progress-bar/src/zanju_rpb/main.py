@@ -182,7 +182,9 @@ def _get_config_path():
 
 
 def _load_config():
-    import io, json, os
+    import io
+    import json
+    import os
     try:
         path = _get_config_path()
         if os.path.isfile(path):
@@ -243,7 +245,9 @@ def _build_mode_preferences():
 
 
 def _save_config():
-    import io, json, os
+    import io
+    import json
+    import os
 
     path = _get_config_path()
     data = {}
@@ -488,12 +492,14 @@ def _resolve_unlock_display_name(intcd, items=None):
 
     return None
 
+
 def _build_unlock_marker_ref(intcd, items=None):
     item_type = _resolve_unlock_item_type(intcd)
     return {
         'item_type': item_type,
         'name': _resolve_unlock_display_name(intcd, items),
     }
+
 
 def _resolve_unlock_display_names(intcds, items=None):
     names = []
@@ -833,7 +839,14 @@ def _extract_t11_action_marker_meta(step, step_id, vehicle=None):
 
     resolved_name = tooltip_title or localized_name or ui_localized_name
     if _is_generic_t11_action_name(resolved_name):
-        resolved_name = image_name or descriptor_image_name or loc_name or tech_name or descriptor_loc_name or descriptor_name
+        resolved_name = (
+            image_name
+            or descriptor_image_name
+            or loc_name
+            or tech_name
+            or descriptor_loc_name
+            or descriptor_name
+        )
 
     return {
         'step_id': step_id,
@@ -960,7 +973,7 @@ def _is_string_like(value):
     return isinstance(value, str) or type(value).__name__ == 'unicode'
 
 
-def _probe_t11_category_hints(root, root_name):
+def _probe_t11_category_hints(root, root_name):  # noqa: C901
     hits = []
     seen = set()
     visited = set()
@@ -1182,7 +1195,17 @@ def _debug_prestige_value_summary(value):
         return 'None'
 
     parts = ['type={0}'.format(type(value).__name__)]
-    for attr_name in ('currentLevel', 'prestigeLevel', 'level', 'currentXP', 'nextLvlXP', 'maxLevel', 'remainingPoints', 'remainingPts', 'nextLevelPts'):
+    for attr_name in (
+        'currentLevel',
+        'prestigeLevel',
+        'level',
+        'currentXP',
+        'nextLvlXP',
+        'maxLevel',
+        'remainingPoints',
+        'remainingPts',
+        'nextLevelPts',
+    ):
         attr_value = _first_int_attr(value, (attr_name,))
         if attr_value is not None:
             parts.append('{0}={1}'.format(attr_name, attr_value))
@@ -1260,7 +1283,13 @@ def _collect_elite_progression(vehicle):
     if has_vehicle_prestige is False and prestige is None and prestige_stats is None and mapped_prestige is None:
         return data
 
-    data['available'] = bool(has_vehicle_prestige) or prestige is not None or prestige_stats is not None or mapped_prestige is not None or progress is not None
+    data['available'] = (
+        bool(has_vehicle_prestige)
+        or prestige is not None
+        or prestige_stats is not None
+        or mapped_prestige is not None
+        or progress is not None
+    )
     level_candidates = _collect_int_attr_candidates(
         (mapped_prestige, progress, prestige_stats, prestige),
         ('currentLevel', 'prestigeLevel', 'level'),
@@ -1276,7 +1305,9 @@ def _collect_elite_progression(vehicle):
         progress_sources,
         ('nextLvlXP', 'nextLevelXP', 'nextLvlXp', 'nextLevelXp'),
     )
-    remaining_points = _extract_elite_remaining_points((progress, mapped_prestige, prestige_stats, prestige, vehicle_points))
+    remaining_points = _extract_elite_remaining_points(
+        (progress, mapped_prestige, prestige_stats, prestige, vehicle_points)
+    )
     if remaining_points is not None:
         data['remaining_xp'] = _call_prestige_helper('prestigePointsToXP', remaining_points)
         if data['remaining_xp'] is None:
@@ -1295,7 +1326,9 @@ def _collect_elite_progression(vehicle):
     if _config.get('debugFieldMods'):
         vehicle_name = getattr(vehicle, 'userName', getattr(vehicle, 'intCD', 'unknown'))
         _logger.info(
-            '  Elite DEBUG [%s]: has=%s globalStats=(%s) points=(%s) stats=(%s) mapEntry=(%s) prestige=(%s) progress=(%s) levelCandidates=%s chosenLevel=%s currentXP=%s nextXP=%s remainingXP=%s maxLevel=%s',
+            '  Elite DEBUG [%s]: has=%s globalStats=(%s) points=(%s) stats=(%s) '
+            'mapEntry=(%s) prestige=(%s) progress=(%s) levelCandidates=%s '
+            'chosenLevel=%s currentXP=%s nextXP=%s remainingXP=%s maxLevel=%s',
             vehicle_name,
             has_vehicle_prestige,
             _debug_prestige_value_summary(global_prestige_stats),
@@ -1507,10 +1540,11 @@ def _install_t11_ui_name_hooks():
     if _config.get('debugFieldMods') and _t11_ui_name_hook_records:
         _logger.info(
             'Tier-11 UI name hooks attached: %s',
-            ', '.join([
-                '{0}.{1}'.format(module.__name__, attr_name)
-                for module, attr_name, _original in _t11_ui_name_hook_records
-            ])
+            ', '.join(
+                '{0}.{1}'.format(hook_module.__name__, hook_attr_name)
+                for hook_module, hook_attr_name, _original
+                in _t11_ui_name_hook_records
+            )
         )
     return len(_t11_ui_name_hook_records)
 
@@ -1597,6 +1631,8 @@ def _extract_xp_cost_lightweight(value):
             pass
 
     return None
+
+
 def _collect_modification_price_tiers(settings):
     """Extracts unlock XP tier values from post-progression settings.
 
@@ -1755,7 +1791,7 @@ def _resolve_next_research_step(pp, unlocked_step_ids, step_id_to_level):
     return None, None
 
 
-def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_offset=0):
+def _collect_post_progression(vehicle, stats, pp_settings=None, method_probe_offset=0):  # noqa: C901
     """Collect per-vehicle field-mod / post-progression status."""
     data = {
         'exists': False,
@@ -2485,7 +2521,8 @@ class ResearchProgressBar(object):
         payload = self._scaleform_payload if isinstance(self._scaleform_payload, dict) else {}
         extra_text = '' if extra is None else ' | {0}'.format(extra)
         _logger.info(
-            '  Control DEBUG [%s]: cv[%s] pv[%s] route=%s lastSub=%s view=%s req=%s vis=%s pending=%s updating=%s payload=%s%s',
+            '  Control DEBUG [%s]: cv[%s] pv[%s] route=%s lastSub=%s view=%s '
+            'req=%s vis=%s pending=%s updating=%s payload=%s%s',
             reason,
             self._describe_vehicle_binding(
                 g_currentVehicle,
@@ -2791,8 +2828,13 @@ class ResearchProgressBar(object):
             return 'preview_vehicle_present'
         if not context['vehicle_present']:
             return 'no_current_vehicle'
-        if self._current_lobby_route_path is not None and not self._is_default_hangar_route(self._current_lobby_route_path):
-            return 'lobby_route={0}'.format(self._current_lobby_route_path)
+        if (
+            self._current_lobby_route_path is not None
+            and not self._is_default_hangar_route(self._current_lobby_route_path)
+        ):
+            return 'lobby_route={0}'.format(
+                self._current_lobby_route_path
+            )
 
         incoming_alias = context['incoming_alias']
         incoming_layer = context['incoming_layer']
@@ -3081,7 +3123,8 @@ class ResearchProgressBar(object):
 
         self._last_scaleform_payload_log_key = log_key
         _logger.info(
-            '  Scaleform DEBUG tier11 payload: selected=%s modes=%s barMax=%s completed=%s primary=%s secondary=%s markers=%s',
+            '  Scaleform DEBUG tier11 payload: selected=%s modes=%s barMax=%s '
+            'completed=%s primary=%s secondary=%s markers=%s',
             payload.get('selectedModeId'),
             ','.join(mode_ids),
             tier11_mode.get('barMaxValue'),
@@ -3388,7 +3431,9 @@ class ResearchProgressBar(object):
             fm['completion_name'],
         )
         _logger.info(
-            '  Field mods DEBUG counts: total_steps=%d raw_unlocks=%d unique_step_ids=%d unique_levels=%d unlocked_step_ids=%d unlocked_levels=%d',
+            '  Field mods DEBUG counts: total_steps=%d raw_unlocks=%d '
+            'unique_step_ids=%d unique_levels=%d unlocked_step_ids=%d '
+            'unlocked_levels=%d',
             fm['total_steps'],
             fm['raw_unlock_count'],
             fm['unique_step_id_count'],
@@ -3411,7 +3456,10 @@ class ResearchProgressBar(object):
         if fm['debug_level_price_preview']:
             _logger.info('  Field mods DEBUG level price preview: %s', '; '.join(fm['debug_level_price_preview']))
         if fm['debug_settings_price_tiers']:
-            _logger.info('  Field mods DEBUG settings xp tiers: %s', ', '.join([str(v) for v in fm['debug_settings_price_tiers']]))
+            _logger.info(
+                '  Field mods DEBUG settings xp tiers: %s',
+                ', '.join(str(v) for v in fm['debug_settings_price_tiers'])
+            )
         else:
             _logger.info('  Field mods DEBUG settings xp tiers: <none>')
 

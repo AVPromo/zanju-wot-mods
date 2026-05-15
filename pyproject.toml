@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zanju-wot-mods-tools"
+version = "0.0.0"
+description = "Repository tooling for zanju-wot-mods"
+requires-python = ">=3.9"
+
+[project.scripts]
+wot_mods_build = "tools.build:main"
+wot_mods_cleanup = "tools.cleanup:main"
+wot_mods_cycle = "tools.cycle:main"
+wot_mods_deploy = "tools.deploy:main"
+wot_mods_lint = "tools.lint:main"
+
+[tool.setuptools]
+packages = ["tools"]
+
+[tool.black]
+line-length = 120
+target-version = ["py39"]
+extend-exclude = '''
+/(
+    \.venv
+  | dist
+  | \.tmp
+  | mods/.+/src
+  | mods/.+/ui/build
+)/
+'''
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+extend-exclude = [
+    ".venv",
+    "dist",
+    ".tmp",
+    "mods/*/src",
+    "mods/*/ui/build",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "SIM", "C4", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tools/lint.py" = ["B904"]
+
+[tool.autopep8]
+max_line_length = 120
+select = "E1,E2,E3,W291,W292,W293,W391"

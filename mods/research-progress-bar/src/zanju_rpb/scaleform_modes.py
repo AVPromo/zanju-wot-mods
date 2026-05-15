@@ -294,7 +294,7 @@ def _build_tier11_mode(data):
 
     return _make_mode(
         MODE_TIER11_UPGRADES,
-            _loc('MODE_UPGRADES', 'Upgrades'),
+        _loc('MODE_UPGRADES', 'Upgrades'),
         bar_max_value,
         primary_value,
         secondary_value,
@@ -305,7 +305,7 @@ def _build_tier11_mode(data):
         markers=markers,
         completed_value=completed_value,
         side_counter_text='{0}/{1}'.format(unlocked_steps, total_steps),
-            side_counter_caption=_loc('CAPTION_UNLOCKED', 'Unlocked'),
+        side_counter_caption=_loc('CAPTION_UNLOCKED', 'Unlocked'),
     )
 
 
@@ -627,9 +627,15 @@ def _build_t11_display_layout(field_mods):
         completed_major_count,
         _loc('UPGRADE_MAJOR', 'Major Upgrade')
     )
-    remaining_minor_nodes = _sort_t11_action_nodes_by_category(_filter_t11_action_nodes(unresearched_action_nodes, 10000))
-    remaining_major_nodes = _sort_t11_action_nodes_by_category(_filter_t11_action_nodes(unresearched_action_nodes, 20000))
-    remaining_final_nodes = _sort_t11_action_nodes_by_category(_filter_t11_action_nodes(unresearched_action_nodes, 25000))
+    remaining_minor_nodes = _sort_t11_action_nodes_by_category(
+        _filter_t11_action_nodes(unresearched_action_nodes, 10000)
+    )
+    remaining_major_nodes = _sort_t11_action_nodes_by_category(
+        _filter_t11_action_nodes(unresearched_action_nodes, 20000)
+    )
+    remaining_final_nodes = _sort_t11_action_nodes_by_category(
+        _filter_t11_action_nodes(unresearched_action_nodes, 25000)
+    )
     completed_minor_cost = (_to_int(researched.get('small_10k')) or 0) * 10000
     completed_major_cost = (_to_int(researched.get('big_20k')) or 0) * 20000
     remaining_minor_cost = remaining_minor_count * 10000
@@ -660,7 +666,17 @@ def _build_t11_display_layout(field_mods):
     }
 
 
-def _make_t11_marker(marker_id, position_value, cost_xp, name, remaining_cost, vehicle_xp, total_xp, action_node=None, show_bar_icon=True):
+def _make_t11_marker(
+    marker_id,
+    position_value,
+    cost_xp,
+    name,
+    remaining_cost,
+    vehicle_xp,
+    total_xp,
+    action_node=None,
+    show_bar_icon=True,
+):
     marker = {
         'id': marker_id,
         'positionValue': position_value,
@@ -774,12 +790,34 @@ def _build_t11_action_icon_paths(action_node):
     paths = []
     for branch in ordered_branches:
         for size in ('small', 'large'):
-            paths.append('../maps/icons/skillTree/tree/perks/{0}/skills/{1}/{2}.png'.format(branch, size, image_name))
-            paths.append('img://gui/maps/icons/skillTree/tree/perks/{0}/skills/{1}/{2}.png'.format(branch, size, image_name))
+            paths.append(
+                '../maps/icons/skillTree/tree/perks/{0}/skills/{1}/{2}.png'.format(
+                    branch,
+                    size,
+                    image_name,
+                )
+            )
+            paths.append(
+                'img://gui/maps/icons/skillTree/tree/perks/{0}/skills/{1}/{2}.png'.format(
+                    branch,
+                    size,
+                    image_name,
+                )
+            )
 
     for size in ('120x80', '192x120'):
-        paths.append('../maps/icons/vehPostProgression/actionItems/modificationWithFeature/{0}/{1}.png'.format(size, image_name))
-        paths.append('img://gui/maps/icons/vehPostProgression/actionItems/modificationWithFeature/{0}/{1}.png'.format(size, image_name))
+        paths.append(
+            '../maps/icons/vehPostProgression/actionItems/modificationWithFeature/{0}/{1}.png'.format(
+                size,
+                image_name,
+            )
+        )
+        paths.append(
+            'img://gui/maps/icons/vehPostProgression/actionItems/modificationWithFeature/{0}/{1}.png'.format(
+                size,
+                image_name,
+            )
+        )
 
     return paths
 
@@ -820,7 +858,6 @@ def _resolve_t11_bar_item_type(marker):
 
 
 def _apply_t11_bar_icon(marker, show_bar_icon=True):
-    category = marker.get('debugCategory') or marker.get('itemType') or ''
     bar_item_type = _resolve_t11_bar_item_type(marker)
     if not show_bar_icon:
         marker['hideBarIcon'] = True

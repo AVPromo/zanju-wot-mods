@@ -52,9 +52,9 @@ Common WoT runtime locations are:
 
 ## Build And Staging Rules
 
-- `build.py` compiles Python sources into WoT-ready output.
-- `build.py` also stages authored config and localisation files into runtime-shaped release output.
-- Mods with UI sources can provide `ui/compile_ui.py`; `build.py` runs it automatically before packaging.
+- `wot_mods_build` compiles Python sources into WoT-ready output.
+- `wot_mods_build` also stages authored config and localisation files into runtime-shaped release output.
+- Mods with UI sources can provide `ui/compile_ui.py`; `wot_mods_build` runs it automatically before packaging.
 - Generated SWF output belongs in ignored build folders, not in source control.
 
 ## UI Pattern Used In This Repo

@@ -1,6 +1,6 @@
 ---
 name: workflow
-description: "Repository workflow guidance for zanju-wot-mods. Use when working on mods, build/deploy scripts, docs, validation, release bundles, or WoT UI assets. Keywords: build.py, dev_test_deploy.py, dev_test_cycle.py, python.log, docs sync, release bundle, research-progress-bar."
+description: "Repository workflow guidance for zanju-wot-mods. Use when working on mods, build/deploy scripts, docs, validation, release bundles, or WoT UI assets. Keywords: wot_mods_build, wot_mods_deploy, wot_mods_cycle, python.log, docs sync, release bundle, research-progress-bar, tools/."
 ---
 
 # Repository Workflow
@@ -13,7 +13,7 @@ It captures repo-specific conventions, documentation expectations, and validatio
 - Editing a mod under `mods/<name>/`.
 - Changing packaging, deployment, release-bundle, or build behavior.
 - Updating docs or checking whether docs became stale after a code change.
-- Deciding whether to run `build.py`, `dev_test_deploy.py`, or `dev_test_cycle.py`.
+- Deciding whether to run `wot_mods_build`, `wot_mods_deploy`, or `wot_mods_cycle`.
 - Working on WoT UI assets, Scaleform code, or Python/runtime integration.
 
 ## Core Principles
@@ -40,15 +40,15 @@ It captures repo-specific conventions, documentation expectations, and validatio
 
 ### UI Assets
 
-- `build.py` automatically runs `mods/<mod>/ui/compile_ui.py` when present.
+- `wot_mods_build` automatically runs `mods/<mod>/ui/compile_ui.py` when present.
 - Generated UI output belongs under `mods/<mod>/ui/build/res/`.
 - For garage Scaleform views, reuse the repo's WoT-compatible view pattern rather than ad hoc raw display roots.
 
 ### Packaging And Deploy
 
-- `python build.py <mod>` is the canonical package build for one mod.
-- `python dev_test_deploy.py <mod>` builds and deploys the mod to every detected `mods/<version>/` folder and also copies config/i18n.
-- `python dev_test_cycle.py <mod>` performs cleanup and then deploy.
+- `wot_mods_build <mod>` is the canonical package build for one mod.
+- `wot_mods_deploy <mod>` builds and deploys the mod to every detected `mods/<version>/` folder and also copies config/i18n.
+- `wot_mods_cycle <mod>` performs cleanup and then deploy.
 - Prefer one-mod commands when the task is scoped to one mod.
 - `dist/<mod-id>_<version>/` is the canonical release-bundle layout.
 
@@ -64,7 +64,7 @@ Review the smallest relevant set of these:
 - `docs/installing-mods.md`, `docs/building-from-source.md`, and `docs/developing-mods.md`
 - `docs/reference/` pages for new technical discoveries or changed behavior
 - `docs/resources.md` when a new external reference matters
-- `build.py` release-bundle `README.txt` template when install or package layout changes
+- `tools/build.py` release-bundle `README.txt` template when install or package layout changes
 
 Apply these repo-specific rules:
 
@@ -76,10 +76,10 @@ Apply these repo-specific rules:
 
 When work is centered on a specific mod and local runtime validation would materially help:
 
-1. Ask once per session whether the user wants `python dev_test_cycle.py <mod>` to be the default deploy/validation path for that mod.
+1. Ask once per session whether the user wants `wot_mods_cycle <mod>` to be the default deploy/validation path for that mod.
 2. Remember the answer for the session, keyed by mod name.
 3. Reuse that choice until the user changes it.
-4. If the user opts out, prefer `python dev_test_deploy.py <mod>` or a narrower validation step.
+4. If the user opts out, prefer `wot_mods_deploy <mod>` or a narrower validation step.
 
 Do not ask about the dev cycle when:
 
@@ -88,7 +88,7 @@ Do not ask about the dev cycle when:
 - the validation is obviously static and local
 
 Record the session preference in session memory only when it is likely to matter again later in the session.
-Keep the note short, for example: `research-progress-bar: prefer dev_test_cycle by default`.
+Keep the note short, for example: `research-progress-bar: prefer wot_mods_cycle by default`.
 
 ### Choosing `--fresh-log`
 
@@ -112,8 +112,8 @@ Always note that WoT must be restarted or re-entered before Python, UI, or packa
 ## Validation Order
 
 - Touched Python file: prefer `python -m py_compile` or the narrowest available syntax/import check.
-- Packaging, UI, or build-flow change: run `python build.py <mod>` or the relevant helper.
-- Local runtime validation for one mod: ask once about the session dev-cycle preference, then use `dev_test_cycle.py <mod>` or `dev_test_deploy.py <mod>` as appropriate.
+- Packaging, UI, or build-flow change: run `wot_mods_build <mod>` or the relevant helper.
+- Local runtime validation for one mod: ask once about the session dev-cycle preference, then use `wot_mods_cycle <mod>` or `wot_mods_deploy <mod>` as appropriate.
 - Docs-only changes: verify links and references; do not run deploy scripts by default.
 
 ## Examples
@@ -130,11 +130,11 @@ Always note that WoT must be restarted or re-entered before Python, UI, or packa
 - Update the code.
 - Check docs fallout.
 - Run a narrow Python validation step.
-- If runtime validation matters, ask once about `dev_test_cycle.py <mod>` and remember the answer.
+- If runtime validation matters, ask once about `wot_mods_cycle <mod>` and remember the answer.
 - Use `--fresh-log` only when clean-log validation is the point and WoT is closed.
 
 ### UI Change
 
 - Update AS3 and any paired Python integration.
-- Let `build.py` or the deploy helpers invoke `ui/compile_ui.py` automatically.
+- Let `wot_mods_build` or the deploy helpers invoke `ui/compile_ui.py` automatically.
 - Treat WoT restart as required before interpreting in-game results.

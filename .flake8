@@ -1,0 +1,14 @@
+[flake8]
+max-line-length = 120
+max-complexity = 25
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    dist,
+    .tmp,
+    mods/*/ui/build
+extend-ignore = E203,W503
+
+per-file-ignores =
+    mods/*/src/mod_*.py:F401

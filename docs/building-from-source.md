@@ -9,6 +9,15 @@ This page is for users who want to build the mods in this repository without ado
 - A `.env` file with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE` configured.
 - Java and Apache Flex SDK only if you build a mod with ActionScript UI assets.
 
+Install the repo commands into your active Python 3 environment once:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+```
+
+The `wot_mods_*` commands below resolve while that Python 3 environment is active.
+
 For a full workstation setup, see [Developing Mods](developing-mods.md).
 
 ## Build Commands
@@ -16,13 +25,13 @@ For a full workstation setup, see [Developing Mods](developing-mods.md).
 Build everything:
 
 ```powershell
-python build.py
+wot_mods_build
 ```
 
 Build one mod:
 
 ```powershell
-python build.py research-progress-bar
+wot_mods_build research-progress-bar
 ```
 
 ## Output
@@ -38,19 +47,19 @@ Each built mod gets:
 Deploy all mods:
 
 ```powershell
-python dev_test_deploy.py
+wot_mods_deploy
 ```
 
 Deploy one mod:
 
 ```powershell
-python dev_test_deploy.py research-progress-bar
+wot_mods_deploy research-progress-bar
 ```
 
 Full cleanup and redeploy loop:
 
 ```powershell
-python dev_test_cycle.py research-progress-bar
+wot_mods_cycle research-progress-bar
 ```
 
 ## Important Runtime Note

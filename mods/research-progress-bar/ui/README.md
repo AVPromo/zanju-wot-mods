@@ -24,8 +24,8 @@ Output path:
 
 Notes:
 
-- The live in-game garage widget still loads `res/gui/flash/research-progress-bar-lobby.swf` inside the final `.wotmod`; `build.py` stages the generated SWF into that archive path during packaging.
-- `build.py research-progress-bar` and `dev_test_cycle.py research-progress-bar` now invoke `ui/compile_ui.py` automatically before packaging, so manual UI builds are mainly for faster SWF-only iteration.
+- The live in-game garage widget still loads `res/gui/flash/research-progress-bar-lobby.swf` inside the final `.wotmod`; `wot_mods_build` stages the generated SWF into that archive path during packaging.
+- `wot_mods_build research-progress-bar` and `wot_mods_cycle research-progress-bar` now invoke `ui/compile_ui.py` automatically before packaging, so manual UI builds are mainly for faster SWF-only iteration.
 - Files under `ui/build/` are generated artifacts and should not be committed.
 - The final user-facing release bundle is emitted under `dist/` with the `.wotmod`, copied config, and install README.
 - The Python side now registers an optional `ModsSettingsAPI` template for `enabled`, `Research`, `Field Mods`, `Upgrades`, and `Elite`; the Elite control is a radio group with `On`, `Customization only`, and `Off`.

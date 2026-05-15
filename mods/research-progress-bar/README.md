@@ -26,19 +26,19 @@ Runtime config lives under:
 Build only this mod:
 
 ```powershell
-python build.py research-progress-bar
+wot_mods_build research-progress-bar
 ```
 
 Deploy it to a local WoT install:
 
 ```powershell
-python dev_test_deploy.py research-progress-bar
+wot_mods_deploy research-progress-bar
 ```
 
 Fast cleanup and redeploy loop:
 
 ```powershell
-python dev_test_cycle.py research-progress-bar
+wot_mods_cycle research-progress-bar
 ```
 
 For the general build/toolchain workflow, see [Building From Source](../../docs/building-from-source.md).
@@ -53,7 +53,7 @@ Important local paths:
 - Python source: `src/`
 - Scaleform UI source: `ui/`
 
-The UI is compiled through `ui/compile_ui.py`, and `build.py` runs that compiler automatically before packaging.
+The UI is compiled through `ui/compile_ui.py`, and `wot_mods_build` runs that compiler automatically before packaging.
 
 For the wider repository workflow, see:
 

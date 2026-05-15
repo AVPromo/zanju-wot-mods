@@ -23,10 +23,10 @@ A `.wotmod` commonly contains:
 In this repository:
 
 - authored Python sources live under `mods/<mod-name>/src/`
-- `build.py` compiles them into the runtime package shape
+- `wot_mods_build` compiles them into the runtime package shape
 - authored `config.json` is staged into `mods/configs/<mod-name>/config.json`
 - authored `i18n/*.yml` files are staged into both packaged text resources and deployable config folders
-- `ui/compile_ui.py` is auto-run by `build.py` when present
+- `ui/compile_ui.py` is auto-run by `wot_mods_build` when present
 
 ## Entry Point Rule
 
