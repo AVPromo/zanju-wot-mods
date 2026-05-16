@@ -109,6 +109,29 @@ def resolve_py27_python(override):
     return resolve_command_path(py27_python, "WOT_PYTHON2_EXE")
 
 
+def python_has_module(python_executable, module_name):
+    cmd = [python_executable, "-c", "import {0}".format(module_name)]
+    try:
+        with io.open(os.devnull, "wb") as devnull:
+            return subprocess.call(cmd, cwd=REPO_ROOT, stdout=devnull, stderr=devnull) == 0
+    except OSError:
+        return False
+
+
+def ensure_py27_lint_runtime(py27_python):
+    if python_has_module(py27_python, "flake8"):
+        return
+
+    quoted_python = quote_arg(py27_python)
+    raise RuntimeError(
+        "Selected Python for py27 lint does not have Flake8 installed: {0}. "
+        "Install the pinned lint dependency with: {1} -m pip install -r requirements-lint-py27.txt".format(
+            py27_python,
+            quoted_python,
+        )
+    )
+
+
 def require_targets(targets, label):
     if targets:
         return targets
@@ -145,7 +168,9 @@ def run_py27_lint(py27_python):
     if not targets:
         return
 
-    cmd = [py27_python, "-m", "flake8", "--config", ".flake8"]
+    ensure_py27_lint_runtime(py27_python)
+
+    cmd = [py27_python, "-m", "tools.flake8_compat", "--config", ".flake8"]
     cmd.extend(targets)
     run_command(cmd)
 

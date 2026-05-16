@@ -1259,6 +1259,189 @@ def _extract_xp_cost_lightweight(value):
     return None
 
 
+def _make_empty_t11_bucket_counts():
+    return {
+        'small_10k': 0,
+        'big_20k': 0,
+        'big_25k': 0,
+        'unknown': 0,
+    }
+
+
+def _collect_post_progression_step_metadata(pp, is_veh_skill_tree, vehicle):
+    total_steps = 0
+    unique_level_count = 0
+    step_id_to_level = {}
+    step_meta = {}
+
+    try:
+        steps = list(pp.iterUnorderedSteps())
+        total_steps = len(steps)
+
+        unique_levels = set()
+        step = None
+        for step in steps:
+            step_id = getattr(step, 'stepID', None)
+            if step_id is None:
+                step_id = getattr(step, 'id', None)
+
+            level = getattr(step, 'level', None)
+            if level is None and hasattr(step, 'getLevel'):
+                try:
+                    level = step.getLevel()
+                except Exception:
+                    level = None
+
+            if step_id is not None:
+                step_id_to_level[step_id] = level
+                if is_veh_skill_tree:
+                    step_xp_cost = _resolve_t11_step_xp_cost(step)
+                    step_meta[step_id] = {
+                        'xp_cost': step_xp_cost,
+                        'bucket': _make_t11_bucket(step_xp_cost),
+                        'action_meta': _extract_t11_action_marker_meta(step, step_id, vehicle),
+                    }
+
+            if level is not None:
+                unique_levels.add(level)
+
+        unique_level_count = len(unique_levels)
+    except Exception:
+        _logger.exception('Failed to read post-progression step metadata')
+
+    return total_steps, unique_level_count, step_id_to_level, step_meta
+
+
+def _normalize_t11_final_bucket(step_meta):
+    if not step_meta:
+        return
+
+    meta = None
+    for meta in step_meta.itervalues():
+        if meta.get('bucket') == 'big_25k':
+            return
+
+    fallback_final_id = max(step_meta.keys())
+    if step_meta[fallback_final_id].get('bucket') == 'unknown':
+        step_meta[fallback_final_id]['bucket'] = 'big_25k'
+
+
+def _collect_t11_unlock_data(step_meta, unlocked_step_ids):
+    researched_action_nodes = []
+    unresearched_action_nodes = []
+    researched_buckets = _make_empty_t11_bucket_counts()
+    unresearched_buckets = _make_empty_t11_bucket_counts()
+
+    _normalize_t11_final_bucket(step_meta)
+
+    step_id = None
+    meta = None
+    for step_id, meta in step_meta.iteritems():
+        bucket = meta.get('bucket') or 'unknown'
+        is_researched = step_id in unlocked_step_ids
+        bucket_counts = researched_buckets if is_researched else unresearched_buckets
+        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+
+        action_meta = meta.get('action_meta')
+        if action_meta is None:
+            continue
+
+        action_node = {
+            'step_id': step_id,
+            'xp_cost': meta.get('xp_cost'),
+            'bucket': bucket,
+            'name': action_meta.get('name'),
+            'tooltip_title': action_meta.get('tooltip_title'),
+            'ui_localized_name': action_meta.get('ui_localized_name'),
+            'localized_name': action_meta.get('localized_name'),
+            'loc_name': action_meta.get('loc_name'),
+            'tech_name': action_meta.get('tech_name'),
+            'image_name': action_meta.get('image_name'),
+            'slot_category': action_meta.get('slot_category'),
+            'category': action_meta.get('category'),
+        }
+        if is_researched:
+            researched_action_nodes.append(action_node)
+        else:
+            unresearched_action_nodes.append(action_node)
+
+    return {
+        't11_bucket_researched': researched_buckets,
+        't11_bucket_unresearched': unresearched_buckets,
+        't11_action_nodes_researched': sorted(researched_action_nodes, key=_t11_action_node_sort_key),
+        't11_action_nodes_unresearched': sorted(unresearched_action_nodes, key=_t11_action_node_sort_key),
+    }
+
+
+def _collect_post_progression_unlock_state(pp, step_id_to_level, step_meta, is_veh_skill_tree):
+    result = {
+        'unlocked_steps': 0,
+        'unique_unlocked_level_count': 0,
+        't11_bucket_researched': _make_empty_t11_bucket_counts(),
+        't11_bucket_unresearched': _make_empty_t11_bucket_counts(),
+        't11_action_nodes_researched': [],
+        't11_action_nodes_unresearched': [],
+    }
+
+    unlocked_step_ids = set()
+    try:
+        state = pp.getState(True)
+        unlocks = getattr(state, 'unlocks', set()) or set()
+        unlock = None
+        for unlock in unlocks:
+            unlocked_step_id = getattr(unlock, 'stepID', None)
+            if unlocked_step_id is None:
+                unlocked_step_id = getattr(unlock, 'id', None)
+            if unlocked_step_id is None:
+                unlocked_step_id = unlock
+
+            try:
+                if unlocked_step_id is not None:
+                    unlocked_step_ids.add(unlocked_step_id)
+            except Exception:
+                pass
+
+        result['unlocked_steps'] = len(unlocked_step_ids)
+
+        unlocked_levels = set()
+        unlocked_step_id = None
+        for unlocked_step_id in unlocked_step_ids:
+            level = step_id_to_level.get(unlocked_step_id)
+            if level is not None:
+                unlocked_levels.add(level)
+        result['unique_unlocked_level_count'] = len(unlocked_levels)
+
+        if is_veh_skill_tree and step_meta:
+            result.update(_collect_t11_unlock_data(step_meta, unlocked_step_ids))
+    except Exception:
+        _logger.exception('Failed to read post-progression state/unlocks')
+
+    return result
+
+
+def _resolve_next_purchasable_post_progression_step_xp(pp, stats, vehicle, step_meta):
+    next_purchasable_step_xp = None
+
+    try:
+        balance = stats.getMoneyExt(vehicle.intCD)
+        step = pp.getFirstPurchasableStep(balance)
+        if step is None:
+            return None
+
+        step_id = getattr(step, 'stepID', None) or getattr(step, 'id', None)
+        if step_id is not None:
+            step_meta_entry = step_meta.get(step_id)
+            if step_meta_entry is not None:
+                next_purchasable_step_xp = step_meta_entry.get('xp_cost')
+
+        if next_purchasable_step_xp is None:
+            next_purchasable_step_xp = _extract_xp_cost_lightweight(step)
+    except Exception:
+        _logger.exception('Failed to resolve next purchasable post-progression step')
+
+    return next_purchasable_step_xp
+
+
 def _collect_post_progression(vehicle, stats):
     """Collect the production post-progression data used by the UI."""
     data = {
@@ -1269,18 +1452,8 @@ def _collect_post_progression(vehicle, stats):
         'unique_level_count': 0,
         'unique_unlocked_level_count': 0,
         'next_purchasable_step_xp': None,
-        't11_bucket_researched': {
-            'small_10k': 0,
-            'big_20k': 0,
-            'big_25k': 0,
-            'unknown': 0,
-        },
-        't11_bucket_unresearched': {
-            'small_10k': 0,
-            'big_20k': 0,
-            'big_25k': 0,
-            'unknown': 0,
-        },
+        't11_bucket_researched': _make_empty_t11_bucket_counts(),
+        't11_bucket_unresearched': _make_empty_t11_bucket_counts(),
         't11_action_nodes_researched': [],
         't11_action_nodes_unresearched': [],
     }
@@ -1299,131 +1472,32 @@ def _collect_post_progression(vehicle, stats):
     except Exception:
         data['is_veh_skill_tree'] = False
 
-    step_id_to_level = {}
-    step_meta = {}
+    total_steps, unique_level_count, step_id_to_level, step_meta = _collect_post_progression_step_metadata(
+        pp,
+        data['is_veh_skill_tree'],
+        vehicle,
+    )
+    data['total_steps'] = total_steps
+    data['unique_level_count'] = unique_level_count
 
-    try:
-        steps = list(pp.iterUnorderedSteps())
-        data['total_steps'] = len(steps)
-
-        unique_levels = set()
-        for step in steps:
-            sid = getattr(step, 'stepID', None)
-            if sid is None:
-                sid = getattr(step, 'id', None)
-
-            level = getattr(step, 'level', None)
-            if level is None and hasattr(step, 'getLevel'):
-                try:
-                    level = step.getLevel()
-                except Exception:
-                    level = None
-
-            if sid is not None:
-                step_id_to_level[sid] = level
-                if data['is_veh_skill_tree']:
-                    step_xp_cost = _resolve_t11_step_xp_cost(step)
-                    step_meta[sid] = {
-                        'xp_cost': step_xp_cost,
-                        'bucket': _make_t11_bucket(step_xp_cost),
-                        'action_meta': _extract_t11_action_marker_meta(step, sid, vehicle),
-                    }
-
-            if level is not None:
-                unique_levels.add(level)
-
-        data['unique_level_count'] = len(unique_levels)
-    except Exception:
-        _logger.exception('Failed to read post-progression step metadata')
-
-    unlocked_step_ids = set()
-    try:
-        state = pp.getState(True)
-        unlocks = getattr(state, 'unlocks', set()) or set()
-        for unlock in unlocks:
-            uid = getattr(unlock, 'stepID', None)
-            if uid is None:
-                uid = getattr(unlock, 'id', None)
-            if uid is None:
-                uid = unlock
-
-            try:
-                if uid is not None:
-                    unlocked_step_ids.add(uid)
-            except Exception:
-                pass
-
-        data['unlocked_steps'] = len(unlocked_step_ids)
-
-        unlocked_levels = set()
-        for uid in unlocked_step_ids:
-            level = step_id_to_level.get(uid)
-            if level is not None:
-                unlocked_levels.add(level)
-        data['unique_unlocked_level_count'] = len(unlocked_levels)
-
-        if data['is_veh_skill_tree'] and step_meta:
-            explicit_final_ids = sorted([
-                sid for sid, meta in step_meta.iteritems()
-                if meta.get('bucket') == 'big_25k'
-            ])
-            if not explicit_final_ids:
-                fallback_final_id = max(step_meta.keys())
-                if step_meta[fallback_final_id].get('bucket') == 'unknown':
-                    step_meta[fallback_final_id]['bucket'] = 'big_25k'
-
-            researched_action_nodes = []
-            unresearched_action_nodes = []
-            for sid, meta in step_meta.iteritems():
-                bucket = meta.get('bucket') or 'unknown'
-                is_researched = sid in unlocked_step_ids
-                bucket_counts = data['t11_bucket_researched'] if is_researched else data['t11_bucket_unresearched']
-                bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
-
-                action_meta = meta.get('action_meta')
-                if action_meta is None:
-                    continue
-
-                action_node = {
-                    'step_id': sid,
-                    'xp_cost': meta.get('xp_cost'),
-                    'bucket': bucket,
-                    'name': action_meta.get('name'),
-                    'tooltip_title': action_meta.get('tooltip_title'),
-                    'ui_localized_name': action_meta.get('ui_localized_name'),
-                    'localized_name': action_meta.get('localized_name'),
-                    'loc_name': action_meta.get('loc_name'),
-                    'tech_name': action_meta.get('tech_name'),
-                    'image_name': action_meta.get('image_name'),
-                    'slot_category': action_meta.get('slot_category'),
-                    'category': action_meta.get('category'),
-                }
-                if is_researched:
-                    researched_action_nodes.append(action_node)
-                else:
-                    unresearched_action_nodes.append(action_node)
-
-            data['t11_action_nodes_researched'] = sorted(researched_action_nodes, key=_t11_action_node_sort_key)
-            data['t11_action_nodes_unresearched'] = sorted(unresearched_action_nodes, key=_t11_action_node_sort_key)
-    except Exception:
-        _logger.exception('Failed to read post-progression state/unlocks')
+    data.update(
+        _collect_post_progression_unlock_state(
+            pp,
+            step_id_to_level,
+            step_meta,
+            data['is_veh_skill_tree'],
+        )
+    )
 
     if not data['is_veh_skill_tree']:
         return data
 
-    try:
-        balance = stats.getMoneyExt(vehicle.intCD)
-        step = pp.getFirstPurchasableStep(balance)
-        if step is not None:
-            step_id = getattr(step, 'stepID', None) or getattr(step, 'id', None)
-            if step_id is not None:
-                step_meta_entry = step_meta.get(step_id)
-                if step_meta_entry is not None:
-                    data['next_purchasable_step_xp'] = step_meta_entry.get('xp_cost')
-            if data['next_purchasable_step_xp'] is None:
-                data['next_purchasable_step_xp'] = _extract_xp_cost_lightweight(step)
-    except Exception:
-        _logger.exception('Failed to resolve next purchasable post-progression step')
+    data['next_purchasable_step_xp'] = _resolve_next_purchasable_post_progression_step_xp(
+        pp,
+        stats,
+        vehicle,
+        step_meta,
+    )
 
     return data
 
@@ -1502,16 +1576,12 @@ class ResearchProgressBar(object):
         self._last_seen_sub_view_alias = None
 
     def _refresh_vehicle_change_hooks(self, reason):
-        current_ok = False
-        preview_ok = False
-
         try:
             try:
                 g_currentVehicle.onChanged -= self._on_vehicle_changed
             except Exception:
                 pass
             g_currentVehicle.onChanged += self._on_vehicle_changed
-            current_ok = True
         except Exception:
             _logger.exception('Failed to refresh current vehicle hook (%s)', reason)
 
@@ -1521,7 +1591,6 @@ class ResearchProgressBar(object):
             except Exception:
                 pass
             g_currentPreviewVehicle.onChanged += self._on_preview_vehicle_changed
-            preview_ok = True
         except Exception:
             _logger.exception('Failed to refresh preview vehicle hook (%s)', reason)
 
@@ -2124,7 +2193,6 @@ class ResearchProgressBar(object):
         if not self._active:
             return
 
-        had_pending = self._pending_update_callback is not None
         self._cancel_pending_update()
 
         # Keep deferred execution and callback coalescing, but run immediately.
