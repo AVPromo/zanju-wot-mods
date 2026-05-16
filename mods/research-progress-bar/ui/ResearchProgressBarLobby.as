@@ -3,6 +3,8 @@ package {
     import flash.display.BitmapData;
     import flash.display.Shape;
     import flash.display.Sprite;
+    import flash.display.StageAlign;
+    import flash.display.StageScaleMode;
     import flash.events.Event;
     import flash.events.MouseEvent;
     import flash.geom.Rectangle;
@@ -254,6 +256,7 @@ package {
 
         override protected function configUI():void {
             super.configUI();
+            visible = false;
             mouseEnabled = false;
             mouseChildren = true;
             build();
@@ -310,6 +313,9 @@ package {
             if (stage == null) {
                 return;
             }
+
+            stage.align = StageAlign.TOP_LEFT;
+            stage.scaleMode = StageScaleMode.NO_SCALE;
 
             stage.removeEventListener(Event.RESIZE, onStageResize);
             stage.removeEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
@@ -1194,20 +1200,6 @@ package {
             rowBounds = row.getBounds(row);
             cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
 
-            var debugText:String = resolveMarkerDebugText(marker);
-            if (debugText.length > 0) {
-                row = createTooltipTextRow(
-                    debugText,
-                    TOOLTIP_BODY_SIZE,
-                    TOOLTIP_MUTED_TEXT_COLOR,
-                    false
-                );
-                row.y = cursorY;
-                section.addChild(row);
-                rowBounds = row.getBounds(row);
-                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
-            }
-
             if (markerState == "completed") {
                 row = createTooltipTextRow(
                     "Unlocked",
@@ -1591,20 +1583,6 @@ package {
             return String(MARKER_TYPE_NAMES.unknown);
         }
 
-        private function resolveMarkerDebugText(marker:Object):String {
-            var parts:Array = [];
-            var slotCategory:String;
-
-            if (marker != null && marker.debugSlotCategory !== undefined && marker.debugSlotCategory != null) {
-                slotCategory = String(marker.debugSlotCategory);
-                if (slotCategory.length > 0 && slotCategory != "universal") {
-                    parts.push("slot: " + slotCategory);
-                }
-            }
-
-            return parts.join(" | ");
-        }
-
         private function createMarkerIcon(marker:Object, markerTopY:Number):Bitmap {
             var bitmapData:BitmapData = getMarkerBarIconBitmapDataForMarker(marker);
             var icon:Bitmap;
@@ -1646,10 +1624,6 @@ package {
 
             if (marker.barItemType !== undefined && marker.barItemType != null) {
                 return String(marker.barItemType);
-            }
-
-            if (marker.debugCategory !== undefined && marker.debugCategory != null) {
-                return String(marker.debugCategory);
             }
 
             if (marker.itemType !== undefined && marker.itemType != null) {
@@ -1879,24 +1853,6 @@ package {
             return Math.max(1, Math.ceil(field.textWidth + 4));
         }
 
-        private function positionCounterGroup(valueField:TextField, captionField:TextField, groupX:Number, groupY:Number):void {
-            valueField.x = groupX;
-            valueField.y = groupY;
-
-            if (captionField != null) {
-                captionField.x = groupX + COUNTER_VALUE_WIDTH + (hasCounterText(captionField) ? COUNTER_TEXT_GAP : 0);
-                captionField.y = groupY;
-            }
-        }
-
-        private function measureCounterGroupWidth(captionField:TextField):Number {
-            if (captionField != null && hasCounterText(captionField)) {
-                return COUNTER_VALUE_WIDTH + COUNTER_TEXT_GAP + COUNTER_CAPTION_WIDTH;
-            }
-
-            return COUNTER_VALUE_WIDTH;
-        }
-
         private function hasCounterText(field:TextField):Boolean {
             return field != null && field.text != null && field.text.length > 0;
         }
@@ -1985,34 +1941,6 @@ package {
             }
 
             return text;
-        }
-
-        private function formatCompactValue(value:Number, suffix:String):String {
-            var absValue:Number = Math.abs(value);
-            var decimals:int;
-            var precision:Number;
-            var rounded:Number;
-            var text:String;
-
-            if (absValue < 10) {
-                decimals = 2;
-            }
-            else if (absValue < 100) {
-                decimals = 1;
-            }
-            else {
-                decimals = 0;
-            }
-
-            precision = Math.pow(10, decimals);
-            rounded = Math.round(value * precision) / precision;
-            text = rounded.toFixed(decimals);
-
-            while (text.indexOf(".") != -1 && (text.charAt(text.length - 1) == "0" || text.charAt(text.length - 1) == ".")) {
-                text = text.substr(0, text.length - 1);
-            }
-
-            return text + suffix;
         }
 
         private function makeTextField(color:uint, size:int, bold:Boolean):TextField {

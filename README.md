@@ -32,7 +32,7 @@ Use this path if you want to change code, add features, or create new mods in th
 - Prerequisites: Python 3, Python 2.7, a local WoT install, and `.env` configured with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE`
 - UI and reverse-engineering work additionally need Java, Apache Flex SDK, and FFDec
 - Activate the repo `.venv` and install the repo commands with `python -m pip install -e .`
-- Run `wot_mods_lint check` before build or deploy once the local style tooling is installed
+- Run `wot_mods_lint check` before build or deploy once the local format and lint tooling is installed
 
 - [Developing Mods](docs/developing-mods.md)
 - [Architecture](docs/architecture.md)

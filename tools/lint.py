@@ -176,7 +176,7 @@ def run_py27_format(check):
 def parse_args(argv):
     parser = argparse.ArgumentParser(
         description=(
-            'Run the repository Python style workflow. The default "check" command '
+            'Run the repository Python format and lint workflow. The default "check" command '
             "runs Python 3 format-check and lint plus Python 2.7 lint and format-check."
         )
     )

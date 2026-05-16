@@ -10,7 +10,7 @@ Core runtime and build requirements:
 - Python 2.7 to compile WoT-compatible `.pyc` files.
 - A local World of Tanks install for runtime validation.
 
-Contributor style tooling:
+Contributor format and lint tools:
 
 - Black and Ruff in the Python 3 environment.
 - Flake8 3.9.x in the Python 2.7 environment.
@@ -32,7 +32,7 @@ WOT_GAME_DIR=C:\Games\World_of_Tanks_EU
 WOT_PYTHON2_EXE=C:\Python27\python.exe
 ```
 
-Install the style tooling with the interpreters you already use for the repo:
+Install the format and lint tooling with the interpreters you already use for the repo:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
@@ -54,7 +54,7 @@ python -m tools.build research-progress-bar
 python -m tools.lint check
 ```
 
-## Python Style Workflow
+## Python Format and Lint Workflow
 
 The repo-level entry point is:
 
@@ -108,7 +108,7 @@ pre-commit run py27-format --all-files --hook-stage manual
 
 ## Useful Commands
 
-Full style gate:
+Full format and lint gate:
 
 ```powershell
 wot_mods_lint

@@ -139,6 +139,53 @@ class MyMod(object):
 	postProgressionCtrl = dependency.descriptor(IVehiclePostProgressionController)
 ```
 
+## Research Progress Bar Production Surface
+
+The shipping `research-progress-bar` mod now keeps a narrow production-only post-progression boundary.
+These are the live surfaces that still matter for reproducing the current field-mod and Tier XI UI payload shape:
+
+```python
+vehicle.isPostProgressionExists
+vehicle.postProgression
+
+pp.isVehSkillTree()
+pp.iterUnorderedSteps()
+pp.getState(True)
+pp.getFirstPurchasableStep(stats.getMoneyExt(vehicle.intCD))
+
+step.stepID
+step.id
+step.level
+step.getLevel()
+step.getType()
+step.action
+
+action.getTechName()
+action.getLocName()
+action.getImageName()
+action.getSlotCategory()
+action._descriptor.name
+action._descriptor.locName
+action._descriptor.imgName
+action._descriptor.categories
+```
+
+Current production payload expectations:
+
+- `iterUnorderedSteps()` plus `stepID`/`level` provide total-step and unlocked-level counts.
+- `getType()` is the stable source for Tier XI node XP buckets: `common` or `special` -> `10000`, `major` -> `20000`, `final` -> `25000`.
+- `pp.getState(True).unlocks` is sufficient for researched/unresearched splits.
+- `pp.getFirstPurchasableStep(balance)` is only used as a safe hint for the next Tier XI XP threshold.
+- Tier XI marker text and icon/category metadata come from `step.action` getter methods and descriptor fields, plus the session UI-name cache populated from the vehicle hub.
+
+Exploratory surfaces removed from production code but still worth remembering if deeper investigation is needed later:
+
+- post-progression controller settings traversal
+- `pp.getRawTree()` traversal
+- broad category-hint probing over arbitrary objects
+- method-probe ladders over step objects
+- `PostProgressionStepItem.getPrice()` during scheduled hangar updates
+
 ## Safety Notes For This Repo
 
 Live testing in this repository established a practical safety boundary:

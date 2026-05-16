@@ -428,7 +428,7 @@ def _elite_total_required_xp():
 
 
 def _elite_customization_total_required_xp():
-    max_marker_level = max([level for _, _, level in ELITE_T11_COSMETIC_MARKERS] or [ELITE_MAX_LEVEL])
+    max_marker_level = max([level for _, _, _, level in ELITE_T11_COSMETIC_MARKERS] or [ELITE_MAX_LEVEL])
     return _elite_cumulative_xp_to_level(max_marker_level)
 
 
@@ -572,7 +572,7 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
             'hideTooltipIcon': True,
             'markerState': final_state,
         }
-        markers.append(_apply_t11_bar_icon(_apply_t11_action_debug(final_marker, final_node), True))
+        markers.append(_apply_t11_bar_icon(_apply_t11_action_metadata(final_marker, final_node), True))
 
     return markers
 
@@ -688,7 +688,7 @@ def _make_t11_marker(
         'hideTooltipIcon': True,
         'markerState': _resolve_remaining_cost_marker_state(remaining_cost, vehicle_xp, total_xp),
     }
-    marker = _apply_t11_action_debug(marker, action_node)
+    marker = _apply_t11_action_metadata(marker, action_node)
     return _apply_t11_bar_icon(marker, show_bar_icon)
 
 
@@ -704,7 +704,7 @@ def _make_t11_completed_marker(marker_id, position_value, cost_xp, name, action_
         'hideTooltipIcon': True,
         'markerState': 'completed',
     }
-    marker = _apply_t11_action_debug(marker, action_node)
+    marker = _apply_t11_action_metadata(marker, action_node)
     return _apply_t11_bar_icon(marker, show_bar_icon)
 
 
@@ -822,22 +822,13 @@ def _build_t11_action_icon_paths(action_node):
     return paths
 
 
-def _apply_t11_action_debug(marker, action_node):
+def _apply_t11_action_metadata(marker, action_node):
     if action_node is None:
         return marker
 
     image_name = action_node.get('image_name')
-    tech_name = action_node.get('tech_name')
-    slot_category = action_node.get('slot_category')
-    category = action_node.get('category')
-    if image_name:
-        marker['debugImageName'] = image_name
-    if tech_name:
-        marker['debugTechName'] = tech_name
-    if slot_category:
-        marker['debugSlotCategory'] = slot_category
+    category = _normalize_t11_category(action_node.get('category'))
     if category:
-        marker['debugCategory'] = category
         marker['itemType'] = category
     icon_paths = _build_t11_action_icon_paths(action_node)
     if icon_paths:
@@ -851,8 +842,8 @@ def _apply_t11_action_debug(marker, action_node):
 
 
 def _resolve_t11_bar_item_type(marker):
-    category = marker.get('debugCategory') or marker.get('itemType')
-    if category in ('firepower', 'survivability', 'mobility', 'reconnaissance', 'scouting', 'stealth'):
+    category = _normalize_t11_category(marker.get('itemType'))
+    if category in ('firepower', 'survivability', 'mobility', 'scouting', 'stealth'):
         return category
     return ''
 
