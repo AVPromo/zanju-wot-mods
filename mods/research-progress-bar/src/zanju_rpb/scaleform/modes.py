@@ -1,7 +1,7 @@
 """Scaleform payload builders for the research progress bar."""
 from __future__ import print_function, unicode_literals
 
-from .localization import get_text as _loc
+from ..localization import get_text as _loc
 
 
 MODE_REGULAR_RESEARCH = 'regular_research'
@@ -922,7 +922,6 @@ def _make_mode(
         'markers': markers or [],
         'counterLayout': counter_layout,
         'barFillMode': bar_fill_mode,
-        'progress': int(min(100, (completed + primary + secondary) * 100.0 / bar_max)),
     }
 
 

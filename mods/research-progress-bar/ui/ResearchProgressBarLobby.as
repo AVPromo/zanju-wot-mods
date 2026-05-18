@@ -1,17 +1,10 @@
 package {
     import flash.display.Bitmap;
-    import flash.display.BitmapData;
     import flash.display.Shape;
     import flash.display.Sprite;
-    import flash.display.StageAlign;
-    import flash.display.StageScaleMode;
     import flash.events.Event;
     import flash.events.MouseEvent;
-    import flash.geom.Rectangle;
     import flash.text.TextField;
-    import flash.text.TextFieldAutoSize;
-    import flash.text.TextFormat;
-    import flash.text.TextFormatAlign;
     import flash.utils.Dictionary;
     import net.wg.infrastructure.base.AbstractView;
 
@@ -29,196 +22,11 @@ package {
         [Embed(source="assets/progress_bar_yellow.png")]
         private static const ProgressBarYellowAsset:Class;
 
-        [Embed(source="assets/marker_default.png")]
-        private static const MarkerDefaultAsset:Class;
-
-        [Embed(source="assets/marker_green.png")]
-        private static const MarkerGreenAsset:Class;
-
-        [Embed(source="assets/marker_white.png")]
-        private static const MarkerWhiteAsset:Class;
-
-        [Embed(source="assets/marker_yellow.png")]
-        private static const MarkerYellowAsset:Class;
-
-        [Embed(source="assets/cog.png")]
-        private static const T11CogAsset:Class;
-
-        [Embed(source="assets/star.png")]
-        private static const T11StarAsset:Class;
-
-        [Embed(source="assets/circle.png")]
-        private static const T11MinorUpgradeAsset:Class;
-
-        [Embed(source="assets/rhomb.png")]
-        private static const T11MajorUpgradeAsset:Class;
-
-        [Embed(source="assets/research_gun.png")]
-        private static const ResearchGunAsset:Class;
-
-        [Embed(source="assets/research_turret.png")]
-        private static const ResearchTurretAsset:Class;
-
-        [Embed(source="assets/research_engine.png")]
-        private static const ResearchEngineAsset:Class;
-
-        [Embed(source="assets/research_track.png")]
-        private static const ResearchTrackAsset:Class;
-
-        [Embed(source="assets/research_radio.png")]
-        private static const ResearchRadioAsset:Class;
-
-        [Embed(source="assets/research.png")]
-        private static const ResearchVehicleAsset:Class;
-
-        [Embed(source="assets/firepower_filter.png")]
-        private static const FirepowerFilterAsset:Class;
-
-        [Embed(source="assets/survivability_filter.png")]
-        private static const SurvivabilityFilterAsset:Class;
-
-        [Embed(source="assets/mobility_filter.png")]
-        private static const MobilityFilterAsset:Class;
-
-        [Embed(source="assets/stealth_filter.png")]
-        private static const StealthFilterAsset:Class;
-
-        [Embed(source="assets/prestige_bronze_1.png")]
-        private static const PrestigeBronzeAsset:Class;
-
-        [Embed(source="assets/prestige_silver_1.png")]
-        private static const PrestigeSilverAsset:Class;
-
-        [Embed(source="assets/prestige_gold_1.png")]
-        private static const PrestigeGoldAsset:Class;
-
-        [Embed(source="assets/prestige_enamel_1.png")]
-        private static const PrestigeEnamelAsset:Class;
-
-        [Embed(source="assets/prestige.png")]
-        private static const PrestigeEliteAsset:Class;
-
-        [Embed(source="assets/style.png")]
-        private static const StyleFilterAsset:Class;
-
-        private static const SIDE_MARGIN:Number = 600;
-        private static const TOP_MARGIN:Number = 105;
-        private static const BAR_WIDTH_RATIO:Number = 0.375;
-        private static const BAR_DEFAULT_TOP_RATIO:Number = 0.0875;
-        private static const BAR_TOP_GAP_RATIO:Number = 0.0291666667;
-        private static const BAR_TOP_GAP_MIN:Number = 20;
-        private static const BAR_TOP_GAP_MAX:Number = 36;
-        private static const BAR_MIN_STAGE_SIDE_MARGIN:Number = 24;
-        private static const BAR_TOP_OVERFLOW:Number = 44;
-        private static const BAR_SIDE_SAFE_OFFSET:Number = 15;
-        private static const LEFT_COUNTER_OFFSET:Number = 3;
-        private static const LAYOUT_DISTANCE_BUCKETS:Array = [
-            { minWidth: 2560, buttonBottom: 74, verticalDistance: 81, horizontalDistance: 367 },
-            { minWidth: 1920, buttonBottom: 70, verticalDistance: 50, horizontalDistance: 367 },
-            { minWidth: 1600, buttonBottom: 53, verticalDistance: 46, horizontalDistance: 271 },
-            { minWidth: 0, buttonBottom: 51, verticalDistance: 38, horizontalDistance: 271 }
-        ];
-        private static const MIN_BAR_WIDTH:Number = 80;
-        private static const BAR_HEIGHT:Number = 8;
-        private static const BAR_ASSEMBLY_ABOVE_HEIGHT:Number = 25;
-        private static const BAR_ASSEMBLY_BELOW_HEIGHT:Number = 3;
-        private static const BAR_ASSEMBLY_HEIGHT:Number = 36;
         private static const LABEL_COLOR:uint = 0xE6DDC8;
-        private static const COUNTER_GAP:Number = 14;
-        private static const COUNTER_VALUE_WIDTH:Number = 60;
-        private static const COUNTER_TEXT_GAP:Number = 5;
-        private static const COUNTER_CAPTION_WIDTH:Number = 110;
-        private static const COUNTER_TOP_OFFSET:Number = 5;
         private static const COUNTER_FONT_SIZE:int = 15;
         private static const COUNTER_FIELD_HEIGHT:Number = 18;
-        private static const RIGHT_COUNTER_VALUE_OFFSET:Number = 3;
-        private static const MODE_BUTTON_Y_OFFSET:Number = 18;
-        private static const MODE_BUTTON_GAP:Number = 6;
-        private static const MODE_BUTTON_BAR_GAP:Number = 15;
-        private static const MODE_BUTTON_HEIGHT:Number = 20;
-        private static const MODE_BUTTON_BOTTOM_PADDING:Number = 1;
-        private static const MODE_BUTTON_PADDING_X:Number = 10;
-        private static const MODE_BUTTON_MIN_WIDTH:Number = 48;
-        private static const MODE_BUTTON_TEXT_COLOR:uint = 0xD4CAB8;
-        private static const MODE_BUTTON_TEXT_ACTIVE_COLOR:uint = 0xF0CF74;
-        private static const MODE_BUTTON_BACKGROUND_COLOR:uint = 0x141414;
-        private static const MODE_BUTTON_BACKGROUND_ACTIVE_COLOR:uint = 0x4A3A1F;
-        private static const MODE_BUTTON_BORDER_COLOR:uint = 0x6C5B47;
-        private static const MODE_BUTTON_BORDER_ACTIVE_COLOR:uint = 0xA48745;
         private static const MARKER_VALUE_COLOR:uint = 0xB8AC97;
-        private static const MARKER_ICON_SIZE:Number = 20;
-        private static const MARKER_ICON_GAP:Number = 2;
-        private static const TOOLTIP_BACKGROUND_COLOR:uint = 0x0B0B0B;
-        private static const TOOLTIP_BACKGROUND_ALPHA:Number = 0.93;
-        private static const TOOLTIP_BORDER_COLOR:uint = 0x7A6954;
-        private static const TOOLTIP_TEXT_COLOR:uint = 0xE6DDC8;
-        private static const TOOLTIP_MUTED_TEXT_COLOR:uint = 0xB8AC97;
-        private static const TOOLTIP_HIGHLIGHT_TEXT_COLOR:uint = 0xF0CF74;
-        private static const TOOLTIP_PADDING_X:Number = 8;
-        private static const TOOLTIP_PADDING_Y:Number = 6;
-        private static const TOOLTIP_PADDING_BOTTOM:Number = 8;
-        private static const TOOLTIP_OFFSET_Y:Number = 15;
-        private static const TOOLTIP_ICON_SIZE:Number = MARKER_ICON_SIZE;
-        private static const TOOLTIP_COMPACT_ICON_SIZE:Number = TOOLTIP_ICON_SIZE;
-        private static const TOOLTIP_ICON_LAYOUT_WIDTH:Number = TOOLTIP_ICON_SIZE;
-        private static const TOOLTIP_ICON_GAP:Number = 6;
-        private static const TOOLTIP_ROW_GAP:Number = 3;
-        private static const TOOLTIP_COMPACT_ROW_GAP:Number = 1;
-        private static const TOOLTIP_SECTION_GAP:Number = 10;
-        private static const TOOLTIP_TITLE_SIZE:int = 13;
-        private static const TOOLTIP_BODY_SIZE:int = 12;
-        private static const TOOLTIP_PROGRESS_LABEL_WIDTH:Number = 68;
-        private static const TOOLTIP_PROGRESS_PERCENT_WIDTH:Number = 40;
-        private static const TOOLTIP_PROGRESS_GAP:Number = 8;
-        private static const COUNTER_LAYOUT_RIGHT_SINGLE:String = "right_single";
-        private static const COUNTER_LAYOUT_ELITE_STATUS:String = "elite_status";
         private static const BAR_FILL_MODE_COMPLETED_ONLY:String = "completed_only";
-        private static const ELITE_STATUS_WIDTH:Number = 210;
-        private static const MARKER_TYPE_NAMES:Object = {
-            gun: "Gun",
-            turret: "Turret",
-            engine: "Engine",
-            suspension: "Suspension",
-            radio: "Radio",
-            vehicle: "Next Vehicle",
-            firepower: "Firepower",
-            survivability: "Survivability",
-            mobility: "Mobility",
-            stealth: "Scouting",
-            reconnaissance: "Scouting",
-            scouting: "Scouting",
-            special: "Special Upgrade",
-            mechanic: "Mechanic Upgrade",
-            mechanics: "Mechanic Upgrade",
-            minor_upgrade: "Minor Upgrade",
-            major_upgrade: "Major Upgrade",
-            unknown: "Research Item"
-        };
-        private static const MARKER_ICON_EMBEDDED:Object = {
-            gun: ResearchGunAsset,
-            turret: ResearchTurretAsset,
-            engine: ResearchEngineAsset,
-            suspension: ResearchTrackAsset,
-            radio: ResearchRadioAsset,
-            vehicle: ResearchVehicleAsset,
-            firepower: FirepowerFilterAsset,
-            survivability: SurvivabilityFilterAsset,
-            mobility: MobilityFilterAsset,
-            stealth: StealthFilterAsset,
-            reconnaissance: StealthFilterAsset,
-            scouting: StealthFilterAsset,
-            minor_upgrade: T11MinorUpgradeAsset,
-            major_upgrade: T11MajorUpgradeAsset,
-            special: T11CogAsset,
-            mechanic: T11StarAsset,
-            mechanics: T11StarAsset,
-            "elite:bronze": PrestigeBronzeAsset,
-            "elite:silver": PrestigeSilverAsset,
-            "elite:gold": PrestigeGoldAsset,
-            "elite:red_gold": PrestigeEnamelAsset,
-            "elite:prestige_elite": PrestigeEliteAsset,
-            "elite:t11_cosmetic": StyleFilterAsset
-        };
         private var combatPercentLabel:TextField;
         private var combatPercentCaption:TextField;
         private var totalPercentLabel:TextField;
@@ -239,14 +47,13 @@ package {
         private var tooltipContent:Sprite;
         private var _context:Object;
         private var _selectedModeId:String;
-        private var _barX:Number = SIDE_MARGIN;
-        private var _barY:Number = TOP_MARGIN;
-        private var _barWidth:Number = MIN_BAR_WIDTH;
+        private var _barX:Number = 0;
+        private var _barY:Number = 0;
+        private var _barWidth:Number = 0;
         private var _isReady:Boolean = false;
         private var _markerTooltipDataByDisplay:Dictionary = new Dictionary(true);
         private var _modeIdByButton:Dictionary = new Dictionary(true);
         private var _activeCounterLayout:String = "";
-        private var _activeBarFillMode:String = "";
         private var _lastStageWidth:Number = -1;
         private var _lastStageHeight:Number = -1;
 
@@ -262,152 +69,94 @@ package {
             build();
             removeEventListener(Event.ENTER_FRAME, onEnterFrame);
             addEventListener(Event.ENTER_FRAME, onEnterFrame, false, 0, true);
-            attachStageListeners();
+            ResearchProgressBarStageSupport.attachListeners(
+                stage,
+                onStageResize,
+                onStageMouseMove,
+                onStageMouseLeave
+            );
         }
 
         override protected function onDispose():void {
-            hideMarkerTooltip();
+            ResearchProgressBarTooltipView.hideTooltip(tooltipContainer);
             clearModeButtons();
             removeEventListener(Event.ENTER_FRAME, onEnterFrame);
-            detachStageListeners();
+            ResearchProgressBarStageSupport.detachListeners(
+                stage,
+                onStageResize,
+                onStageMouseMove,
+                onStageMouseLeave
+            );
             super.onDispose();
         }
 
         override protected function nextFrameAfterPopulateHandler():void {
+            var stageState:Object;
+
             super.nextFrameAfterPopulateHandler();
             _isReady = true;
-            attachStageListeners();
+            ResearchProgressBarStageSupport.attachListeners(
+                stage,
+                onStageResize,
+                onStageMouseMove,
+                onStageMouseLeave
+            );
             layoutFromStage();
-            updateTrackedStageSize();
+            stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
+            _lastStageWidth = Number(stageState.stageWidth);
+            _lastStageHeight = Number(stageState.stageHeight);
             updateBarFromContext(false);
         }
 
         private function onEnterFrame(event:Event):void {
+            var stageState:Object;
+
             if (!_isReady || stage == null) {
                 return;
             }
 
-            if (!updateTrackedStageSize()) {
+            stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
+            if (!Boolean(stageState.changed)) {
                 return;
             }
 
+            _lastStageWidth = Number(stageState.stageWidth);
+            _lastStageHeight = Number(stageState.stageHeight);
             layoutFromStage();
             updateBarFromContext(false);
         }
 
-        private function updateTrackedStageSize():Boolean {
-            if (stage == null) {
-                return false;
-            }
-
-            if (_lastStageWidth == stage.stageWidth && _lastStageHeight == stage.stageHeight) {
-                return false;
-            }
-
-            _lastStageWidth = stage.stageWidth;
-            _lastStageHeight = stage.stageHeight;
-            return true;
-        }
-
-        private function attachStageListeners():void {
-            if (stage == null) {
-                return;
-            }
-
-            stage.align = StageAlign.TOP_LEFT;
-            stage.scaleMode = StageScaleMode.NO_SCALE;
-
-            stage.removeEventListener(Event.RESIZE, onStageResize);
-            stage.removeEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
-            stage.removeEventListener(Event.MOUSE_LEAVE, onStageMouseLeave);
-            stage.addEventListener(Event.RESIZE, onStageResize);
-            stage.addEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove, false, 0, true);
-            stage.addEventListener(Event.MOUSE_LEAVE, onStageMouseLeave, false, 0, true);
-        }
-
-        private function detachStageListeners():void {
-            if (stage == null) {
-                return;
-            }
-
-            stage.removeEventListener(Event.RESIZE, onStageResize);
-            stage.removeEventListener(MouseEvent.MOUSE_MOVE, onStageMouseMove);
-            stage.removeEventListener(Event.MOUSE_LEAVE, onStageMouseLeave);
-        }
-
         private function build():void {
-            combatPercentLabel = makeCounterField();
-            addChild(combatPercentLabel);
+            var parts:Object = ResearchProgressBarViewFactory.build(
+                this,
+                ProgressBarBaseAsset,
+                ProgressBarWhiteAsset,
+                ProgressBarGreenAsset,
+                ProgressBarYellowAsset,
+                LABEL_COLOR,
+                MARKER_VALUE_COLOR,
+                COUNTER_FONT_SIZE,
+                COUNTER_FIELD_HEIGHT
+            );
 
-            combatPercentCaption = makeCounterCaptionField("Vehicle XP");
-            addChild(combatPercentCaption);
-
-            totalPercentLabel = makeCounterField();
-            addChild(totalPercentLabel);
-
-            totalPercentCaption = makeCounterCaptionField("Total XP");
-            addChild(totalPercentCaption);
-
-            sideCounterLabel = makeCounterField();
-            alignTextField(sideCounterLabel, TextFormatAlign.LEFT);
-            addChild(sideCounterLabel);
-
-            sideCounterCaption = makeCounterCaptionField("");
-            alignTextField(sideCounterCaption, TextFormatAlign.LEFT);
-            addChild(sideCounterCaption);
-
-            baseBar = createBitmap(ProgressBarBaseAsset);
-            addChild(baseBar);
-
-            completedBar = createBitmap(ProgressBarWhiteAsset);
-            addChild(completedBar);
-
-            combatBar = createBitmap(ProgressBarGreenAsset);
-            addChild(combatBar);
-
-            freeBar = createBitmap(ProgressBarYellowAsset);
-            addChild(freeBar);
-
-            completedMaskShape = new Shape();
-            completedMaskShape.visible = false;
-            addChild(completedMaskShape);
-
-            combatMaskShape = new Shape();
-            combatMaskShape.visible = false;
-            addChild(combatMaskShape);
-
-            freeMaskShape = new Shape();
-            freeMaskShape.visible = false;
-            addChild(freeMaskShape);
-
-            completedBar.mask = completedMaskShape;
-            combatBar.mask = combatMaskShape;
-            freeBar.mask = freeMaskShape;
-
-            markersContainer = new Sprite();
-            markersContainer.mouseEnabled = false;
-            addChild(markersContainer);
-
-            modeButtonsContainer = new Sprite();
-            modeButtonsContainer.mouseEnabled = false;
-            modeButtonsContainer.mouseChildren = true;
-            modeButtonsContainer.visible = false;
-            addChild(modeButtonsContainer);
-
-            tooltipContainer = new Sprite();
-            tooltipContainer.mouseEnabled = false;
-            tooltipContainer.mouseChildren = false;
-            tooltipContainer.visible = false;
-
-            tooltipBackground = new Shape();
-            tooltipContainer.addChild(tooltipBackground);
-
-            tooltipContent = new Sprite();
-            tooltipContent.mouseEnabled = false;
-            tooltipContent.mouseChildren = false;
-            tooltipContainer.addChild(tooltipContent);
-
-            addChild(tooltipContainer);
+            combatPercentLabel = parts.combatPercentLabel as TextField;
+            combatPercentCaption = parts.combatPercentCaption as TextField;
+            totalPercentLabel = parts.totalPercentLabel as TextField;
+            totalPercentCaption = parts.totalPercentCaption as TextField;
+            sideCounterLabel = parts.sideCounterLabel as TextField;
+            sideCounterCaption = parts.sideCounterCaption as TextField;
+            baseBar = parts.baseBar as Bitmap;
+            completedBar = parts.completedBar as Bitmap;
+            combatBar = parts.combatBar as Bitmap;
+            freeBar = parts.freeBar as Bitmap;
+            completedMaskShape = parts.completedMaskShape as Shape;
+            combatMaskShape = parts.combatMaskShape as Shape;
+            freeMaskShape = parts.freeMaskShape as Shape;
+            markersContainer = parts.markersContainer as Sprite;
+            modeButtonsContainer = parts.modeButtonsContainer as Sprite;
+            tooltipContainer = parts.tooltipContainer as Sprite;
+            tooltipBackground = parts.tooltipBackground as Shape;
+            tooltipContent = parts.tooltipContent as Sprite;
         }
 
         private function onStageResize(event:Event):void {
@@ -416,25 +165,25 @@ package {
         }
 
         private function onStageMouseMove(event:MouseEvent):void {
-            updateTooltipAtStagePoint(event.stageX, event.stageY);
+            ResearchProgressBarTooltipView.refreshAtStagePoint(
+                visible,
+                markersContainer,
+                _markerTooltipDataByDisplay,
+                tooltipContainer,
+                tooltipBackground,
+                tooltipContent,
+                stage,
+                event.stageX,
+                event.stageY
+            );
         }
 
         private function onStageMouseLeave(event:Event):void {
-            hideMarkerTooltip();
+            ResearchProgressBarTooltipView.hideTooltip(tooltipContainer);
         }
 
         public function as_setContext(data:Object):void {
             applyContext(data);
-        }
-
-        public function as_setProgress(value:Number):void {
-            if (_context == null) {
-                _context = {};
-            }
-            _context.progress = Number(value);
-            if (_isReady) {
-                updateBarFromContext(false);
-            }
         }
 
         public function as_ping():String {
@@ -444,18 +193,27 @@ package {
         public function as_setVisible(value:Boolean):void {
             visible = value;
             if (!value) {
-                hideMarkerTooltip();
+                ResearchProgressBarTooltipView.hideTooltip(tooltipContainer);
             }
         }
 
         public function as_refreshLayout():void {
+            var stageState:Object;
+
             if (!_isReady) {
                 return;
             }
 
-            attachStageListeners();
+            ResearchProgressBarStageSupport.attachListeners(
+                stage,
+                onStageResize,
+                onStageMouseMove,
+                onStageMouseLeave
+            );
             layoutFromStage();
-            updateTrackedStageSize();
+            stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
+            _lastStageWidth = Number(stageState.stageWidth);
+            _lastStageHeight = Number(stageState.stageHeight);
             updateBarFromContext(false);
         }
 
@@ -474,20 +232,10 @@ package {
         }
 
         private function updateBarFromContext(relayout:Boolean = true):void {
-            var modes:Array;
+            var viewState:Object;
             var activeMode:Object;
-            var barMaxValue:Number;
-            var completedValue:Number;
-            var primaryValue:Number;
-            var secondaryValue:Number;
-            var completedWidth:Number;
-            var primaryWidth:Number;
-            var secondaryWidth:Number;
-            var totalProgressValue:Number;
-            var markerPrimaryValue:Number;
-            var markerSecondaryValue:Number;
-            var defaultPrimaryPercent:int;
-            var defaultTotalPercent:int;
+            var fillState:Object;
+            var completedOnly:Boolean;
 
             if (!_isReady || _context == null) {
                 return;
@@ -501,87 +249,81 @@ package {
                 layoutFromStage();
             }
 
-            modes = resolveModes();
-            syncSelectedMode(modes);
-            rebuildModeButtons(modes);
+            viewState = ResearchProgressBarViewState.resolve(
+                _context,
+                _selectedModeId,
+                modeButtonsContainer,
+                _barX,
+                _barY,
+                _barWidth,
+                onModeButtonClick,
+                BAR_FILL_MODE_COMPLETED_ONLY
+            );
+            _selectedModeId = String(viewState.selectedModeId);
+            _modeIdByButton = viewState.modeIdByButton;
 
-            activeMode = resolveSelectedMode(modes);
+            activeMode = viewState.activeMode;
             if (activeMode == null) {
                 clearBarPresentation();
                 return;
             }
 
-            barMaxValue = Math.max(1, numberValue(activeMode.barMaxValue, numberValue(_context.maxRequirementXp, 1)));
-            completedValue = clamp(numberValue(activeMode.completedValue, 0), 0, barMaxValue);
-            primaryValue = clamp(numberValue(activeMode.primaryValue, numberValue(_context.combatXp, 0)), 0, barMaxValue - completedValue);
-            secondaryValue = clamp(numberValue(activeMode.secondaryValue, numberValue(_context.freeXp, 0)), 0, barMaxValue - completedValue - primaryValue);
-            totalProgressValue = clamp(completedValue + primaryValue + secondaryValue, 0, barMaxValue);
-            completedWidth = Math.round(_barWidth * completedValue / barMaxValue);
-            primaryWidth = Math.round(_barWidth * primaryValue / barMaxValue);
-            secondaryWidth = Math.round(_barWidth * secondaryValue / barMaxValue);
+            _activeCounterLayout = String(viewState.counterState.counterLayout);
+            completedOnly = Boolean(viewState.completedOnly);
+            fillState = viewState.fillState;
 
-            defaultPrimaryPercent = int(Math.min(100, primaryValue * 100 / barMaxValue));
-            defaultTotalPercent = int(Math.min(100, (primaryValue + secondaryValue) * 100 / barMaxValue));
-            updateCounterFields(activeMode, defaultPrimaryPercent, defaultTotalPercent);
+            ResearchProgressBarCounterFields.apply(
+                activeMode,
+                int(fillState.defaultPrimaryPercent),
+                int(fillState.defaultTotalPercent),
+                combatPercentLabel,
+                combatPercentCaption,
+                totalPercentLabel,
+                totalPercentCaption,
+                sideCounterLabel,
+                sideCounterCaption
+            );
 
-            baseBar.visible = true;
-            completedBar.visible = true;
-            combatBar.visible = true;
-            freeBar.visible = true;
             markersContainer.visible = true;
+            ResearchProgressBarBars.render(
+                baseBar,
+                completedBar,
+                combatBar,
+                freeBar,
+                completedMaskShape,
+                combatMaskShape,
+                freeMaskShape,
+                _barX,
+                _barY,
+                _barWidth,
+                ResearchProgressBarLayout.BAR_HEIGHT,
+                fillState,
+                completedOnly
+            );
 
-            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY) {
-                completedWidth = Math.round(_barWidth * totalProgressValue / barMaxValue);
-                primaryWidth = 0;
-                secondaryWidth = 0;
-                combatBar.visible = false;
-                freeBar.visible = false;
-            }
-
-            baseBar.x = _barX;
-            baseBar.y = _barY;
-            baseBar.width = _barWidth;
-            baseBar.height = BAR_HEIGHT;
-
-            completedBar.x = _barX;
-            completedBar.y = _barY;
-            completedBar.width = _barWidth;
-            completedBar.height = BAR_HEIGHT;
-
-            combatBar.x = _barX;
-            combatBar.y = _barY;
-            combatBar.width = _barWidth;
-            combatBar.height = BAR_HEIGHT;
-
-            freeBar.x = _barX;
-            freeBar.y = _barY;
-            freeBar.width = _barWidth;
-            freeBar.height = BAR_HEIGHT;
-
-            drawMask(completedMaskShape, _barX, _barY, completedWidth, BAR_HEIGHT);
-            drawMask(combatMaskShape, _barX + completedWidth, _barY, primaryWidth, BAR_HEIGHT);
-            drawMask(freeMaskShape, _barX + completedWidth + primaryWidth, _barY, secondaryWidth, BAR_HEIGHT);
-
-            markerPrimaryValue = primaryValue;
-            markerSecondaryValue = secondaryValue;
-            if (_activeBarFillMode == BAR_FILL_MODE_COMPLETED_ONLY) {
-                markerPrimaryValue = totalProgressValue;
-                markerSecondaryValue = 0;
-            }
-
-            rebuildMarkers(activeMode, barMaxValue, markerPrimaryValue, markerSecondaryValue);
+            rebuildMarkers(
+                activeMode,
+                Number(fillState.barMaxValue),
+                Number(fillState.markerPrimaryValue),
+                Number(fillState.markerSecondaryValue)
+            );
             positionLabels();
         }
 
         private function clearBarPresentation():void {
             clearMarkers();
-            drawMask(completedMaskShape, _barX, _barY, 0, BAR_HEIGHT);
-            drawMask(combatMaskShape, _barX, _barY, 0, BAR_HEIGHT);
-            drawMask(freeMaskShape, _barX, _barY, 0, BAR_HEIGHT);
-            baseBar.visible = false;
-            completedBar.visible = false;
-            combatBar.visible = false;
-            freeBar.visible = false;
+            ResearchProgressBarBars.clear(
+                baseBar,
+                completedBar,
+                combatBar,
+                freeBar,
+                completedMaskShape,
+                combatMaskShape,
+                freeMaskShape,
+                _barX,
+                _barY,
+                ResearchProgressBarLayout.BAR_HEIGHT
+            );
             markersContainer.visible = false;
             combatPercentLabel.text = "";
             combatPercentCaption.text = "";
@@ -590,1368 +332,107 @@ package {
             sideCounterLabel.text = "";
             sideCounterCaption.text = "";
             _activeCounterLayout = "";
-            _activeBarFillMode = "";
-        }
-
-        private function updateCounterFields(activeMode:Object, defaultPrimaryPercent:int, defaultTotalPercent:int):void {
-            var leftCounterText:String;
-            var leftCounterCaption:String;
-            var rightCounterText:String;
-            var rightCounterCaption:String;
-            var sideCounterText:String;
-            var sideCounterCaption:String;
-
-            _activeCounterLayout = activeMode != null && activeMode.counterLayout !== undefined
-                ? String(activeMode.counterLayout)
-                : "";
-            _activeBarFillMode = activeMode != null && activeMode.barFillMode !== undefined
-                ? String(activeMode.barFillMode)
-                : "";
-
-            leftCounterText = activeMode != null && activeMode.leftCounterText !== undefined
-                ? String(activeMode.leftCounterText)
-                : defaultPrimaryPercent.toString() + "%";
-            leftCounterCaption = activeMode != null && activeMode.leftCounterCaption !== undefined
-                ? String(activeMode.leftCounterCaption)
-                : "Vehicle XP";
-            rightCounterText = activeMode != null && activeMode.rightCounterText !== undefined
-                ? String(activeMode.rightCounterText)
-                : defaultTotalPercent.toString() + "%";
-            rightCounterCaption = activeMode != null && activeMode.rightCounterCaption !== undefined
-                ? String(activeMode.rightCounterCaption)
-                : "Total XP";
-            sideCounterText = activeMode != null && activeMode.sideCounterText !== undefined
-                ? String(activeMode.sideCounterText)
-                : "";
-            sideCounterCaption = activeMode != null && activeMode.sideCounterCaption !== undefined
-                ? String(activeMode.sideCounterCaption)
-                : "";
-
-            combatPercentLabel.text = leftCounterText;
-            totalPercentLabel.text = rightCounterText;
-            totalPercentCaption.text = rightCounterCaption;
-            this.sideCounterLabel.text = sideCounterText;
-            this.sideCounterCaption.text = sideCounterCaption;
-
-            alignTextField(totalPercentLabel, TextFormatAlign.RIGHT);
-            alignTextField(totalPercentCaption, TextFormatAlign.RIGHT);
-            alignTextField(this.sideCounterLabel, TextFormatAlign.LEFT);
-            alignTextField(this.sideCounterCaption, TextFormatAlign.LEFT);
-            totalPercentLabel.width = COUNTER_VALUE_WIDTH;
-            totalPercentCaption.width = COUNTER_CAPTION_WIDTH;
-            this.sideCounterLabel.width = COUNTER_VALUE_WIDTH;
-            this.sideCounterCaption.width = COUNTER_CAPTION_WIDTH;
-
-            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS) {
-                alignTextField(combatPercentLabel, TextFormatAlign.LEFT);
-                alignTextField(combatPercentCaption, TextFormatAlign.LEFT);
-                combatPercentLabel.width = ELITE_STATUS_WIDTH;
-                combatPercentCaption.width = ELITE_STATUS_WIDTH;
-                combatPercentCaption.htmlText = buildEliteStatusCounterHtml(leftCounterCaption);
-            }
-            else {
-                combatPercentCaption.text = leftCounterCaption;
-                alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
-                alignTextField(combatPercentCaption, TextFormatAlign.RIGHT);
-                combatPercentLabel.width = COUNTER_VALUE_WIDTH;
-                combatPercentCaption.width = COUNTER_CAPTION_WIDTH;
-            }
-        }
-
-        private function resolveModes():Array {
-            if (_context == null) {
-                return [];
-            }
-
-            if (_context.modes is Array) {
-                return _context.modes as Array;
-            }
-
-            return [ {
-                    id: "legacy_research",
-                    buttonLabel: "Research",
-                    barMaxValue: _context.maxRequirementXp,
-                    completedValue: _context.completedValue,
-                    primaryValue: _context.combatXp,
-                    secondaryValue: _context.freeXp,
-                    leftCounterText: _context.leftCounterText,
-                    leftCounterCaption: _context.leftCounterCaption,
-                    rightCounterText: _context.rightCounterText,
-                    rightCounterCaption: _context.rightCounterCaption,
-                    sideCounterText: _context.sideCounterText,
-                    sideCounterCaption: _context.sideCounterCaption,
-                    markers: _context.markers
-                }
-            ];
-        }
-
-        private function syncSelectedMode(modes:Array):void {
-            var requestedModeId:String = _context != null && _context.selectedModeId !== undefined
-                ? String(_context.selectedModeId)
-                : null;
-
-            if (!hasModeId(modes, _selectedModeId)) {
-                _selectedModeId = null;
-            }
-
-            if (_selectedModeId == null && hasModeId(modes, requestedModeId)) {
-                _selectedModeId = requestedModeId;
-            }
-
-            if (_selectedModeId == null && modes != null && modes.length > 0) {
-                _selectedModeId = modeIdOf(modes[0]);
-            }
-        }
-
-        private function hasModeId(modes:Array, modeId:String):Boolean {
-            var mode:Object;
-
-            if (modeId == null || modes == null) {
-                return false;
-            }
-
-            for each (mode in modes) {
-                if (modeIdOf(mode) == modeId) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private function resolveSelectedMode(modes:Array):Object {
-            var mode:Object;
-
-            if (modes == null) {
-                return null;
-            }
-
-            for each (mode in modes) {
-                if (modeIdOf(mode) == _selectedModeId) {
-                    return mode;
-                }
-            }
-
-            return null;
-        }
-
-        private function modeIdOf(mode:Object):String {
-            if (mode == null || mode.id === undefined || mode.id == null) {
-                return null;
-            }
-
-            return String(mode.id);
-        }
-
-        private function rebuildModeButtons(modes:Array):void {
-            var totalWidth:Number = measureModeButtonsWidth(modes);
-            var cursorX:Number = Math.max(BAR_MIN_STAGE_SIDE_MARGIN, _barX - MODE_BUTTON_BAR_GAP - totalWidth);
-            var buttonHeight:Number = MODE_BUTTON_HEIGHT + MODE_BUTTON_BOTTOM_PADDING;
-            var buttonY:Number = _barY + Math.round((BAR_HEIGHT - buttonHeight) * 0.5);
-            var mode:Object;
-            var button:Sprite;
-
-            clearModeButtons();
-
-            if (modeButtonsContainer == null || modes == null || modes.length == 0) {
-                return;
-            }
-
-            modeButtonsContainer.visible = true;
-
-            for each (mode in modes) {
-                button = createModeButton(resolveModeButtonLabel(mode), modeIdOf(mode) == _selectedModeId);
-                button.x = cursorX;
-                button.y = buttonY;
-                button.buttonMode = true;
-                button.useHandCursor = true;
-                button.mouseEnabled = true;
-                button.addEventListener(MouseEvent.CLICK, onModeButtonClick, false, 0, true);
-                _modeIdByButton[button] = modeIdOf(mode);
-                modeButtonsContainer.addChild(button);
-                cursorX += button.width + MODE_BUTTON_GAP;
-            }
         }
 
         private function clearModeButtons():void {
-            var child:Sprite;
-
-            if (modeButtonsContainer == null) {
-                return;
-            }
-
-            while (modeButtonsContainer.numChildren > 0) {
-                child = modeButtonsContainer.removeChildAt(0) as Sprite;
-                if (child != null) {
-                    child.removeEventListener(MouseEvent.CLICK, onModeButtonClick);
-                }
-            }
-
-            _modeIdByButton = new Dictionary(true);
-            modeButtonsContainer.visible = false;
+            _modeIdByButton = ResearchProgressBarInteractions.clearModeButtons(
+                modeButtonsContainer,
+                onModeButtonClick
+            );
         }
 
         private function onModeButtonClick(event:MouseEvent):void {
-            var button:Sprite = event.currentTarget as Sprite;
-            var modeId:String;
+            var modeId:String = ResearchProgressBarInteractions.resolveClickedModeId(
+                event,
+                _modeIdByButton,
+                _selectedModeId
+            );
 
-            if (button == null) {
-                return;
-            }
-
-            modeId = _modeIdByButton[button];
-            if (modeId == null || modeId == _selectedModeId) {
+            if (modeId == null) {
                 return;
             }
 
             _selectedModeId = modeId;
-            hideMarkerTooltip();
+            ResearchProgressBarTooltipView.hideTooltip(tooltipContainer);
             updateBarFromContext(false);
         }
 
-        private function resolveModeButtonLabel(mode:Object):String {
-            if (mode != null && mode.buttonLabel !== undefined && mode.buttonLabel != null) {
-                return String(mode.buttonLabel);
-            }
-
-            return "Mode";
-        }
-
-        private function measureModeButtonsWidth(modes:Array):Number {
-            var totalWidth:Number = 0;
-            var mode:Object;
-
-            if (modes == null || modes.length == 0) {
-                return 0;
-            }
-
-            for each (mode in modes) {
-                totalWidth += measureModeButtonWidth(resolveModeButtonLabel(mode));
-            }
-
-            if (modes.length > 1) {
-                totalWidth += MODE_BUTTON_GAP * (modes.length - 1);
-            }
-
-            return totalWidth;
-        }
-
-        private function measureModeButtonWidth(label:String):Number {
-            var field:TextField = makeTextField(MODE_BUTTON_TEXT_COLOR, 12, true);
-
-            field.text = label;
-            return Math.max(MODE_BUTTON_MIN_WIDTH, field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
-        }
-
-        private function createModeButton(label:String, isSelected:Boolean):Sprite {
-            var button:Sprite = new Sprite();
-            var background:Shape = new Shape();
-            var field:TextField = makeTextField(
-                isSelected ? MODE_BUTTON_TEXT_ACTIVE_COLOR : MODE_BUTTON_TEXT_COLOR,
-                12,
-                true
-            );
-            var buttonWidth:Number;
-
-            field.text = label;
-            buttonWidth = Math.max(MODE_BUTTON_MIN_WIDTH, field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
-            drawModeButtonBackground(background, buttonWidth, MODE_BUTTON_HEIGHT + MODE_BUTTON_BOTTOM_PADDING, isSelected);
-            button.addChild(background);
-
-            field.width = buttonWidth;
-            field.height = MODE_BUTTON_HEIGHT + 4;
-            alignTextField(field, TextFormatAlign.CENTER);
-            field.y = resolveCenteredTextY(field, 0, MODE_BUTTON_HEIGHT) + 1;
-            button.addChild(field);
-
-            return button;
-        }
-
-        private function drawModeButtonBackground(shape:Shape, width:Number, height:Number, isSelected:Boolean):void {
-            shape.graphics.clear();
-            shape.graphics.lineStyle(
-                1,
-                isSelected ? MODE_BUTTON_BORDER_ACTIVE_COLOR : MODE_BUTTON_BORDER_COLOR,
-                1.0
-            );
-            shape.graphics.beginFill(
-                isSelected ? MODE_BUTTON_BACKGROUND_ACTIVE_COLOR : MODE_BUTTON_BACKGROUND_COLOR,
-                0.95
-            );
-            shape.graphics.drawRoundRect(0, 0, width, height, 6, 6);
-            shape.graphics.endFill();
-        }
-
         private function rebuildMarkers(activeMode:Object, maxRequirementXp:Number, combatXp:Number, freeXp:Number):void {
-            var marker:Object;
-            var markerPositionValue:Number;
-            var markerX:Number;
-            var markerDisplay:Sprite;
-
-            clearMarkers();
-
-            if (activeMode == null || !(activeMode.markers is Array)) {
-                return;
-            }
-
-            for each (marker in activeMode.markers) {
-                markerPositionValue = clamp(
-                    numberValue(
-                        marker != null && marker.positionValue !== undefined
-                            ? marker.positionValue
-                            : marker.costXp,
-                        0
-                    ),
-                    0,
-                    maxRequirementXp
-                );
-                markerX = Math.round(_barWidth * markerPositionValue / maxRequirementXp);
-                markerDisplay = createMarkerDisplay(marker, markerPositionValue, combatXp, freeXp);
-                markerDisplay.x = _barX + markerX;
-                markerDisplay.y = _barY;
-                updateMarkerHitArea(markerDisplay);
-                markersContainer.addChild(markerDisplay);
-            }
+            _markerTooltipDataByDisplay = ResearchProgressBarInteractions.rebuildMarkers(
+                markersContainer,
+                tooltipContainer,
+                activeMode,
+                maxRequirementXp,
+                combatXp,
+                freeXp,
+                _barWidth,
+                _barX,
+                _barY,
+                onMarkerMouseOver,
+                onMarkerMouseOut
+            );
         }
 
         private function clearMarkers():void {
-            hideMarkerTooltip();
-            _markerTooltipDataByDisplay = new Dictionary(true);
-
-            if (markersContainer == null) {
-                return;
-            }
-
-            while (markersContainer.numChildren > 0) {
-                markersContainer.removeChildAt(0);
-            }
-        }
-
-        private function createMarkerDisplay(marker:Object, markerProgressValue:Number, combatXp:Number, freeXp:Number):Sprite {
-            var markerSprite:Sprite = new Sprite();
-            var markerTooltipValue:Number = numberValue(
-                marker != null && marker.costXp !== undefined ? marker.costXp : markerProgressValue,
-                markerProgressValue
+            _markerTooltipDataByDisplay = ResearchProgressBarInteractions.clearMarkers(
+                markersContainer,
+                tooltipContainer
             );
-            var markerBitmap:Bitmap = createMarkerBitmap(marker, markerProgressValue, combatXp, freeXp);
-            var markerIcon:Bitmap;
-            var markerLabel:TextField;
-
-            markerBitmap.x = -Math.round(markerBitmap.width / 2);
-            markerBitmap.y = -Math.round((markerBitmap.height - BAR_HEIGHT) / 2);
-            markerSprite.addChild(markerBitmap);
-
-            markerIcon = createMarkerIcon(marker, markerBitmap.y);
-            if (markerIcon != null) {
-                markerSprite.addChild(markerIcon);
-            }
-            else if (shouldShowMarkerLabel(marker)) {
-                markerLabel = makeMarkerLabelField(String(marker.label), markerBitmap.y);
-                markerSprite.addChild(markerLabel);
-            }
-
-            markerSprite.mouseEnabled = true;
-            markerSprite.mouseChildren = false;
-            markerSprite.addEventListener(MouseEvent.MOUSE_OVER, onMarkerMouseOver, false, 0, true);
-            markerSprite.addEventListener(MouseEvent.MOUSE_OUT, onMarkerMouseOut, false, 0, true);
-            _markerTooltipDataByDisplay[markerSprite] = {
-                marker: marker,
-                costXp: markerTooltipValue,
-                combatXp: combatXp,
-                freeXp: freeXp
-            };
-
-            return markerSprite;
-        }
-
-        private function updateMarkerHitArea(markerDisplay:Sprite):void {
-            var bounds:Rectangle;
-
-            if (markerDisplay == null) {
-                return;
-            }
-
-            bounds = markerDisplay.getBounds(markerDisplay);
-            if (bounds == null) {
-                return;
-            }
-
-            markerDisplay.graphics.clear();
-            markerDisplay.graphics.beginFill(0x000000, 0.0);
-            markerDisplay.graphics.drawRect(bounds.x, bounds.y - 2, bounds.width, bounds.height + 4);
-            markerDisplay.graphics.endFill();
-        }
-
-        private function createMarkerBitmap(marker:Object, markerProgressValue:Number, combatXp:Number, freeXp:Number):Bitmap {
-            var markerState:String = marker != null && marker.markerState !== undefined ? String(marker.markerState) : "";
-
-            if (markerState == "completed") {
-                return createBitmap(MarkerWhiteAsset);
-            }
-            if (markerState == "reachable_vehicle") {
-                return createBitmap(MarkerGreenAsset);
-            }
-            if (markerState == "reachable_total") {
-                return createBitmap(MarkerYellowAsset);
-            }
-            if (markerState == "locked") {
-                return createBitmap(MarkerDefaultAsset);
-            }
-            if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable)) {
-                return createBitmap(MarkerDefaultAsset);
-            }
-            if (markerProgressValue <= combatXp) {
-                return createBitmap(MarkerGreenAsset);
-            }
-            if (markerProgressValue <= combatXp + freeXp) {
-                return createBitmap(MarkerYellowAsset);
-            }
-            return createBitmap(MarkerDefaultAsset);
-        }
-
-        private function shouldHideTooltipIcon(marker:Object):Boolean {
-            return marker != null && marker.hideTooltipIcon !== undefined && Boolean(marker.hideTooltipIcon);
-        }
-
-        private function shouldHideBarIcon(marker:Object):Boolean {
-            return marker != null && marker.hideBarIcon !== undefined && Boolean(marker.hideBarIcon);
-        }
-
-        private function shouldShowMarkerLabel(marker:Object):Boolean {
-            var markerLabel:String;
-
-            if (marker == null || marker.label === undefined || marker.label == null) {
-                return false;
-            }
-
-            if (!(marker.showBarLabel !== undefined && Boolean(marker.showBarLabel))) {
-                return false;
-            }
-
-            markerLabel = String(marker.label);
-            if (markerLabel.length == 0) {
-                return false;
-            }
-
-            return true;
         }
 
         private function onMarkerMouseOver(event:MouseEvent):void {
-            updateTooltipAtStagePoint(event.stageX, event.stageY);
+            ResearchProgressBarTooltipView.refreshAtStagePoint(
+                visible,
+                markersContainer,
+                _markerTooltipDataByDisplay,
+                tooltipContainer,
+                tooltipBackground,
+                tooltipContent,
+                stage,
+                event.stageX,
+                event.stageY
+            );
         }
 
         private function onMarkerMouseOut(event:MouseEvent):void {
-            updateTooltipAtStagePoint(event.stageX, event.stageY);
-        }
-
-        private function updateTooltipAtStagePoint(stageX:Number, stageY:Number):void {
-            var tooltipEntries:Array = [];
-            var candidate:Sprite;
-            var candidateBounds:Rectangle;
-            var candidateData:Object;
-            var idx:int;
-
-            if (!visible || markersContainer == null) {
-                hideMarkerTooltip();
-                return;
-            }
-
-            for (idx = 0; idx < markersContainer.numChildren; idx++) {
-                candidate = markersContainer.getChildAt(idx) as Sprite;
-                if (candidate == null) {
-                    continue;
-                }
-
-                candidateBounds = candidate.getBounds(stage);
-                if (candidateBounds == null || !candidateBounds.contains(stageX, stageY)) {
-                    continue;
-                }
-
-                candidateData = _markerTooltipDataByDisplay[candidate];
-                if (candidateData != null) {
-                    tooltipEntries.push(candidateData);
-                }
-            }
-
-            if (tooltipEntries.length == 0) {
-                hideMarkerTooltip();
-                return;
-            }
-
-            showTooltipEntries(tooltipEntries, stageX, stageY);
-        }
-
-        private function showTooltipEntries(entries:Array, stageX:Number, stageY:Number):void {
-            var entry:Object;
-            var section:Sprite;
-            var sectionBounds:Rectangle;
-            var contentBounds:Rectangle;
-            var cursorY:Number = 0;
-            var idx:int;
-            var tooltipWidth:Number;
-            var tooltipHeight:Number;
-
-            if (tooltipContainer == null || tooltipContent == null || tooltipBackground == null) {
-                return;
-            }
-
-            clearTooltipContent();
-
-            for (idx = 0; idx < entries.length; idx++) {
-                entry = entries[idx];
-                section = buildTooltipSection(entry);
-                section.y = cursorY;
-                tooltipContent.addChild(section);
-                sectionBounds = section.getBounds(section);
-                cursorY += sectionBounds.height;
-                if (idx < entries.length - 1) {
-                    cursorY += TOOLTIP_SECTION_GAP;
-                }
-            }
-
-            contentBounds = tooltipContent.getBounds(tooltipContent);
-            tooltipContent.x = TOOLTIP_PADDING_X - contentBounds.x;
-            tooltipContent.y = TOOLTIP_PADDING_Y - contentBounds.y;
-
-            tooltipWidth = contentBounds.width + TOOLTIP_PADDING_X * 2;
-            tooltipHeight = contentBounds.height + TOOLTIP_PADDING_Y + TOOLTIP_PADDING_BOTTOM;
-            drawTooltipBackground(tooltipWidth, tooltipHeight);
-
-            tooltipContainer.visible = true;
-            positionTooltip(stageX, stageY, tooltipWidth, tooltipHeight);
-        }
-
-        private function clearTooltipContent():void {
-            if (tooltipContent == null) {
-                return;
-            }
-
-            while (tooltipContent.numChildren > 0) {
-                tooltipContent.removeChildAt(0);
-            }
-        }
-
-        private function hideMarkerTooltip():void {
-            if (tooltipContainer != null) {
-                tooltipContainer.visible = false;
-            }
-        }
-
-        private function positionTooltip(stageX:Number, stageY:Number, tooltipWidth:Number, tooltipHeight:Number):void {
-            var tooltipX:Number = stageX - Math.round(tooltipWidth / 2);
-            var tooltipY:Number = stageY + TOOLTIP_OFFSET_Y;
-            var minX:Number = 4;
-            var maxX:Number;
-            var minY:Number = 4;
-            var maxY:Number;
-
-            if (stage != null) {
-                maxX = stage.stageWidth - tooltipWidth - 4;
-                maxY = stage.stageHeight - tooltipHeight - 4;
-                if (tooltipX < minX) {
-                    tooltipX = minX;
-                }
-                if (tooltipX > maxX) {
-                    tooltipX = maxX;
-                }
-
-                if (tooltipY > maxY) {
-                    tooltipY = stageY - tooltipHeight - TOOLTIP_OFFSET_Y;
-                }
-
-                if (tooltipY < minY) {
-                    tooltipY = minY;
-                }
-                if (tooltipY > maxY) {
-                    tooltipY = maxY;
-                }
-            }
-
-            tooltipContainer.x = Math.round(tooltipX);
-            tooltipContainer.y = Math.round(tooltipY);
-        }
-
-        private function drawTooltipBackground(width:Number, height:Number):void {
-            tooltipBackground.graphics.clear();
-            tooltipBackground.graphics.lineStyle(1, TOOLTIP_BORDER_COLOR, 1.0);
-            tooltipBackground.graphics.beginFill(TOOLTIP_BACKGROUND_COLOR, TOOLTIP_BACKGROUND_ALPHA);
-            tooltipBackground.graphics.drawRoundRect(0, 0, width, height, 6, 6);
-            tooltipBackground.graphics.endFill();
-        }
-
-        private function buildTooltipSection(entry:Object):Sprite {
-            var section:Sprite = new Sprite();
-            var marker:Object = entry.marker;
-            var markerCostXp:Number = Number(entry.costXp);
-            var combatXp:Number = Number(entry.combatXp);
-            var freeXp:Number = Number(entry.freeXp);
-            var row:Sprite;
-            var rowBounds:Rectangle;
-            var cursorY:Number = 0;
-            var markerState:String = marker != null && marker.markerState !== undefined ? String(marker.markerState) : "";
-            var prereq:Object;
-            var prereqs:Array;
-            var progressLabel:String = marker != null && marker.progressLabel !== undefined ? String(marker.progressLabel) : "Vehicle XP";
-            var singleProgressRow:Boolean = marker != null && marker.singleProgressRow !== undefined && Boolean(marker.singleProgressRow);
-
-            row = createTooltipTitleCostRow(marker, markerCostXp);
-            row.y = cursorY;
-            section.addChild(row);
-            rowBounds = row.getBounds(row);
-            cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
-
-            if (markerState == "completed") {
-                row = createTooltipTextRow(
-                    "Unlocked",
-                    TOOLTIP_BODY_SIZE,
-                    TOOLTIP_HIGHLIGHT_TEXT_COLOR,
-                    true
-                );
-                row.y = cursorY;
-                section.addChild(row);
-                return section;
-            }
-
-            if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable)) {
-                row = createTooltipTextRow(
-                    "Prerequisites:",
-                    TOOLTIP_BODY_SIZE,
-                    TOOLTIP_MUTED_TEXT_COLOR,
-                    false
-                );
-                row.y = cursorY;
-                section.addChild(row);
-                rowBounds = row.getBounds(row);
-                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
-
-                prereqs = marker != null && marker.missingPrereqs is Array ? marker.missingPrereqs as Array : [];
-                for each (prereq in prereqs) {
-                    row = createTooltipIconTextRow(
-                        prereq != null && prereq.item_type !== undefined ? String(prereq.item_type) : "unknown",
-                        resolveTooltipItemLabel(prereq),
-                        TOOLTIP_BODY_SIZE,
-                        TOOLTIP_TEXT_COLOR,
-                        false,
-                        TOOLTIP_COMPACT_ICON_SIZE
-                    );
-                    row.y = cursorY;
-                    section.addChild(row);
-                    rowBounds = row.getBounds(row);
-                    cursorY += rowBounds.height + TOOLTIP_COMPACT_ROW_GAP;
-                }
-
-                if (prereqs.length == 0) {
-                    row = createTooltipTextRow(
-                        resolveLockedBehindText(marker),
-                        TOOLTIP_BODY_SIZE,
-                        TOOLTIP_TEXT_COLOR,
-                        false
-                    );
-                    row.y = cursorY;
-                    section.addChild(row);
-                    rowBounds = row.getBounds(row);
-                    cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
-                }
-
-                return section;
-            }
-
-            row = createTooltipProgressRow(progressLabel, combatXp, markerCostXp);
-            row.y = cursorY;
-            section.addChild(row);
-            rowBounds = row.getBounds(row);
-            cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
-
-            if (singleProgressRow) {
-                return section;
-            }
-
-            row = createTooltipProgressRow("Total XP", combatXp + freeXp, markerCostXp);
-            row.y = cursorY;
-            section.addChild(row);
-
-            return section;
-        }
-
-        private function resolveLockedBehindText(marker:Object):String {
-            var prereqNames:Array;
-            var prereqText:String;
-
-            if (marker != null && marker.missingPrereqNames is Array) {
-                prereqNames = marker.missingPrereqNames as Array;
-                if (prereqNames.length == 1) {
-                    return String(prereqNames[0]);
-                }
-                if (prereqNames.length > 1) {
-                    prereqText = prereqNames.join(", ");
-                    return prereqText;
-                }
-            }
-
-            return "missing prerequisites";
-        }
-
-        private function createTooltipProgressRow(label:String, currentXp:Number, targetXp:Number):Sprite {
-            var row:Sprite = new Sprite();
-            var labelField:TextField;
-            var percentField:TextField;
-            var statusField:TextField;
-            var pct:int;
-            var missingXp:Number;
-            var statusText:String;
-            var rowHeight:Number;
-
-            if (targetXp <= 0) {
-                pct = 100;
-                missingXp = 0;
-            }
-            else {
-                pct = int(Math.min(100, currentXp * 100 / targetXp));
-                missingXp = Math.max(0, targetXp - currentXp);
-            }
-
-            if (missingXp <= 0) {
-                statusText = "ready for research";
-                statusField = makeTooltipRowField(statusText, TOOLTIP_BODY_SIZE, TOOLTIP_TEXT_COLOR, false);
-            }
-            else {
-                statusField = makeTooltipHtmlRowField(
-                    buildTooltipHighlightedHtml("", formatExactXpValue(missingXp), " XP left", true),
-                    TOOLTIP_BODY_SIZE,
-                    TOOLTIP_TEXT_COLOR,
-                    false
-                );
-            }
-
-            labelField = makeTooltipRowField(label, TOOLTIP_BODY_SIZE, TOOLTIP_MUTED_TEXT_COLOR, false);
-            labelField.width = TOOLTIP_PROGRESS_LABEL_WIDTH;
-            alignTextField(labelField, TextFormatAlign.RIGHT);
-            row.addChild(labelField);
-
-            percentField = makeTooltipRowField(pct.toString() + "%", TOOLTIP_BODY_SIZE, TOOLTIP_HIGHLIGHT_TEXT_COLOR, true);
-            percentField.width = TOOLTIP_PROGRESS_PERCENT_WIDTH;
-            percentField.x = TOOLTIP_PROGRESS_LABEL_WIDTH + TOOLTIP_PROGRESS_GAP;
-            alignTextField(percentField, TextFormatAlign.RIGHT);
-            row.addChild(percentField);
-
-            statusField.x = percentField.x + TOOLTIP_PROGRESS_PERCENT_WIDTH + TOOLTIP_PROGRESS_GAP;
-            row.addChild(statusField);
-
-            rowHeight = Math.max(labelField.height, Math.max(percentField.height, statusField.height));
-            labelField.y = Math.round((rowHeight - labelField.height) / 2);
-            percentField.y = Math.round((rowHeight - percentField.height) / 2);
-            statusField.y = Math.round((rowHeight - statusField.height) / 2);
-            return row;
-        }
-
-        private function createTooltipTitleCostRow(marker:Object, costXp:Number):Sprite {
-            var row:Sprite = new Sprite();
-            var icon:Sprite = null;
-            var tooltipIconSize:Number = resolveMarkerTooltipIconSize(marker);
-            var tooltipIconLayoutWidth:Number = Math.max(TOOLTIP_ICON_LAYOUT_WIDTH, tooltipIconSize);
-            var titleField:TextField = makeTooltipRowField(resolveMarkerTooltipTitle(marker), TOOLTIP_TITLE_SIZE, TOOLTIP_TEXT_COLOR, true);
-            var costField:TextField = makeTooltipHtmlRowField(
-                buildTooltipHighlightedHtml("", formatExactXpValue(costXp), " XP", true),
-                TOOLTIP_BODY_SIZE,
-                TOOLTIP_MUTED_TEXT_COLOR,
-                false
+            ResearchProgressBarTooltipView.refreshAtStagePoint(
+                visible,
+                markersContainer,
+                _markerTooltipDataByDisplay,
+                tooltipContainer,
+                tooltipBackground,
+                tooltipContent,
+                stage,
+                event.stageX,
+                event.stageY
             );
-            var rowHeight:Number;
-            var textBlockHeight:Number;
-            var textBlockTop:Number;
-            var titleX:Number = 0;
-
-            if (!shouldHideTooltipIcon(marker)) {
-                icon = createTooltipMarkerIconForMarker(marker, tooltipIconSize, tooltipIconLayoutWidth);
-            }
-
-            if (icon != null) {
-                row.addChild(icon);
-                titleX = tooltipIconLayoutWidth + TOOLTIP_ICON_GAP;
-            }
-
-            titleField.x = titleX;
-            row.addChild(titleField);
-
-            costField.x = titleField.x + titleField.width + TOOLTIP_PROGRESS_GAP;
-            row.addChild(costField);
-
-            rowHeight = Math.max(tooltipIconSize, Math.max(titleField.height, costField.height));
-            if (icon != null) {
-                icon.y = Math.round((rowHeight - tooltipIconSize) / 2);
-            }
-            textBlockHeight = Math.max(titleField.height, costField.height);
-            textBlockTop = Math.round((rowHeight - textBlockHeight) / 2);
-            titleField.y = textBlockTop + (textBlockHeight - titleField.height);
-            costField.y = textBlockTop + (textBlockHeight - costField.height);
-
-            return row;
-        }
-
-        private function isT11Marker(marker:Object):Boolean {
-            var markerId:String;
-
-            if (marker == null || marker.id === undefined || marker.id == null) {
-                return false;
-            }
-
-            markerId = String(marker.id);
-            return markerId.indexOf("t11_") == 0;
-        }
-
-        private function isEliteMarker(marker:Object):Boolean {
-            var markerId:String;
-
-            if (marker == null || marker.id === undefined || marker.id == null) {
-                return false;
-            }
-
-            markerId = String(marker.id);
-            return markerId.indexOf("elite_") == 0;
-        }
-
-        private function resolveMarkerTooltipTitle(marker:Object):String {
-            var markerName:String = resolveMarkerName(marker);
-            var levelValue:*;
-
-            if (!isEliteMarker(marker) || marker == null || marker.level === undefined || marker.level == null) {
-                return markerName;
-            }
-
-            levelValue = marker.level;
-            return "Level " + String(levelValue) + ": " + markerName;
-        }
-
-        private function resolveMarkerTooltipIconSize(marker:Object):Number {
-            return TOOLTIP_ICON_SIZE;
-        }
-
-        private function createTooltipIconTextRow(itemType:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite {
-            var row:Sprite = new Sprite();
-            var icon:Sprite = createTooltipMarkerIcon(itemType, iconSize);
-            var field:TextField = makeTooltipRowField(text, size, color, bold);
-            var rowHeight:Number;
-
-            if (icon != null) {
-                row.addChild(icon);
-            }
-
-            field.x = icon != null ? TOOLTIP_ICON_LAYOUT_WIDTH + TOOLTIP_ICON_GAP : 0;
-            row.addChild(field);
-
-            rowHeight = Math.max(icon != null ? iconSize : 0, field.height);
-            if (icon != null) {
-                icon.y = Math.round((rowHeight - iconSize) / 2);
-            }
-            field.y = Math.round((rowHeight - field.height) / 2);
-            return row;
-        }
-
-        private function createTooltipTextRow(text:String, size:int, color:uint, bold:Boolean):Sprite {
-            var row:Sprite = new Sprite();
-            var field:TextField = makeTooltipRowField(text, size, color, bold);
-            row.addChild(field);
-            return row;
-        }
-
-        private function createTooltipMarkerIcon(itemType:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
-            var iconSprite:Sprite = new Sprite();
-            var bitmapData:BitmapData = getMarkerIconBitmapData(itemType);
-            var iconBitmap:Bitmap;
-
-            if (bitmapData == null) {
-                return null;
-            }
-
-            iconBitmap = new Bitmap(bitmapData);
-            iconBitmap.smoothing = true;
-            iconBitmap.x = 0;
-            iconBitmap.y = 0;
-            iconSprite.addChild(iconBitmap);
-            return iconSprite;
-        }
-
-        private function createTooltipMarkerIconForMarker(marker:Object, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
-            var iconSprite:Sprite = new Sprite();
-            var bitmapData:BitmapData = getMarkerIconBitmapDataForMarker(marker);
-            var iconBitmap:Bitmap;
-
-            if (bitmapData == null) {
-                return null;
-            }
-
-            iconBitmap = new Bitmap(bitmapData);
-            iconBitmap.smoothing = true;
-            iconBitmap.x = 0;
-            iconBitmap.y = 0;
-            iconSprite.addChild(iconBitmap);
-            return iconSprite;
-        }
-
-        private function makeTooltipRowField(text:String, size:int, color:uint, bold:Boolean):TextField {
-            var field:TextField = makeTextField(color, size, bold);
-            field.text = text;
-            field.width = field.textWidth + 6;
-            field.height = field.textHeight + 6;
-            return field;
-        }
-
-        private function makeTooltipHtmlRowField(html:String, size:int, color:uint, bold:Boolean):TextField {
-            var field:TextField = makeTextField(color, size, bold);
-            field.htmlText = html;
-            field.width = field.textWidth + 6;
-            field.height = field.textHeight + 6;
-            return field;
-        }
-
-        private function buildTooltipHighlightedHtml(prefix:String, highlightedText:String, suffix:String, highlightBold:Boolean):String {
-            var html:String = escapeHtml(prefix);
-
-            html += "<font color='#" + formatHtmlColor(TOOLTIP_HIGHLIGHT_TEXT_COLOR) + "'>";
-            if (highlightBold) {
-                html += "<b>";
-            }
-            html += escapeHtml(highlightedText);
-            if (highlightBold) {
-                html += "</b>";
-            }
-            html += "</font>";
-            html += escapeHtml(suffix);
-            return html;
-        }
-
-        private function buildEliteStatusCounterHtml(text:String):String {
-            var suffix:String = " Base XP";
-
-            if (text == null) {
-                return "";
-            }
-
-            if (text.length > suffix.length && text.substr(text.length - suffix.length) == suffix) {
-                return buildTooltipHighlightedHtml("", text.substr(0, text.length - suffix.length), suffix, true);
-            }
-
-            return escapeHtml(text);
-        }
-
-        private function escapeHtml(text:String):String {
-            if (text == null) {
-                return "";
-            }
-
-            return text.split("&").join("&amp;").split("<").join("&lt;").split(">") .join("&gt;");
-        }
-
-        private function formatHtmlColor(color:uint):String {
-            var hex:String = color.toString(16).toUpperCase();
-
-            while (hex.length < 6) {
-                hex = "0" + hex;
-            }
-
-            return hex;
-        }
-
-        private function resolveTooltipItemLabel(item:Object):String {
-            if (item != null && item.name !== undefined && item.name != null && String(item.name).length > 0) {
-                return String(item.name);
-            }
-
-            if (item != null && item.item_type !== undefined) {
-                return resolveMarkerName({itemType: item.item_type});
-            }
-
-            return resolveMarkerName(null);
-        }
-
-        private function resolveMarkerName(marker:Object):String {
-            var explicitName:String;
-            var itemType:String;
-
-            if (marker != null && marker.name !== undefined && marker.name != null) {
-                explicitName = String(marker.name);
-                if (explicitName.length > 0) {
-                    return explicitName;
-                }
-            }
-
-            itemType = marker != null && marker.itemType !== undefined ? String(marker.itemType) : "unknown";
-            if (MARKER_TYPE_NAMES.hasOwnProperty(itemType)) {
-                return String(MARKER_TYPE_NAMES[itemType]);
-            }
-
-            return String(MARKER_TYPE_NAMES.unknown);
-        }
-
-        private function createMarkerIcon(marker:Object, markerTopY:Number):Bitmap {
-            var bitmapData:BitmapData = getMarkerBarIconBitmapDataForMarker(marker);
-            var icon:Bitmap;
-
-            if (shouldHideBarIcon(marker)) {
-                return null;
-            }
-
-            if (bitmapData == null) {
-                return null;
-            }
-
-            icon = new Bitmap(bitmapData);
-            icon.smoothing = true;
-            icon.x = -Math.round(icon.width / 2);
-            icon.y = markerTopY - MARKER_ICON_GAP - icon.height;
-            return icon;
-        }
-
-        private function getMarkerBarIconBitmapDataForMarker(marker:Object):BitmapData {
-            var barItemType:String;
-
-            barItemType = resolveMarkerBarItemType(marker);
-            if (barItemType.length > 0) {
-                return getMarkerIconBitmapData(barItemType);
-            }
-
-            return getMarkerIconBitmapDataForMarker(marker);
-        }
-
-        private function resolveMarkerBarItemType(marker:Object):String {
-            var itemType:String;
-            var iconCacheKey:String;
-            var cacheParts:Array;
-
-            if (marker == null) {
-                return "";
-            }
-
-            if (marker.barItemType !== undefined && marker.barItemType != null) {
-                return String(marker.barItemType);
-            }
-
-            if (marker.itemType !== undefined && marker.itemType != null) {
-                itemType = String(marker.itemType);
-                if (itemType != "unknown") {
-                    return itemType;
-                }
-            }
-
-            if (marker.iconCacheKey !== undefined && marker.iconCacheKey != null) {
-                iconCacheKey = String(marker.iconCacheKey);
-                if (iconCacheKey.indexOf("t11:") == 0) {
-                    cacheParts = iconCacheKey.split(":");
-                    if (cacheParts.length >= 3) {
-                        return String(cacheParts[1]);
-                    }
-                }
-            }
-
-            return "";
-        }
-
-        private function resolveMarkerEmbeddedIconKey(marker:Object):String {
-            var iconCacheKey:String;
-            var barItemType:String;
-            var itemType:String;
-
-            if (marker == null) {
-                return "";
-            }
-
-            if (marker.iconCacheKey !== undefined && marker.iconCacheKey != null) {
-                iconCacheKey = String(marker.iconCacheKey);
-                if (MARKER_ICON_EMBEDDED.hasOwnProperty(iconCacheKey)) {
-                    return iconCacheKey;
-                }
-            }
-
-            barItemType = resolveMarkerBarItemType(marker);
-            if (barItemType.length > 0 && MARKER_ICON_EMBEDDED.hasOwnProperty(barItemType)) {
-                return barItemType;
-            }
-
-            if (marker.itemType !== undefined && marker.itemType != null) {
-                itemType = String(marker.itemType);
-                if (MARKER_ICON_EMBEDDED.hasOwnProperty(itemType)) {
-                    return itemType;
-                }
-            }
-
-            return "";
-        }
-
-        private function getMarkerIconBitmapDataForMarker(marker:Object):BitmapData {
-            return getEmbeddedMarkerIconBitmapData(resolveMarkerEmbeddedIconKey(marker));
-        }
-
-        private function getEmbeddedMarkerIconBitmapData(itemType:String):BitmapData {
-            if (itemType == null || !MARKER_ICON_EMBEDDED.hasOwnProperty(itemType)) {
-                return null;
-            }
-            var assetClass:Class = MARKER_ICON_EMBEDDED[itemType] as Class;
-            if (assetClass == null) {
-                return null;
-            }
-            var assetBitmap:Bitmap = new assetClass() as Bitmap;
-            if (assetBitmap == null) {
-                return null;
-            }
-            return assetBitmap.bitmapData;
-        }
-
-        private function getMarkerIconBitmapData(itemType:String):BitmapData {
-            return getEmbeddedMarkerIconBitmapData(itemType);
-        }
-
-        private function drawMask(shape:Shape, posX:Number, posY:Number, width:Number, height:Number):void {
-            shape.graphics.clear();
-            if (width <= 0 || height <= 0) {
-                return;
-            }
-            shape.graphics.beginFill(0xFFFFFF, 1.0);
-            shape.graphics.drawRect(posX, posY, width, height);
-            shape.graphics.endFill();
         }
 
         private function layoutFromStage():void {
-            var leftEdge:Number;
-            var rightEdge:Number;
-            var sideInset:Number;
-            var maxWidth:Number;
+            var layout:Object = ResearchProgressBarStageSupport.resolveBarLayout(stage);
 
             x = 0;
             y = 0;
-            if (stage == null) {
-                _barX = SIDE_MARGIN;
-                _barY = TOP_MARGIN;
-                _barWidth = MIN_BAR_WIDTH;
-                return;
-            }
-
-            sideInset = resolveSideSafeInset();
-            leftEdge = sideInset;
-            rightEdge = Math.round(stage.stageWidth - sideInset);
-
-            if (rightEdge <= leftEdge + MIN_BAR_WIDTH) {
-                leftEdge = BAR_MIN_STAGE_SIDE_MARGIN;
-                rightEdge = stage.stageWidth - BAR_MIN_STAGE_SIDE_MARGIN;
-            }
-
-            _barX = Math.max(0, Math.round(leftEdge));
-            maxWidth = Math.max(MIN_BAR_WIDTH, stage.stageWidth - _barX - BAR_MIN_STAGE_SIDE_MARGIN);
-            _barWidth = clamp(Math.round(rightEdge - _barX), MIN_BAR_WIDTH, maxWidth);
-            _barY = resolveBarTopFromStage();
-        }
-
-        private function resolveSideSafeInset():Number {
-            return resolveRightRailCutoff() + BAR_SIDE_SAFE_OFFSET;
-        }
-
-        private function resolveLayoutDistanceBucket():Object {
-            var bucket:Object;
-
-            if (stage == null) {
-                return LAYOUT_DISTANCE_BUCKETS[LAYOUT_DISTANCE_BUCKETS.length - 1];
-            }
-
-            for each (bucket in LAYOUT_DISTANCE_BUCKETS) {
-                if (stage.stageWidth >= Number(bucket.minWidth)) {
-                    return bucket;
-                }
-            }
-
-            return LAYOUT_DISTANCE_BUCKETS[LAYOUT_DISTANCE_BUCKETS.length - 1];
-        }
-
-        private function resolveRightRailCutoff():Number {
-            return Number(resolveLayoutDistanceBucket().horizontalDistance);
-        }
-
-        private function resolveBarTopFromStage():Number {
-            var centeredAssemblyTop:Number;
-            var centeredBarTop:Number;
-            var maxBarTop:Number;
-            var buttonBottom:Number;
-
-            if (stage == null) {
-                return TOP_MARGIN;
-            }
-
-            maxBarTop = Math.max(0, stage.stageHeight - BAR_HEIGHT - BAR_ASSEMBLY_BELOW_HEIGHT);
-            // Runtime fight-button bounds stay stale across resolution changes, so use
-            // measured button-bottom anchors for each width bucket instead of probing WoT's UI tree.
-            buttonBottom = Number(resolveLayoutDistanceBucket().buttonBottom);
-            centeredAssemblyTop = buttonBottom + Math.round((resolveVerticalBoundaryOffset() - BAR_ASSEMBLY_HEIGHT) * 0.5);
-            centeredBarTop = centeredAssemblyTop + BAR_ASSEMBLY_ABOVE_HEIGHT;
-            return clamp(centeredBarTop, BAR_ASSEMBLY_ABOVE_HEIGHT, maxBarTop);
-        }
-
-        private function resolveVerticalBoundaryOffset():Number {
-            return Number(resolveLayoutDistanceBucket().verticalDistance);
+            _barX = Number(layout.barX);
+            _barY = Number(layout.barY);
+            _barWidth = Number(layout.barWidth);
         }
 
         private function positionLabels():void {
-            var counterTop:Number = _barY + BAR_HEIGHT + 1 + COUNTER_TOP_OFFSET;
-            var leftCounterX:Number = _barX - LEFT_COUNTER_OFFSET;
-            var rightCounterEdge:Number = _barX + _barWidth;
-
-            if (_activeCounterLayout == COUNTER_LAYOUT_RIGHT_SINGLE) {
-                positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop);
-                return;
-            }
-
-            if (_activeCounterLayout == COUNTER_LAYOUT_ELITE_STATUS) {
-                combatPercentLabel.x = leftCounterX;
-                combatPercentLabel.y = counterTop;
-
-                combatPercentCaption.x = leftCounterX;
-                combatPercentCaption.y = counterTop + combatPercentLabel.height;
-
-                positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop);
-                return;
-            }
-
-            if (hasCounterText(sideCounterLabel) || hasCounterText(sideCounterCaption)) {
-                positionLeftCounterGroup(sideCounterLabel, sideCounterCaption, leftCounterX, counterTop);
-            }
-
-            positionRightCounterGroup(combatPercentLabel, combatPercentCaption, rightCounterEdge, counterTop);
-            positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop + combatPercentLabel.height);
+            ResearchProgressBarCounterLayout.positionLabels(
+                _activeCounterLayout,
+                _barX,
+                _barY,
+                _barWidth,
+                ResearchProgressBarLayout.BAR_HEIGHT,
+                combatPercentLabel,
+                combatPercentCaption,
+                totalPercentLabel,
+                totalPercentCaption,
+                sideCounterLabel,
+                sideCounterCaption
+            );
         }
 
-        private function positionLeftCounterGroup(valueField:TextField, captionField:TextField, groupX:Number, groupY:Number):void {
-            var valueWidth:Number = resolveDisplayTextWidth(valueField);
-            var captionWidth:Number = hasCounterText(captionField) ? resolveDisplayTextWidth(captionField) : 0;
-
-            valueField.width = valueWidth;
-            valueField.x = groupX;
-            valueField.y = groupY;
-
-            if (captionField != null) {
-                captionField.width = captionWidth;
-                captionField.x = groupX + valueWidth + (captionWidth > 0 ? COUNTER_TEXT_GAP : 0);
-                captionField.y = groupY;
-            }
-        }
-
-        private function positionRightCounterGroup(valueField:TextField, captionField:TextField, rightEdge:Number, groupY:Number):void {
-            var captionWidth:Number = hasCounterText(captionField) ? COUNTER_CAPTION_WIDTH : 0;
-
-            valueField.width = COUNTER_VALUE_WIDTH;
-            valueField.x = rightEdge - COUNTER_VALUE_WIDTH + RIGHT_COUNTER_VALUE_OFFSET;
-            valueField.y = groupY;
-
-            if (captionField != null) {
-                captionField.width = captionWidth;
-                captionField.x = valueField.x - (captionWidth > 0 ? COUNTER_TEXT_GAP + COUNTER_CAPTION_WIDTH : 0);
-                captionField.y = groupY;
-            }
-        }
-
-        private function resolveDisplayTextWidth(field:TextField):Number {
-            if (field == null || field.text == null || field.text.length == 0) {
-                return 0;
-            }
-
-            return Math.max(1, Math.ceil(field.textWidth + 4));
-        }
-
-        private function hasCounterText(field:TextField):Boolean {
-            return field != null && field.text != null && field.text.length > 0;
-        }
-
-        private function resolveCenteredTextY(field:TextField, containerTop:Number, containerHeight:Number):Number {
-            return containerTop + Math.round((containerHeight - field.textHeight) / 2) - 2;
-        }
-
-        private function createBitmap(assetClass:Class):Bitmap {
-            var bitmap:Bitmap = new assetClass() as Bitmap;
-            bitmap.smoothing = true;
-            return bitmap;
-        }
-
-        private function numberValue(value:*, fallback:Number):Number {
-            var parsed:Number = Number(value);
-            if (isNaN(parsed)) {
-                return fallback;
-            }
-            return parsed;
-        }
-
-        private function clamp(value:Number, minValue:Number, maxValue:Number):Number {
-            if (value < minValue) {
-                return minValue;
-            }
-            if (value > maxValue) {
-                return maxValue;
-            }
-            return value;
-        }
-
-        private function makeMarkerLabelField(text:String, markerTopY:Number):TextField {
-            var field:TextField = makeTextField(LABEL_COLOR, 16, true);
-            alignTextField(field, TextFormatAlign.CENTER);
-            field.width = 48;
-            field.height = 22;
-            field.x = -24;
-            field.y = markerTopY - field.height;
-            field.text = text;
-            return field;
-        }
-
-        private function makeCounterField():TextField {
-            var field:TextField = makeTextField(LABEL_COLOR, COUNTER_FONT_SIZE, true);
-            alignTextField(field, TextFormatAlign.RIGHT);
-            field.width = COUNTER_VALUE_WIDTH;
-            field.height = COUNTER_FIELD_HEIGHT;
-            return field;
-        }
-
-        private function makeCounterCaptionField(text:String):TextField {
-            var field:TextField = makeTextField(MARKER_VALUE_COLOR, COUNTER_FONT_SIZE, false);
-            alignTextField(field, TextFormatAlign.LEFT);
-            field.width = COUNTER_CAPTION_WIDTH;
-            field.height = COUNTER_FIELD_HEIGHT;
-            field.text = text;
-            return field;
-        }
-
-        private function alignTextField(field:TextField, alignment:String):void {
-            var format:TextFormat = field.defaultTextFormat;
-
-            format.align = alignment;
-            field.defaultTextFormat = format;
-            field.setTextFormat(format);
-        }
-
-        private function formatExactXpValue(value:Number):String {
-            var integerValue:int = Math.round(value);
-            var text:String = Math.abs(integerValue).toString();
-            var parts:Array = [];
-
-            while (text.length > 3) {
-                parts.unshift(text.substr(text.length - 3));
-                text = text.substr(0, text.length - 3);
-            }
-
-            if (text.length > 0) {
-                parts.unshift(text);
-            }
-
-            text = parts.join(" ");
-            if (integerValue < 0) {
-                text = "-" + text;
-            }
-
-            return text;
-        }
-
-        private function makeTextField(color:uint, size:int, bold:Boolean):TextField {
-            var field:TextField = new TextField();
-            field.defaultTextFormat = new TextFormat("_sans", size, color, bold);
-            field.selectable = false;
-            field.mouseEnabled = false;
-            field.textColor = color;
-            field.multiline = false;
-            field.wordWrap = false;
-            return field;
-        }
     }
 }

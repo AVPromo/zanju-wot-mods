@@ -38,8 +38,27 @@ Notes:
 - The custom SWF root must extend a WoT `IView`-compatible class such as `net.wg.infrastructure.base.AbstractView`; a plain `Sprite` root is rejected by the loader.
 - The local compile path builds a tiny external WoT API mirror SWC for `AbstractView` so `mxmlc` can compile without bundled WG source/SWCs.
 - The UI tree is intentionally flat: keep the main `.as` entrypoint at `ui/`, the compile-time WoT API mirror under `ui/wot-api/`, and the embedded bitmaps under `ui/assets/`.
+
+Current source split:
+
+- `ResearchProgressBarLobby.as`: WoT-facing `AbstractView` root; lifecycle bridge plus high-level payload application.
+- `ResearchProgressBarViewFactory.as`: build-time display-object creation for bars, masks, counters, and tooltip shell.
+- `ResearchProgressBarStageSupport.as`: stage listener wiring, tracked-size detection, and bar-layout resolution.
+- `ResearchProgressBarViewState.as`: mode resolution, selected-mode sync, and fill-state selection.
+- `ResearchProgressBarBars.as`: bar visibility, bitmap bounds, and fill-mask drawing.
+- `ResearchProgressBarCounterFields.as`: counter text selection and text-format application.
+- `ResearchProgressBarCounterLayout.as`: counter positioning around and below the bar.
+- `ResearchProgressBarModes.as`: mode normalization and mode-button rendering.
+- `ResearchProgressBarInteractions.as`: mode-button click resolution and marker rebuild/clear glue.
+- `ResearchProgressBarMarkers.as`: marker display creation, hit areas, and tooltip payload mapping.
+- `ResearchProgressBarTooltipView.as`: tooltip hit-testing, show/hide behavior, and stage clamping.
+- `ResearchProgressBarTooltipContent.as`: tooltip section and text rendering.
+- `ResearchProgressBarMarkerAssets.as`: bar-icon bitmap lookup for typed markers.
+- `ResearchProgressBarLayout.as`: shared stage-to-bar geometry calculations.
+
+If the UI needs to be rebuilt later, keep `ResearchProgressBarLobby.as` as the only WoT-facing root and keep pure construction, layout, and interaction logic in flat sibling helper classes like the list above.
+
 - The exposed ActionScript callbacks used by the Python view wiring are:
   - `as_ping()`
-  - `as_setProgress(number)`
   - `as_setContext(object)`
   - `as_setVisible(boolean)`
