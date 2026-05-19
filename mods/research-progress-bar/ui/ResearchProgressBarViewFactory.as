@@ -7,6 +7,8 @@ package {
     import flash.text.TextFormatAlign;
 
     public final class ResearchProgressBarViewFactory {
+        private static const COUNTER_VERTICAL_PADDING:Number = 8;
+
         public static function build(
             host:Sprite,
             progressBarBaseAsset:Class,
@@ -121,7 +123,7 @@ package {
             var field:TextField = makeTextField(color, size, true);
             alignTextField(field, TextFormatAlign.RIGHT);
             field.width = ResearchProgressBarCounterLayout.COUNTER_VALUE_WIDTH;
-            field.height = fieldHeight;
+            field.height = resolveCounterFieldHeight(size, fieldHeight);
             return field;
         }
 
@@ -134,9 +136,13 @@ package {
             var field:TextField = makeTextField(color, size, false);
             alignTextField(field, TextFormatAlign.LEFT);
             field.width = ResearchProgressBarCounterLayout.COUNTER_CAPTION_WIDTH;
-            field.height = fieldHeight;
+            field.height = resolveCounterFieldHeight(size, fieldHeight);
             field.text = text;
             return field;
+        }
+
+        private static function resolveCounterFieldHeight(size:int, fieldHeight:Number):Number {
+            return Math.max(fieldHeight, size + COUNTER_VERTICAL_PADDING);
         }
 
         private static function alignTextField(field:TextField, alignment:String):void {
@@ -148,8 +154,8 @@ package {
         }
 
         private static function makeTextField(color:uint, size:int, bold:Boolean):TextField {
-            var field:TextField = new TextField();
-            field.defaultTextFormat = new TextFormat("_sans", size, color, bold);
+            var field:TextField = ResearchProgressBarFonts.configureTextField(new TextField());
+            field.defaultTextFormat = new TextFormat(ResearchProgressBarFonts.FONT_NAME, size, color, bold);
             field.selectable = false;
             field.mouseEnabled = false;
             field.textColor = color;

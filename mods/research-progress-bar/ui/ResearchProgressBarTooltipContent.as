@@ -9,6 +9,7 @@ package {
     public final class ResearchProgressBarTooltipContent {
         public static const SECTION_GAP:Number = 10;
 
+        private static const TOOLTIP_FONT_NAME:String = ResearchProgressBarFonts.FONT_NAME;
         private static const TOOLTIP_TEXT_COLOR:uint = 0xE6DDC8;
         private static const TOOLTIP_MUTED_TEXT_COLOR:uint = 0xB8AC97;
         private static const TOOLTIP_HIGHLIGHT_TEXT_COLOR:uint = 0xF0CF74;
@@ -18,11 +19,11 @@ package {
         private static const TOOLTIP_ICON_GAP:Number = 6;
         private static const TOOLTIP_ROW_GAP:Number = 3;
         private static const TOOLTIP_COMPACT_ROW_GAP:Number = 1;
-        private static const TOOLTIP_TITLE_SIZE:int = 13;
-        private static const TOOLTIP_BODY_SIZE:int = 12;
-        private static const TOOLTIP_PROGRESS_LABEL_WIDTH:Number = 68;
-        private static const TOOLTIP_PROGRESS_PERCENT_WIDTH:Number = 40;
+        private static const TOOLTIP_TITLE_SIZE:int = 16;
+        private static const TOOLTIP_BODY_SIZE:int = 14;
         private static const TOOLTIP_PROGRESS_GAP:Number = 8;
+        private static const TOOLTIP_PROGRESS_COLUMN_GAP_CHARS:int = 2;
+        private static const TOOLTIP_TEXT_FIELD_PADDING:Number = 8;
 
         public static function buildTooltipSection(entry:Object):Sprite {
             var section:Sprite = new Sprite();
@@ -37,6 +38,7 @@ package {
             var prereq:Object;
             var prereqs:Array;
             var progressLabel:String = marker != null && marker.progressLabel !== undefined ? String(marker.progressLabel) : "Vehicle XP";
+            var totalProgressLabel:String = marker != null && marker.totalProgressLabel !== undefined ? String(marker.totalProgressLabel) : "Total XP";
             var singleProgressRow:Boolean = marker != null && marker.singleProgressRow !== undefined && Boolean(marker.singleProgressRow);
 
             row = createTooltipTitleCostRow(marker, markerCostXp);
@@ -44,6 +46,14 @@ package {
             section.addChild(row);
             rowBounds = row.getBounds(row);
             cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+
+            row = createBlueprintTooltipRow(marker);
+            if (row != null) {
+                row.y = cursorY;
+                section.addChild(row);
+                rowBounds = row.getBounds(row);
+                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+            }
 
             if (markerState == "completed") {
                 row = createTooltipTextRow(
@@ -101,32 +111,54 @@ package {
                 return section;
             }
 
-            row = createTooltipProgressRow(progressLabel, combatXp, markerCostXp);
-            row.y = cursorY;
-            section.addChild(row);
-            rowBounds = row.getBounds(row);
-            cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+            var progressRows:Array = [buildTooltipProgressRowData(progressLabel, combatXp, markerCostXp)];
+            var progressColumnWidths:Object;
+            var progressRowData:Object;
 
-            if (singleProgressRow) {
-                return section;
+            if (!singleProgressRow) {
+                progressRows.push(buildTooltipProgressRowData(totalProgressLabel, combatXp + freeXp, markerCostXp));
             }
 
-            row = createTooltipProgressRow("Total XP", combatXp + freeXp, markerCostXp);
-            row.y = cursorY;
-            section.addChild(row);
+            progressColumnWidths = resolveTooltipProgressColumnWidths(progressRows);
+
+            for each (progressRowData in progressRows) {
+                row = createTooltipProgressRow(progressRowData, progressColumnWidths);
+                row.y = cursorY;
+                section.addChild(row);
+                rowBounds = row.getBounds(row);
+                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+            }
 
             return section;
         }
 
         public static function buildEliteStatusCounterHtml(text:String):String {
-            var suffix:String = " Base XP";
+            var slashIndex:int;
+            var leftPart:String;
+            var rightPart:String;
+            var suffix:String;
+            var rightEnd:int;
 
             if (text == null) {
                 return "";
             }
 
-            if (text.length > suffix.length && text.substr(text.length - suffix.length) == suffix) {
-                return buildTooltipHighlightedHtml("", text.substr(0, text.length - suffix.length), suffix, true);
+            slashIndex = text.indexOf("/");
+            if (slashIndex > 0) {
+                leftPart = rtrim(text.substr(0, slashIndex));
+                rightPart = ltrim(text.substr(slashIndex + 1));
+                rightEnd = rightPart.indexOf(" ");
+                if (rightEnd >= 0) {
+                    suffix = rightPart.substr(rightEnd);
+                    rightPart = rightPart.substr(0, rightEnd);
+                }
+                else {
+                    suffix = "";
+                }
+
+                return buildTooltipHighlightedHtml("", leftPart, "", true)
+                    + escapeHtml("/")
+                    + buildTooltipHighlightedHtml("", rightPart, suffix, true);
             }
 
             return escapeHtml(text);
@@ -150,57 +182,13 @@ package {
             return "missing prerequisites";
         }
 
-        private static function createTooltipProgressRow(label:String, currentXp:Number, targetXp:Number):Sprite {
-            var row:Sprite = new Sprite();
-            var labelField:TextField;
-            var percentField:TextField;
-            var statusField:TextField;
-            var pct:int;
-            var missingXp:Number;
-            var statusText:String;
-            var rowHeight:Number;
-
-            if (targetXp <= 0) {
-                pct = 100;
-                missingXp = 0;
-            }
-            else {
-                pct = int(Math.min(100, currentXp * 100 / targetXp));
-                missingXp = Math.max(0, targetXp - currentXp);
-            }
-
-            if (missingXp <= 0) {
-                statusText = "ready for research";
-                statusField = makeTooltipRowField(statusText, TOOLTIP_BODY_SIZE, TOOLTIP_TEXT_COLOR, false);
-            }
-            else {
-                statusField = makeTooltipHtmlRowField(
-                    buildTooltipHighlightedHtml("", formatExactXpValue(missingXp), " XP left", true),
-                    TOOLTIP_BODY_SIZE,
-                    TOOLTIP_TEXT_COLOR,
-                    false
-                );
-            }
-
-            labelField = makeTooltipRowField(label, TOOLTIP_BODY_SIZE, TOOLTIP_MUTED_TEXT_COLOR, false);
-            labelField.width = TOOLTIP_PROGRESS_LABEL_WIDTH;
-            alignTextField(labelField, TextFormatAlign.RIGHT);
-            row.addChild(labelField);
-
-            percentField = makeTooltipRowField(pct.toString() + "%", TOOLTIP_BODY_SIZE, TOOLTIP_HIGHLIGHT_TEXT_COLOR, true);
-            percentField.width = TOOLTIP_PROGRESS_PERCENT_WIDTH;
-            percentField.x = TOOLTIP_PROGRESS_LABEL_WIDTH + TOOLTIP_PROGRESS_GAP;
-            alignTextField(percentField, TextFormatAlign.RIGHT);
-            row.addChild(percentField);
-
-            statusField.x = percentField.x + TOOLTIP_PROGRESS_PERCENT_WIDTH + TOOLTIP_PROGRESS_GAP;
-            row.addChild(statusField);
-
-            rowHeight = Math.max(labelField.height, Math.max(percentField.height, statusField.height));
-            labelField.y = Math.round((rowHeight - labelField.height) / 2);
-            percentField.y = Math.round((rowHeight - percentField.height) / 2);
-            statusField.y = Math.round((rowHeight - statusField.height) / 2);
-            return row;
+        private static function createTooltipProgressRow(rowData:Object, columnWidths:Object):Sprite {
+            return createTooltipHtmlTextRow(
+                buildTooltipProgressHtml(rowData, columnWidths),
+                TOOLTIP_BODY_SIZE,
+                TOOLTIP_TEXT_COLOR,
+                false
+            );
         }
 
         private static function createTooltipTitleCostRow(marker:Object, costXp:Number):Sprite {
@@ -216,8 +204,6 @@ package {
                 false
             );
             var rowHeight:Number;
-            var textBlockHeight:Number;
-            var textBlockTop:Number;
             var titleX:Number = 0;
 
             if (!shouldHideTooltipIcon(marker)) {
@@ -235,14 +221,12 @@ package {
             costField.x = titleField.x + titleField.width + TOOLTIP_PROGRESS_GAP;
             row.addChild(costField);
 
-            rowHeight = Math.max(tooltipIconSize, Math.max(titleField.height, costField.height));
+            rowHeight = Math.max(icon != null ? tooltipIconSize : 0, Math.max(titleField.height, costField.height));
             if (icon != null) {
                 icon.y = Math.round((rowHeight - tooltipIconSize) / 2);
             }
-            textBlockHeight = Math.max(titleField.height, costField.height);
-            textBlockTop = Math.round((rowHeight - textBlockHeight) / 2);
-            titleField.y = textBlockTop + (textBlockHeight - titleField.height);
-            costField.y = textBlockTop + (textBlockHeight - costField.height);
+            titleField.y = Math.round((rowHeight - titleField.height) / 2);
+            costField.y = Math.round((rowHeight - costField.height) / 2);
 
             return row;
         }
@@ -302,6 +286,13 @@ package {
             return row;
         }
 
+        private static function createTooltipHtmlTextRow(html:String, size:int, color:uint, bold:Boolean):Sprite {
+            var row:Sprite = new Sprite();
+            var field:TextField = makeTooltipHtmlRowField(html, size, color, bold);
+            row.addChild(field);
+            return row;
+        }
+
         private static function createTooltipMarkerIcon(itemType:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = ResearchProgressBarMarkerAssets.getMarkerIconBitmapData(itemType);
@@ -340,7 +331,7 @@ package {
             var field:TextField = makeTextField(color, size, bold);
             field.text = text;
             field.width = field.textWidth + 6;
-            field.height = field.textHeight + 6;
+            field.height = field.textHeight + TOOLTIP_TEXT_FIELD_PADDING;
             return field;
         }
 
@@ -348,8 +339,107 @@ package {
             var field:TextField = makeTextField(color, size, bold);
             field.htmlText = html;
             field.width = field.textWidth + 6;
-            field.height = field.textHeight + 6;
+            field.height = field.textHeight + TOOLTIP_TEXT_FIELD_PADDING;
             return field;
+        }
+
+        private static function buildTooltipProgressHtml(rowData:Object, columnWidths:Object):String {
+            var labelText:String = rowData != null && rowData.labelText !== undefined ? String(rowData.labelText) : "";
+            var percentText:String = rowData != null && rowData.percentText !== undefined ? String(rowData.percentText) : "";
+            var statusText:String = rowData != null && rowData.statusText !== undefined ? String(rowData.statusText) : "";
+            var statusHtml:String = rowData != null && rowData.statusHtml !== undefined ? String(rowData.statusHtml) : "";
+            var labelWidth:int = columnWidths != null && columnWidths.label !== undefined ? int(columnWidths.label) : labelText.length;
+            var percentWidth:int = columnWidths != null && columnWidths.percent !== undefined ? int(columnWidths.percent) : percentText.length;
+            var statusWidth:int = columnWidths != null && columnWidths.status !== undefined ? int(columnWidths.status) : statusText.length;
+            var html:String = buildTooltipStyledHtml(
+                padLeft(labelText, labelWidth),
+                TOOLTIP_MUTED_TEXT_COLOR,
+                false,
+                true
+            );
+
+            html += repeatHtmlSpaces(TOOLTIP_PROGRESS_COLUMN_GAP_CHARS);
+            html += buildTooltipStyledHtml(
+                padLeft(percentText, percentWidth),
+                TOOLTIP_HIGHLIGHT_TEXT_COLOR,
+                true,
+                true
+            );
+            html += repeatHtmlSpaces(TOOLTIP_PROGRESS_COLUMN_GAP_CHARS);
+
+            html += escapeHtmlWithNbsp(padLeft("", Math.max(0, statusWidth - statusText.length)));
+            html += statusHtml;
+
+            return html;
+        }
+
+        private static function buildTooltipProgressRowData(label:String, currentXp:Number, targetXp:Number):Object {
+            var pct:int;
+            var missingXp:Number;
+            var statusText:String;
+            var statusHtml:String;
+
+            if (targetXp <= 0) {
+                pct = 100;
+                missingXp = 0;
+            }
+            else {
+                pct = int(Math.min(100, currentXp * 100 / targetXp));
+                missingXp = Math.max(0, targetXp - currentXp);
+            }
+
+            if (missingXp <= 0) {
+                statusText = "ready for research";
+                statusHtml = escapeHtml(statusText);
+            }
+            else {
+                statusText = formatExactXpValue(missingXp) + " XP left";
+                statusHtml = buildTooltipHighlightedHtml("", formatExactXpValue(missingXp), " XP left", true);
+            }
+
+            return {
+                labelText: label,
+                percentText: pct.toString() + "%",
+                statusText: statusText,
+                statusHtml: statusHtml
+            };
+        }
+
+        private static function resolveTooltipProgressColumnWidths(rows:Array):Object {
+            var rowData:Object;
+            var labelWidth:int = 0;
+            var percentWidth:int = 0;
+            var statusWidth:int = 0;
+
+            for each (rowData in rows) {
+                if (rowData == null) {
+                    continue;
+                }
+
+                labelWidth = Math.max(labelWidth, String(rowData.labelText).length);
+                percentWidth = Math.max(percentWidth, String(rowData.percentText).length);
+                statusWidth = Math.max(statusWidth, String(rowData.statusText).length);
+            }
+
+            return {
+                label: labelWidth,
+                percent: percentWidth,
+                status: statusWidth
+            };
+        }
+
+        private static function buildTooltipStyledHtml(text:String, color:uint, bold:Boolean, preserveSpaces:Boolean):String {
+            var html:String = "<font color='#" + formatHtmlColor(color) + "'>";
+
+            if (bold) {
+                html += "<b>";
+            }
+            html += preserveSpaces ? escapeHtmlWithNbsp(text) : escapeHtml(text);
+            if (bold) {
+                html += "</b>";
+            }
+            html += "</font>";
+            return html;
         }
 
         private static function buildTooltipHighlightedHtml(prefix:String, highlightedText:String, suffix:String, highlightBold:Boolean):String {
@@ -368,12 +458,119 @@ package {
             return html;
         }
 
+        private static function createBlueprintTooltipRow(marker:Object):Sprite {
+            var blueprintCount:int;
+            var blueprintTotal:int;
+            var blueprintDiscountPercent:int;
+            var blueprintTooltipText:String;
+
+            if (marker == null || marker.itemType !== "vehicle") {
+                return null;
+            }
+
+            blueprintTotal = int(marker.blueprintTotal);
+            if (blueprintTotal <= 0) {
+                return null;
+            }
+
+            blueprintCount = int(marker.blueprintCount);
+            blueprintDiscountPercent = int(marker.blueprintDiscountPercent);
+            blueprintTooltipText = marker.blueprintTooltipText !== undefined && marker.blueprintTooltipText != null
+                ? String(marker.blueprintTooltipText)
+                : null;
+
+            return createTooltipHtmlTextRow(
+                buildBlueprintTooltipHtml(
+                    blueprintCount,
+                    blueprintTotal,
+                    blueprintDiscountPercent,
+                    blueprintTooltipText
+                ),
+                TOOLTIP_BODY_SIZE,
+                TOOLTIP_MUTED_TEXT_COLOR,
+                false
+            );
+        }
+
+        private static function buildBlueprintTooltipHtml(
+            blueprintCount:int,
+            blueprintTotal:int,
+            blueprintDiscountPercent:int,
+            localizedText:String
+        ):String {
+            if (localizedText != null && localizedText.length > 0) {
+                return buildLocalizedTooltipHighlightHtml(localizedText);
+            }
+
+            return buildTooltipHighlightedHtml("", blueprintCount.toString(), "/", true)
+                + buildTooltipHighlightedHtml("", blueprintTotal.toString(), " Blueprints (", true)
+                + buildTooltipHighlightedHtml("", blueprintDiscountPercent.toString() + "%", " discount)", true);
+        }
+
+        private static function buildLocalizedTooltipHighlightHtml(text:String):String {
+            var html:String = "";
+            var cursor:int = 0;
+            var tagStart:int;
+            var plainText:String;
+            var tagName:String;
+            var closeTag:String;
+            var contentStart:int;
+            var tagEnd:int;
+            var highlightText:String;
+
+            while (cursor < text.length) {
+                tagStart = text.indexOf("<", cursor);
+                if (tagStart < 0) {
+                    html += escapeHtml(text.substr(cursor));
+                    break;
+                }
+
+                plainText = text.substring(cursor, tagStart);
+                if (plainText.length > 0) {
+                    html += escapeHtml(plainText);
+                }
+
+                if (text.indexOf("<count>", tagStart) == tagStart) {
+                    tagName = "count";
+                }
+                else if (text.indexOf("<total>", tagStart) == tagStart) {
+                    tagName = "total";
+                }
+                else if (text.indexOf("<discount>", tagStart) == tagStart) {
+                    tagName = "discount";
+                }
+                else {
+                    html += escapeHtml(text.substr(tagStart, 1));
+                    cursor = tagStart + 1;
+                    continue;
+                }
+
+                closeTag = "</" + tagName + ">";
+                contentStart = tagStart + tagName.length + 2;
+                tagEnd = text.indexOf(closeTag, contentStart);
+                if (tagEnd < 0) {
+                    html += escapeHtml(text.substr(tagStart));
+                    break;
+                }
+
+                highlightText = text.substring(contentStart, tagEnd);
+                html += buildTooltipHighlightedHtml("", highlightText, "", true);
+                cursor = tagEnd + closeTag.length;
+            }
+
+            return html;
+        }
+
         private static function escapeHtml(text:String):String {
             if (text == null) {
                 return "";
             }
 
             return text.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;");
+        }
+
+        private static function escapeHtmlWithNbsp(text:String):String {
+            return escapeHtml(text).split(" ").join("&nbsp;");
         }
 
         private static function formatHtmlColor(color:uint):String {
@@ -402,14 +599,6 @@ package {
             return marker != null && marker.hideTooltipIcon !== undefined && Boolean(marker.hideTooltipIcon);
         }
 
-        private static function alignTextField(field:TextField, alignment:String):void {
-            var format:TextFormat = field.defaultTextFormat;
-
-            format.align = alignment;
-            field.defaultTextFormat = format;
-            field.setTextFormat(format);
-        }
-
         private static function formatExactXpValue(value:Number):String {
             var integerValue:int = Math.round(value);
             var text:String = Math.abs(integerValue).toString();
@@ -432,9 +621,52 @@ package {
             return text;
         }
 
+        private static function padLeft(text:String, targetLength:int):String {
+            return repeatString(" ", Math.max(0, targetLength - text.length)) + text;
+        }
+
+        private static function repeatHtmlSpaces(count:int):String {
+            return repeatString("&nbsp;", Math.max(0, count));
+        }
+
+        private static function repeatString(value:String, count:int):String {
+            var result:String = "";
+            var index:int;
+
+            for (index = 0; index < count; ++index) {
+                result += value;
+            }
+
+            return result;
+        }
+
+        private static function ltrim(text:String):String {
+            if (text == null) {
+                return "";
+            }
+
+            while (text.length > 0 && text.charAt(0) == " ") {
+                text = text.substr(1);
+            }
+
+            return text;
+        }
+
+        private static function rtrim(text:String):String {
+            if (text == null) {
+                return "";
+            }
+
+            while (text.length > 0 && text.charAt(text.length - 1) == " ") {
+                text = text.substr(0, text.length - 1);
+            }
+
+            return text;
+        }
+
         private static function makeTextField(color:uint, size:int, bold:Boolean):TextField {
-            var field:TextField = new TextField();
-            field.defaultTextFormat = new TextFormat("_sans", size, color, bold);
+            var field:TextField = ResearchProgressBarFonts.configureTextField(new TextField());
+            field.defaultTextFormat = new TextFormat(TOOLTIP_FONT_NAME, size, color, bold);
             field.selectable = false;
             field.mouseEnabled = false;
             field.textColor = color;

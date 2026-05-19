@@ -37,7 +37,7 @@ Notes:
 - `scaleformPrototypeEnabled` controls the active custom SWF path.
 - The custom SWF root must extend a WoT `IView`-compatible class such as `net.wg.infrastructure.base.AbstractView`; a plain `Sprite` root is rejected by the loader.
 - The local compile path builds a tiny external WoT API mirror SWC for `AbstractView` so `mxmlc` can compile without bundled WG source/SWCs.
-- The UI tree is intentionally flat: keep the main `.as` entrypoint at `ui/`, the compile-time WoT API mirror under `ui/wot-api/`, and the embedded bitmaps under `ui/assets/`.
+- The UI tree is intentionally flat: keep the main `.as` entrypoint at `ui/`, the compile-time WoT API mirror under `ui/wot-api/`, shared UI helpers as flat siblings, and embedded assets under `ui/assets/` including `ui/assets/fonts/` for vendored fonts.
 
 Current source split:
 
@@ -53,6 +53,7 @@ Current source split:
 - `ResearchProgressBarMarkers.as`: marker display creation, hit areas, and tooltip payload mapping.
 - `ResearchProgressBarTooltipView.as`: tooltip hit-testing, show/hide behavior, and stage clamping.
 - `ResearchProgressBarTooltipContent.as`: tooltip section and text rendering.
+- `ResearchProgressBarFonts.as`: embedded font registration plus shared text-field setup for tooltip, marker, mode-button, and counter text.
 - `ResearchProgressBarMarkerAssets.as`: bar-icon bitmap lookup for typed markers.
 - `ResearchProgressBarLayout.as`: shared stage-to-bar geometry calculations.
 

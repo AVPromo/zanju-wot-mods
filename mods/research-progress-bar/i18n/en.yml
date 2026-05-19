@@ -33,6 +33,7 @@ CAPTION_TOTAL_XP: "Total XP"
 CAPTION_BASE_XP: "Base XP"
 CAPTION_UNLOCKED: "Unlocked"
 CAPTION_LOCKED: "Locked"
+BLUEPRINT_TOOLTIP_FORMAT: "<count>{count}</count>/<total>{total}</total> Blueprints (<discount>{discount}%</discount> discount)"
 
 # Vehicle label formats
 VEHICLE_LABEL_TIER_FORMAT: "{name} (Tier {tier})"

@@ -13,7 +13,6 @@ package {
         private static const MODE_BUTTON_HEIGHT:Number = 20;
         private static const MODE_BUTTON_BOTTOM_PADDING:Number = 1;
         private static const MODE_BUTTON_PADDING_X:Number = 10;
-        private static const MODE_BUTTON_MIN_WIDTH:Number = 48;
         private static const MODE_BUTTON_TEXT_COLOR:uint = 0xD4CAB8;
         private static const MODE_BUTTON_TEXT_ACTIVE_COLOR:uint = 0xF0CF74;
         private static const MODE_BUTTON_BACKGROUND_COLOR:uint = 0x141414;
@@ -198,7 +197,7 @@ package {
             var field:TextField = makeTextField(MODE_BUTTON_TEXT_COLOR, 12, true);
 
             field.text = label;
-            return Math.max(MODE_BUTTON_MIN_WIDTH, field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
+            return Math.ceil(field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
         }
 
         private static function createModeButton(label:String, isSelected:Boolean):Sprite {
@@ -212,7 +211,7 @@ package {
             var buttonWidth:Number;
 
             field.text = label;
-            buttonWidth = Math.max(MODE_BUTTON_MIN_WIDTH, field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
+            buttonWidth = Math.ceil(field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
             drawModeButtonBackground(background, buttonWidth, MODE_BUTTON_HEIGHT + MODE_BUTTON_BOTTOM_PADDING, isSelected);
             button.addChild(background);
 
@@ -256,8 +255,8 @@ package {
         }
 
         private static function makeTextField(color:uint, size:int, bold:Boolean):TextField {
-            var field:TextField = new TextField();
-            field.defaultTextFormat = new TextFormat("_sans", size, color, bold);
+            var field:TextField = ResearchProgressBarFonts.configureTextField(new TextField());
+            field.defaultTextFormat = new TextFormat(ResearchProgressBarFonts.FONT_NAME, size, color, bold);
             field.textColor = color;
             field.selectable = false;
             field.mouseEnabled = false;

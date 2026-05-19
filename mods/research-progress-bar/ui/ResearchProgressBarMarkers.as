@@ -240,8 +240,8 @@ package {
         }
 
         private static function makeTextField(color:uint, size:int, bold:Boolean):TextField {
-            var field:TextField = new TextField();
-            field.defaultTextFormat = new TextFormat("_sans", size, color, bold);
+            var field:TextField = ResearchProgressBarFonts.configureTextField(new TextField());
+            field.defaultTextFormat = new TextFormat(ResearchProgressBarFonts.FONT_NAME, size, color, bold);
             field.selectable = false;
             field.mouseEnabled = false;
             field.textColor = color;

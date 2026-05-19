@@ -460,16 +460,43 @@ def _elite_cumulative_xp_to_level(level):
 
 
 def _build_research_marker(item):
+    blueprint_count = item.get('blueprint_count')
+    blueprint_total = item.get('blueprint_total')
+    blueprint_discount_percent = item.get('blueprint_discount_percent')
+
     return {
         'id': 'unlock_{0}'.format(item['intcd']),
         'positionValue': item['xp_cost'],
         'costXp': item['xp_cost'],
         'itemType': item['item_type'],
+        'progressLabel': _loc('CAPTION_VEHICLE_XP', 'Vehicle XP'),
+        'totalProgressLabel': _loc('CAPTION_TOTAL_XP', 'Total XP'),
         'isAvailable': item.get('is_available', True),
         'missingPrereqNames': item.get('missing_prereq_names', []),
         'missingPrereqs': item.get('missing_prereqs', []),
         'name': item.get('name'),
+        'blueprintCount': blueprint_count,
+        'blueprintTotal': blueprint_total,
+        'blueprintDiscountPercent': blueprint_discount_percent,
+        'blueprintTooltipText': _build_blueprint_tooltip_text(
+            blueprint_count,
+            blueprint_total,
+            blueprint_discount_percent,
+        ),
     }
+
+
+def _build_blueprint_tooltip_text(count, total, discount_percent):
+    if count is None or total is None or discount_percent is None:
+        return None
+
+    return _loc(
+        'BLUEPRINT_TOOLTIP_FORMAT',
+        '<count>{count}</count>/<total>{total}</total> Blueprints (<discount>{discount}%</discount> discount)',
+        count=count,
+        total=total,
+        discount=discount_percent,
+    )
 
 
 def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp):

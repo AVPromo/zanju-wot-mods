@@ -33,6 +33,7 @@ CAPTION_TOTAL_XP: "Łączne PD"
 CAPTION_BASE_XP: "Bazowe PD"
 CAPTION_UNLOCKED: "Odblokowano"
 CAPTION_LOCKED: "Zablokowano"
+BLUEPRINT_TOOLTIP_FORMAT: "<count>{count}</count>/<total>{total}</total> Schematów (<discount>{discount}%</discount> zniżki)"
 
 # Vehicle label formats
 VEHICLE_LABEL_TIER_FORMAT: "{name} (Poziom {tier})"

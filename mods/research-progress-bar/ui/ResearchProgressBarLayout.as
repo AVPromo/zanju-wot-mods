@@ -9,7 +9,7 @@ package {
         public static const BAR_ASSEMBLY_BELOW_HEIGHT:Number = 3;
         public static const BAR_ASSEMBLY_HEIGHT:Number = 36;
 
-        private static const BAR_SIDE_SAFE_OFFSET:Number = 15;
+        private static const BAR_SIDE_SAFE_OFFSET:Number = 20;
         private static const LAYOUT_DISTANCE_BUCKETS:Array = [
             { minWidth: 2560, buttonBottom: 74, verticalDistance: 81, horizontalDistance: 367 },
             { minWidth: 1920, buttonBottom: 70, verticalDistance: 50, horizontalDistance: 367 },

@@ -84,9 +84,16 @@ def _resolve_unlock_display_names(intcds, items=None):
     return names
 
 
-def _build_unlock_marker(xp_cost, intcd, items=None, is_available=True, missing_prereq_intcds=()):
+def _build_unlock_marker(
+    xp_cost,
+    intcd,
+    items=None,
+    is_available=True,
+    missing_prereq_intcds=(),
+    blueprint_info=None,
+):
     item_type = _resolve_unlock_item_type(intcd)
-    return {
+    marker = {
         'xp_cost': xp_cost,
         'intcd': intcd,
         'item_type': item_type,
@@ -95,6 +102,155 @@ def _build_unlock_marker(xp_cost, intcd, items=None, is_available=True, missing_
         'missing_prereq_names': _resolve_unlock_display_names(missing_prereq_intcds, items),
         'missing_prereqs': [_build_unlock_marker_ref(prereq_intcd, items) for prereq_intcd in missing_prereq_intcds],
     }
+
+    if blueprint_info:
+        marker['blueprint_count'] = blueprint_info.get('count')
+        marker['blueprint_total'] = blueprint_info.get('total')
+        marker['blueprint_discount_percent'] = blueprint_info.get('discount_percent')
+
+    return marker
+
+
+def _resolve_unlock_vehicle_level(unlock_item):
+    if unlock_item is None:
+        return None
+
+    level = _to_int_or_none(getattr(unlock_item, 'level', None))
+    if level is not None:
+        return level
+
+    descriptor = getattr(unlock_item, 'descriptor', None)
+    if descriptor is not None:
+        level = _to_int_or_none(getattr(descriptor, 'level', None))
+        if level is not None:
+            return level
+
+        type_descr = getattr(descriptor, 'type', None)
+        if type_descr is not None:
+            level = _to_int_or_none(getattr(type_descr, 'level', None))
+            if level is not None:
+                return level
+
+    return None
+
+
+def _extract_int_pair(value):
+    values = _extract_sequence_ints(value, 2)
+    if len(values) >= 2:
+        return values[0], values[1]
+    return None, None
+
+
+def _get_blueprints_requester(items):
+    if items is None:
+        return None
+
+    try:
+        return getattr(items, '_ItemsRequester__blueprints', None)
+    except Exception:
+        return None
+
+
+def _get_blueprint_count_and_total(blueprints_requester, unlock_intcd, unlock_level):
+    if blueprints_requester is None or unlock_level is None:
+        return None, None
+
+    try:
+        value = blueprints_requester.getBlueprintCount(unlock_intcd, unlock_level)
+    except Exception:
+        return None, None
+
+    return _extract_int_pair(value)
+
+
+def _get_blueprint_discount_percent(blueprints_requester, unlock_intcd, unlock_level, blueprint_count):
+    if blueprints_requester is None or unlock_level is None or blueprint_count is None:
+        return None
+
+    try:
+        value = blueprints_requester.getBlueprintDiscount(unlock_intcd, unlock_level, blueprint_count)
+    except Exception:
+        return None
+
+    return _to_int_or_none(value)
+
+
+def _get_blueprint_discount_xp(blueprints_requester, unlock_intcd, unlock_level, raw_xp_cost):
+    if blueprints_requester is None or unlock_level is None or raw_xp_cost is None:
+        return None, None
+
+    try:
+        value = blueprints_requester.getFragmentDiscountAndCost(unlock_intcd, unlock_level, raw_xp_cost)
+    except Exception:
+        return None, None
+
+    return _extract_int_pair(value)
+
+
+def _resolve_unlock_research_state(intcd, raw_xp_cost, items=None):
+    state = {
+        'xp_cost': raw_xp_cost,
+        'blueprint_info': None,
+    }
+
+    if items is None:
+        return state
+
+    try:
+        unlock_item = items.getItemByCD(intcd)
+    except Exception:
+        return state
+
+    unlock_level = _resolve_unlock_vehicle_level(unlock_item)
+    if unlock_level is None:
+        return state
+
+    blueprints_requester = _get_blueprints_requester(items)
+    if blueprints_requester is None:
+        return state
+
+    blueprint_count, blueprint_total = _get_blueprint_count_and_total(
+        blueprints_requester,
+        intcd,
+        unlock_level,
+    )
+    if blueprint_total is None or blueprint_total <= 0:
+        return state
+
+    blueprint_count = _to_int_or_none(blueprint_count)
+    if blueprint_count is None or blueprint_count < 0:
+        blueprint_count = 0
+
+    discount_percent = _get_blueprint_discount_percent(
+        blueprints_requester,
+        intcd,
+        unlock_level,
+        blueprint_count,
+    )
+    if discount_percent is None and blueprint_count == 1:
+        discount_percent, _discount_xp = _get_blueprint_discount_xp(
+            blueprints_requester,
+            intcd,
+            unlock_level,
+            raw_xp_cost,
+        )
+    discount_percent = _to_int_or_none(discount_percent)
+    if discount_percent is None or discount_percent < 0:
+        discount_percent = 0
+
+    state['blueprint_info'] = {
+        'count': blueprint_count,
+        'total': blueprint_total,
+        'discount_percent': discount_percent,
+    }
+
+    if discount_percent <= 0:
+        return state
+
+    discount_xp = raw_xp_cost * discount_percent / 100
+
+    state['xp_cost'] = max(0, raw_xp_cost - discount_xp)
+    return state
 
 
 def _collect_visible_unlocks(vehicle, unlocks_set, items=None):
@@ -107,16 +263,18 @@ def _collect_visible_unlocks(vehicle, unlocks_set, items=None):
             cost = int(xp_cost)
         except Exception:
             continue
+        research_state = _resolve_unlock_research_state(intcd, cost, items)
+        cost = research_state.get('xp_cost', cost)
         missing_prereqs = sorted([p for p in prereqs if p not in unlocks_set])
-        visible.append(
-            _build_unlock_marker(
-                cost,
-                intcd,
-                items=items,
-                is_available=not missing_prereqs,
-                missing_prereq_intcds=missing_prereqs,
-            )
+        unlock_marker = _build_unlock_marker(
+            cost,
+            intcd,
+            items=items,
+            is_available=not missing_prereqs,
+            missing_prereq_intcds=missing_prereqs,
+            blueprint_info=research_state.get('blueprint_info'),
         )
+        visible.append(unlock_marker)
 
     visible.sort(key=lambda item: (item['xp_cost'], item['intcd']))
     return visible
