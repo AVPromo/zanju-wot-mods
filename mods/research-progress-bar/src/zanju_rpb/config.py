@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import os
+from collections import OrderedDict
 from numbers import Integral
 
 from .constants import MOD_CONFIG_DIR_NAME
@@ -23,8 +24,8 @@ _config = {
     'enabled': True,
     'language': 'auto',
     'showTechTree': True,
-    'fieldModsMode': 'always',
     'showUpgrades': True,
+    'fieldModsMode': 'always',
     'eliteMode': 'on',
     'scaleformPrototypeEnabled': True,
 }
@@ -33,9 +34,25 @@ _CONFIG_PERSISTED_KEYS = (
     'enabled',
     'language',
     'showTechTree',
-    'fieldModsMode',
     'showUpgrades',
+    'fieldModsMode',
     'eliteMode',
+    'scaleformPrototypeEnabled',
+)
+
+_CONFIG_SAVE_KEY_ORDER = (
+    '_comment',
+    'configVersion',
+    'enabled',
+    '_language_comment',
+    'language',
+    'showTechTree',
+    'showUpgrades',
+    '_fieldModsMode_comment',
+    'fieldModsMode',
+    '_eliteMode_comment',
+    'eliteMode',
+    '_scaleformPrototypeEnabled_comment',
     'scaleformPrototypeEnabled',
 )
 
@@ -62,12 +79,12 @@ _ELITE_MODE_VALUES = (
 _ELITE_MODE_INDEX_BY_VALUE = dict(
     (value, index) for index, value in enumerate(_ELITE_MODE_VALUES)
 )
-_MODS_SETTINGS_SCHEMA_VERSION = 8
+_MODS_SETTINGS_SCHEMA_VERSION = 9
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
     'showTechTree',
-    'showFieldModsProgress',
     'showUpgrades',
+    'showFieldModsProgress',
     'showEliteProgress',
 )
 
@@ -165,10 +182,10 @@ def _normalize_display_config():
 def _build_mode_preferences():
     return {
         'showResearch': bool(_config.get('showTechTree', True)),
+        'showUpgrades': bool(_config.get('showUpgrades', True)),
         'fieldModsMode': _normalize_field_mods_mode(
             _config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)
         ),
-        'showUpgrades': bool(_config.get('showUpgrades', True)),
         'eliteMode': _normalize_elite_mode(_config.get('eliteMode', _ELITE_MODE_ON)),
     }
 
@@ -201,7 +218,15 @@ def _save_config():
         for key in _CONFIG_PERSISTED_KEYS:
             data[key] = _config.get(key)
 
-        payload = json.dumps(data, indent=4, sort_keys=False)
+        ordered_data = OrderedDict()
+        for key in _CONFIG_SAVE_KEY_ORDER:
+            if key in data:
+                ordered_data[key] = data[key]
+        for key, value in data.items():
+            if key not in ordered_data:
+                ordered_data[key] = value
+
+        payload = json.dumps(ordered_data, indent=4, sort_keys=False)
         if not payload.endswith('\n'):
             payload += '\n'
 
@@ -217,11 +242,11 @@ def _build_mod_settings_state():
     return {
         'enabled': bool(_config.get('enabled', True)),
         'showTechTree': bool(_config.get('showTechTree', True)),
+        'showUpgrades': bool(_config.get('showUpgrades', True)),
         'showFieldModsProgress': _FIELD_MODS_MODE_INDEX_BY_VALUE.get(
             _normalize_field_mods_mode(_config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)),
             0,
         ),
-        'showUpgrades': bool(_config.get('showUpgrades', True)),
         'showEliteProgress': _ELITE_MODE_INDEX_BY_VALUE.get(
             _normalize_elite_mode(_config.get('eliteMode', _ELITE_MODE_ON)),
             0,
@@ -268,6 +293,18 @@ def _build_mod_settings_template():
                 'varName': 'showTechTree',
             },
             {
+                'type': 'CheckBox',
+                'text': _loc('SETTING_UPGRADES', 'Upgrades'),
+                'tooltip': _loc_tooltip(
+                    'TOOLTIP_UPGRADES_HEADER',
+                    'TOOLTIP_UPGRADES_BODY',
+                    'Upgrades',
+                    'Show tier XI upgrade tree progress.',
+                ),
+                'value': settings['showUpgrades'],
+                'varName': 'showUpgrades',
+            },
+            {
                 'type': 'RadioButtonGroup',
                 'text': _loc('SETTING_FIELD_MODS', 'Field Mods'),
                 'tooltip': _loc_tooltip(
@@ -286,18 +323,6 @@ def _build_mod_settings_template():
                 ],
                 'value': settings['showFieldModsProgress'],
                 'varName': 'showFieldModsProgress',
-            },
-            {
-                'type': 'CheckBox',
-                'text': _loc('SETTING_UPGRADES', 'Upgrades'),
-                'tooltip': _loc_tooltip(
-                    'TOOLTIP_UPGRADES_HEADER',
-                    'TOOLTIP_UPGRADES_BODY',
-                    'Upgrades',
-                    'Show tier XI upgrade tree progress.',
-                ),
-                'value': settings['showUpgrades'],
-                'varName': 'showUpgrades',
             },
             {
                 'type': 'RadioButtonGroup',

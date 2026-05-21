@@ -7,8 +7,8 @@ Custom hangar progress bar for World of Tanks.
 The current mod surface includes:
 
 - research progress toward the next unlock
-- field modification progress
 - Tier XI upgrade-tree progress
+- field modification progress
 - elite progress modes with optional badge filtering
 - optional in-game settings integration when supported APIs are installed
 

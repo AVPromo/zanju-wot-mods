@@ -3,7 +3,7 @@
     <id>zanju.researchprogressbar</id>
     <name>Zanju's Research Progress Bar</name>
     <version>0.1.0.0</version>
-    <description>Shows XP progress toward research, field modifications, tier XI upgrades, and elite milestones for the selected vehicle.</description>
+    <description>Shows XP progress toward research, tier XI upgrades, field modifications, and elite milestones for the selected vehicle.</description>
     <wot_client_version>2.2.1.1</wot_client_version>
     <tags>hangar,research,ui</tags>
     <author>zanju</author>

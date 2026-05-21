@@ -28,7 +28,7 @@ Notes:
 - `wot_mods_build research-progress-bar` and `wot_mods_cycle research-progress-bar` now invoke `ui/compile_ui.py` automatically before packaging, so manual UI builds are mainly for faster SWF-only iteration.
 - Files under `ui/build/` are generated artifacts and should not be committed.
 - The final user-facing release bundle is emitted under `dist/` with the `.wotmod`, copied config, and install README.
-- The Python side now registers an optional `ModsSettingsAPI` template for `enabled`, `Research`, `Field Mods`, `Upgrades`, and `Elite`; the `Field Mods` control is a radio group with `Always show`, `Until complete`, and `Off`, and the `Elite` control is a radio group with `On`, `Customization only`, and `Off`.
+- The Python side now registers an optional `ModsSettingsAPI` template for `enabled`, `Research`, `Upgrades`, `Field Mods`, and `Elite`; the `Field Mods` control is a radio group with `Always show`, `Until complete`, and `Off`, and the `Elite` control is a radio group with `On`, `Customization only`, and `Off`.
 - Runtime localization now reads `mods/configs/research-progress-bar/i18n/<language>.yml` with English fallback; authored `mods/research-progress-bar/i18n/*.yml` files are staged both into the packaged mod text resources and into the deployed config `i18n/` folder.
 - That in-game settings path is additive only: if `ModsSettingsAPI`, `ModsListAPI`, or `OpenWG Gameface` is missing, the mod should keep working from `mods/configs/research-progress-bar/config.json` without crashing.
 - Changes made through the in-game configurator are persisted back to `mods/configs/research-progress-bar/config.json` so manual edits and UI edits stay on the same config path.

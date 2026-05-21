@@ -5,8 +5,8 @@ from ..localization import get_text as _loc, get_wg_text as _wg_loc
 
 
 MODE_REGULAR_RESEARCH = 'regular_research'
-MODE_FIELD_MODS = 'field_mods'
 MODE_TIER11_UPGRADES = 'tier11_upgrades'
+MODE_FIELD_MODS = 'field_mods'
 MODE_ELITE_PROGRESSION = 'elite_progression'
 
 FIELD_MODS_MODE_ALWAYS = 'always'
@@ -72,14 +72,14 @@ def build_scaleform_view_payload(vehicle, data, mode_preferences=None):
         if research_mode is not None:
             modes.append(research_mode)
 
-    field_mods_mode = _build_field_mods_mode(data, preferences['fieldModsMode'])
-    if field_mods_mode is not None:
-        modes.append(field_mods_mode)
-
     if preferences['showUpgrades']:
         tier11_mode = _build_tier11_mode(data)
         if tier11_mode is not None:
             modes.append(tier11_mode)
+
+    field_mods_mode = _build_field_mods_mode(data, preferences['fieldModsMode'])
+    if field_mods_mode is not None:
+        modes.append(field_mods_mode)
 
     elite_mode = _build_elite_mode(data, preferences['eliteMode'])
     if elite_mode is not None:
@@ -109,8 +109,8 @@ def _normalize_mode_preferences(mode_preferences):
 
     return {
         'showResearch': bool(preferences.get('showResearch', True)),
-        'fieldModsMode': field_mods_mode,
         'showUpgrades': bool(preferences.get('showUpgrades', True)),
+        'fieldModsMode': field_mods_mode,
         'eliteMode': elite_mode,
     }
 
