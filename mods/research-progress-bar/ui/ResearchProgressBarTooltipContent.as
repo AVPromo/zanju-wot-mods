@@ -20,6 +20,7 @@ package {
         private static const TOOLTIP_ROW_GAP:Number = 3;
         private static const TOOLTIP_COMPACT_ROW_GAP:Number = 1;
         private static const TOOLTIP_TITLE_SIZE:int = 16;
+        private static const TOOLTIP_SUBTITLE_SIZE:int = 14;
         private static const TOOLTIP_BODY_SIZE:int = 14;
         private static const TOOLTIP_PROGRESS_GAP:Number = 8;
         private static const TOOLTIP_PROGRESS_COLUMN_GAP_CHARS:int = 2;
@@ -56,12 +57,22 @@ package {
             }
 
             if (markerState == "completed") {
-                row = createTooltipTextRow(
-                    "Unlocked",
-                    TOOLTIP_BODY_SIZE,
-                    TOOLTIP_HIGHLIGHT_TEXT_COLOR,
-                    true
-                );
+                if (marker != null && marker.completedTooltipHtml !== undefined && marker.completedTooltipHtml != null && String(marker.completedTooltipHtml).length > 0) {
+                    row = createTooltipHtmlTextRow(
+                        String(marker.completedTooltipHtml),
+                        TOOLTIP_BODY_SIZE,
+                        TOOLTIP_TEXT_COLOR,
+                        false
+                    );
+                }
+                else {
+                    row = createTooltipTextRow(
+                        resolveCompletedMarkerText(marker),
+                        TOOLTIP_BODY_SIZE,
+                        TOOLTIP_HIGHLIGHT_TEXT_COLOR,
+                        true
+                    );
+                }
                 row.y = cursorY;
                 section.addChild(row);
                 return section;
@@ -182,6 +193,16 @@ package {
             return "missing prerequisites";
         }
 
+        private static function resolveCompletedMarkerText(marker:Object):String {
+            if (marker != null && marker.completedTooltipText !== undefined && marker.completedTooltipText != null) {
+                if (String(marker.completedTooltipText).length > 0) {
+                    return String(marker.completedTooltipText);
+                }
+            }
+
+            return "Unlocked";
+        }
+
         private static function createTooltipProgressRow(rowData:Object, columnWidths:Object):Sprite {
             return createTooltipHtmlTextRow(
                 buildTooltipProgressHtml(rowData, columnWidths),
@@ -197,6 +218,10 @@ package {
             var tooltipIconSize:Number = resolveMarkerTooltipIconSize(marker);
             var tooltipIconLayoutWidth:Number = Math.max(TOOLTIP_ICON_LAYOUT_WIDTH, tooltipIconSize);
             var titleField:TextField = makeTooltipRowField(resolveMarkerTooltipTitle(marker), TOOLTIP_TITLE_SIZE, TOOLTIP_TEXT_COLOR, true);
+            var subtitleText:String = resolveMarkerTooltipSubtitle(marker);
+            var subtitleField:TextField = subtitleText.length > 0
+                ? makeTooltipRowField(subtitleText, TOOLTIP_SUBTITLE_SIZE, TOOLTIP_TEXT_COLOR, false)
+                : null;
             var costField:TextField = makeTooltipHtmlRowField(
                 buildTooltipHighlightedHtml("", formatExactXpValue(costXp), " XP", true),
                 TOOLTIP_BODY_SIZE,
@@ -205,6 +230,7 @@ package {
             );
             var rowHeight:Number;
             var titleX:Number = 0;
+            var titleBlockHeight:Number;
 
             if (!shouldHideTooltipIcon(marker)) {
                 icon = createTooltipMarkerIconForMarker(marker, tooltipIconSize, tooltipIconLayoutWidth);
@@ -220,6 +246,24 @@ package {
 
             costField.x = titleField.x + titleField.width + TOOLTIP_PROGRESS_GAP;
             row.addChild(costField);
+
+            if (subtitleField != null) {
+                subtitleField.x = titleX;
+                subtitleField.y = titleField.height + TOOLTIP_COMPACT_ROW_GAP;
+                row.addChild(subtitleField);
+
+                titleField.y = 0;
+                costField.y = Math.round((titleField.height - costField.height) / 2);
+                titleBlockHeight = subtitleField.y + subtitleField.height;
+                rowHeight = Math.max(
+                    icon != null ? tooltipIconSize : 0,
+                    Math.max(titleBlockHeight, costField.y + costField.height)
+                );
+                if (icon != null) {
+                    icon.y = Math.round((rowHeight - tooltipIconSize) / 2);
+                }
+                return row;
+            }
 
             rowHeight = Math.max(icon != null ? tooltipIconSize : 0, Math.max(titleField.height, costField.height));
             if (icon != null) {
@@ -246,12 +290,24 @@ package {
             var markerName:String = ResearchProgressBarMarkerAssets.resolveMarkerName(marker);
             var levelValue:*;
 
+            if (marker != null && marker.tooltipTitle !== undefined && marker.tooltipTitle != null && String(marker.tooltipTitle).length > 0) {
+                return String(marker.tooltipTitle);
+            }
+
             if (!isEliteMarker(marker) || marker == null || marker.level === undefined || marker.level == null) {
                 return markerName;
             }
 
             levelValue = marker.level;
             return "Level " + String(levelValue) + ": " + markerName;
+        }
+
+        private static function resolveMarkerTooltipSubtitle(marker:Object):String {
+            if (marker != null && marker.tooltipSubtitle !== undefined && marker.tooltipSubtitle != null && String(marker.tooltipSubtitle).length > 0) {
+                return String(marker.tooltipSubtitle);
+            }
+
+            return "";
         }
 
         private static function resolveMarkerTooltipIconSize(marker:Object):Number {
@@ -337,6 +393,8 @@ package {
 
         private static function makeTooltipHtmlRowField(html:String, size:int, color:uint, bold:Boolean):TextField {
             var field:TextField = makeTextField(color, size, bold);
+            field.multiline = true;
+            field.wordWrap = false;
             field.htmlText = html;
             field.width = field.textWidth + 6;
             field.height = field.textHeight + TOOLTIP_TEXT_FIELD_PADDING;

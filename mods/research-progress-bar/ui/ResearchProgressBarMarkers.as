@@ -119,7 +119,7 @@ package {
                 markerSprite.addChild(markerIcon);
             }
             else if (shouldShowMarkerLabel(marker)) {
-                markerLabel = makeMarkerLabelField(String(marker.label), markerBitmap.y);
+                markerLabel = makeMarkerLabelField(marker, markerBitmap.y);
                 markerSprite.addChild(markerLabel);
             }
 
@@ -201,12 +201,24 @@ package {
 
         private static function shouldShowMarkerLabel(marker:Object):Boolean {
             var markerLabel:String;
+            var markerLabelHtml:String;
 
-            if (marker == null || marker.label === undefined || marker.label == null) {
+            if (marker == null) {
                 return false;
             }
 
             if (!(marker.showBarLabel !== undefined && Boolean(marker.showBarLabel))) {
+                return false;
+            }
+
+            if (marker.labelHtml !== undefined && marker.labelHtml != null) {
+                markerLabelHtml = String(marker.labelHtml);
+                if (markerLabelHtml.length > 0) {
+                    return true;
+                }
+            }
+
+            if (marker.label === undefined || marker.label == null) {
                 return false;
             }
 
@@ -220,14 +232,29 @@ package {
             return bitmap;
         }
 
-        private static function makeMarkerLabelField(text:String, markerTopY:Number):TextField {
-            var field:TextField = makeTextField(LABEL_COLOR, 16, true);
+        private static function makeMarkerLabelField(marker:Object, markerTopY:Number):TextField {
+            var labelHtml:String = marker != null && marker.labelHtml !== undefined && marker.labelHtml != null
+                ? String(marker.labelHtml)
+                : "";
+            var labelText:String = marker != null && marker.label !== undefined && marker.label != null
+                ? String(marker.label)
+                : "";
+            var field:TextField;
+
+            if (labelHtml.length > 0) {
+                field = makeTextField(LABEL_COLOR, 16, false);
+                field.htmlText = labelHtml;
+            }
+            else {
+                field = makeTextField(LABEL_COLOR, 16, true);
+                field.text = labelText;
+            }
+
             alignTextField(field, TextFormatAlign.CENTER);
-            field.width = 48;
-            field.height = 22;
-            field.x = -24;
+            field.width = Math.max(16, field.textWidth + 8);
+            field.height = field.textHeight + 6;
+            field.x = -Math.round(field.width / 2);
             field.y = markerTopY - field.height;
-            field.text = text;
             return field;
         }
 

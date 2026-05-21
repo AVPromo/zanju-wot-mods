@@ -1,13 +1,30 @@
 """Scaleform payload builders for the research progress bar."""
 from __future__ import print_function, unicode_literals
 
-from ..localization import get_text as _loc
+from ..localization import get_text as _loc, get_wg_text as _wg_loc
 
 
 MODE_REGULAR_RESEARCH = 'regular_research'
 MODE_FIELD_MODS = 'field_mods'
 MODE_TIER11_UPGRADES = 'tier11_upgrades'
 MODE_ELITE_PROGRESSION = 'elite_progression'
+
+FIELD_MODS_MODE_ALWAYS = 'always'
+FIELD_MODS_MODE_UNTIL_COMPLETE = 'until_complete'
+FIELD_MODS_MODE_OFF = 'off'
+
+FIELD_MOD_DUAL_BUFF_HTML_COLOR = '#80D43A'
+FIELD_MOD_DUAL_DEBUFF_HTML_COLOR = '#D95C56'
+FIELD_MOD_MARKER_HIGHLIGHT_HTML_COLOR = '#F0CF74'
+FIELD_MOD_MARKER_MUTED_HTML_COLOR = '#B8AC97'
+FIELD_MOD_BAR_ICON_CATEGORIES = frozenset((
+    'firepower',
+    'survivability',
+    'mobility',
+    'stealth',
+    'reconnaissance',
+    'scouting',
+))
 
 ELITE_MODE_ON = 'on'
 ELITE_MODE_CUSTOMIZATION_ONLY = 'customization_only'
@@ -55,10 +72,9 @@ def build_scaleform_view_payload(vehicle, data, mode_preferences=None):
         if research_mode is not None:
             modes.append(research_mode)
 
-    if preferences['showFieldMods']:
-        field_mods_mode = _build_field_mods_mode(data)
-        if field_mods_mode is not None:
-            modes.append(field_mods_mode)
+    field_mods_mode = _build_field_mods_mode(data, preferences['fieldModsMode'])
+    if field_mods_mode is not None:
+        modes.append(field_mods_mode)
 
     if preferences['showUpgrades']:
         tier11_mode = _build_tier11_mode(data)
@@ -81,13 +97,19 @@ def build_scaleform_view_payload(vehicle, data, mode_preferences=None):
 
 def _normalize_mode_preferences(mode_preferences):
     preferences = dict(mode_preferences or {})
+    field_mods_mode = preferences.get('fieldModsMode') or FIELD_MODS_MODE_ALWAYS
+    if field_mods_mode not in (
+            FIELD_MODS_MODE_ALWAYS,
+            FIELD_MODS_MODE_UNTIL_COMPLETE,
+            FIELD_MODS_MODE_OFF):
+        field_mods_mode = FIELD_MODS_MODE_ALWAYS
     elite_mode = preferences.get('eliteMode') or ELITE_MODE_ON
     if elite_mode not in (ELITE_MODE_ON, ELITE_MODE_CUSTOMIZATION_ONLY, ELITE_MODE_OFF):
         elite_mode = ELITE_MODE_ON
 
     return {
         'showResearch': bool(preferences.get('showResearch', True)),
-        'showFieldMods': bool(preferences.get('showFieldMods', True)),
+        'fieldModsMode': field_mods_mode,
         'showUpgrades': bool(preferences.get('showUpgrades', True)),
         'eliteMode': elite_mode,
     }
@@ -141,12 +163,12 @@ def _build_regular_research_mode(data):
     )
 
 
-def _build_field_mods_mode(data):
+def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
     field_mods = data.get('field_mods') or {}
     tier_plan = field_mods.get('tier_plan') or {}
     tech_tree = data.get('tech_tree') or {}
 
-    if not _is_field_mods_mode_enabled(field_mods, tier_plan, tech_tree):
+    if not _is_field_mods_mode_enabled(field_mods, tier_plan, tech_tree, field_mods_mode):
         return None
 
     max_level = _to_int(tier_plan.get('max_level')) or _to_int(field_mods.get('unique_level_count')) or 0
@@ -170,15 +192,30 @@ def _build_field_mods_mode(data):
     remaining_levels = range(current_level + 1, max_level + 1)
 
     if next_level is None or current_level >= max_level:
-        primary_value = float(max_level)
-        secondary_value = 0.0
-        completed_value = 0.0
-        bar_max_value = max_level
         left_text = '100%'
         left_caption = _loc('CAPTION_VEHICLE_XP', 'Vehicle XP')
         right_text = '100%'
         right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
-        markers = []
+        if xp_per_level is not None and xp_per_level > 0 and max_level > 0:
+            total_cost = xp_per_level * max_level
+            primary_value = 0.0
+            secondary_value = 0.0
+            completed_value = total_cost
+            bar_max_value = total_cost
+            markers = _build_field_mod_markers(
+                current_level,
+                max_level,
+                xp_per_level,
+                0,
+                0,
+                field_mods,
+            )
+        else:
+            primary_value = 0.0
+            secondary_value = 0.0
+            completed_value = float(max_level)
+            bar_max_value = max_level
+            markers = []
     elif xp_per_level is not None and xp_per_level > 0 and remaining_levels:
         total_cost = xp_per_level * max_level
         completed_total_cost = xp_per_level * current_level
@@ -197,6 +234,7 @@ def _build_field_mods_mode(data):
             xp_per_level,
             vehicle_xp,
             total_xp,
+            field_mods,
         )
     else:
         primary_value, secondary_value = _build_fractional_fill(
@@ -384,13 +422,16 @@ def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosm
             position_value = _elite_cumulative_xp_to_level(level)
             if level >= ELITE_MAX_LEVEL:
                 position_value = _elite_total_required_xp()
+            marker_name = _loc(marker_label_key, marker_default_name)
             markers.append({
                 'id': 'elite_{0}'.format(marker_key),
                 'positionValue': position_value,
                 'costXp': position_value,
                 'itemType': 'unknown',
-                'name': _loc(marker_label_key, marker_default_name),
+                'name': marker_name,
                 'level': level,
+                'tooltipTitle': _build_level_tooltip_title(level),
+                'tooltipSubtitle': marker_name,
                 'label': '',
                 'iconCacheKey': 'elite:{0}'.format(marker_key),
                 'hideTooltipIcon': False,
@@ -404,13 +445,16 @@ def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosm
     if include_t11_cosmetics:
         for marker_key, marker_label_key, marker_default_name, level in ELITE_T11_COSMETIC_MARKERS:
             position_value = _elite_cumulative_xp_to_level(level)
+            marker_name = _loc(marker_label_key, marker_default_name)
             markers.append({
                 'id': 'elite_t11_{0}'.format(marker_key),
                 'positionValue': position_value,
                 'costXp': position_value,
                 'itemType': 'unknown',
-                'name': _loc(marker_label_key, marker_default_name),
+                'name': marker_name,
                 'level': level,
+                'tooltipTitle': _build_level_tooltip_title(level),
+                'tooltipSubtitle': marker_name,
                 'label': '',
                 'iconCacheKey': 'elite:t11_cosmetic',
                 'hideTooltipIcon': False,
@@ -499,34 +543,297 @@ def _build_blueprint_tooltip_text(count, total, discount_percent):
     )
 
 
-def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp):
+def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp, field_mods=None):
     markers = []
     cumulative_total_cost = 0
+    level_details = (field_mods or {}).get('level_details') or {}
 
     for level in range(1, max_level + 1):
         cumulative_total_cost += xp_per_level
         remaining_cost = max(0, (level - current_level) * xp_per_level)
         roman_level = _to_roman(level)
-        markers.append({
+        marker_state = _resolve_field_mod_marker_state(
+            level,
+            current_level,
+            remaining_cost,
+            vehicle_xp,
+            total_xp,
+        )
+        completed_tooltip_html = _build_field_mod_completed_tooltip_html(level_details.get(level))
+        completed_tooltip_text = _build_field_mod_completed_tooltip_text(level_details.get(level))
+        marker = {
             'id': 'field_mod_{0}'.format(level),
             'positionValue': cumulative_total_cost,
             'costXp': xp_per_level if level <= current_level else remaining_cost,
             'itemType': 'unknown',
             'isAvailable': True,
-            'name': 'Level {0}'.format(roman_level),
+            'name': _build_level_tooltip_title(roman_level),
+            'tooltipTitle': _build_level_tooltip_title(roman_level),
+            'tooltipSubtitle': _build_field_mod_tooltip_subtitle(level_details.get(level)) if marker_state != 'completed' else None,
             'label': roman_level,
             'showBarLabel': True,
             'hideTooltipIcon': True,
-            'markerState': _resolve_field_mod_marker_state(
-                level,
-                current_level,
-                remaining_cost,
-                vehicle_xp,
-                total_xp,
-            ),
-        })
+            'hideBarIcon': True,
+            'completedTooltipHtml': completed_tooltip_html,
+            'completedTooltipText': completed_tooltip_text,
+            'markerState': marker_state,
+        }
+        marker.update(_build_field_mod_marker_display(level_details.get(level), roman_level))
+        markers.append(marker)
 
     return markers
+
+
+def _build_field_mod_marker_display(level_detail, roman_level):
+    if not level_detail:
+        return {
+            'label': roman_level,
+            'showBarLabel': True,
+            'hideBarIcon': True,
+        }
+
+    kind = level_detail.get('kind')
+    if kind == 'feature':
+        is_active = bool(level_detail.get('is_active'))
+        symbol = '+' if is_active else '-'
+        return {
+            'label': symbol,
+            'labelHtml': _build_field_mod_marker_html_text(symbol, is_active, True),
+            'showBarLabel': True,
+            'hideBarIcon': True,
+        }
+
+    if kind == 'role_slot':
+        normalized_category = _normalize_t11_category(level_detail.get('category'))
+        if level_detail.get('is_active') and normalized_category in FIELD_MOD_BAR_ICON_CATEGORIES:
+            return {
+                'label': '',
+                'showBarLabel': False,
+                'hideBarIcon': False,
+                'barItemType': normalized_category,
+                'itemType': normalized_category,
+            }
+        return {
+            'label': '-',
+            'labelHtml': _build_field_mod_marker_html_text('-', False, True),
+            'showBarLabel': True,
+            'hideBarIcon': True,
+        }
+
+    if kind == 'dual':
+        selected_choice_index = _resolve_field_mod_dual_selected_choice_index(level_detail)
+        return {
+            'label': _build_field_mod_dual_marker_label(selected_choice_index),
+            'showBarLabel': True,
+            'hideBarIcon': True,
+        }
+
+    return {
+        'label': roman_level,
+        'showBarLabel': True,
+        'hideBarIcon': True,
+    }
+
+
+def _build_level_tooltip_title(level):
+    return _loc('TOOLTIP_LEVEL_FORMAT', 'Level {level}', level=level)
+
+
+def _build_field_mod_tooltip_subtitle(level_detail):
+    if not level_detail:
+        return None
+
+    kind = level_detail.get('kind')
+    if kind == 'feature':
+        return _build_field_mod_feature_label(level_detail.get('action_name'))
+    if kind == 'role_slot':
+        return _wg_loc(
+            '#veh_post_progression:roleSlotTooltipView/title',
+            _loc('FIELD_MOD_TOOLTIP_SUBTITLE_ROLE_SLOT', 'Second Slot Category'),
+        )
+    if kind == 'dual':
+        return _loc('FIELD_MOD_TOOLTIP_SUBTITLE_DUAL', 'Dual Modification')
+    return None
+
+
+def _build_field_mod_feature_label(action_name):
+    return _wg_loc(
+        '#veh_post_progression:setupTooltipView/name/{0}'.format(action_name),
+        _humanize_field_mod_token(action_name),
+    )
+
+
+def _build_field_mod_marker_html_text(text, is_highlighted, is_bold=False):
+    if not text:
+        return ''
+
+    color = FIELD_MOD_MARKER_HIGHLIGHT_HTML_COLOR if is_highlighted else FIELD_MOD_MARKER_MUTED_HTML_COLOR
+    escaped_text = _escape_html(text)
+    if is_highlighted or is_bold:
+        escaped_text = '<b>{0}</b>'.format(escaped_text)
+    return '<font color="{0}">{1}</font>'.format(color, escaped_text)
+
+
+def _resolve_field_mod_dual_selected_choice_index(level_detail):
+    if not level_detail:
+        return None
+
+    selected_choice_index = _to_int(level_detail.get('selected_choice_index'))
+    if selected_choice_index is not None:
+        if selected_choice_index <= 0:
+            return None
+        if selected_choice_index == 1:
+            return 1
+        if selected_choice_index == 2:
+            return 2
+
+    selected_mod_name = level_detail.get('selected_mod_name')
+    if selected_mod_name:
+        name_text = u'{0}'.format(selected_mod_name)
+        if name_text.endswith('_1'):
+            return 1
+        if name_text.endswith('_2'):
+            return 2
+
+    return None
+
+
+def _build_field_mod_dual_marker_label(selected_choice_index):
+    if selected_choice_index == 1:
+        return 'A'
+    if selected_choice_index == 2:
+        return 'B'
+    return '-'
+
+
+def _build_field_mod_completed_tooltip_text(level_detail):
+    if not level_detail:
+        return None
+
+    kind = level_detail.get('kind')
+    if kind == 'feature':
+        label = _build_field_mod_feature_label(level_detail.get('action_name'))
+        value = _loc(
+            'FIELD_MOD_STATUS_ACTIVE',
+            'Active',
+        ) if level_detail.get('is_active') else _loc(
+            'FIELD_MOD_STATUS_INACTIVE',
+            'Not active',
+        )
+        return _loc('FIELD_MOD_VALUE_FORMAT', '{label}: {value}', label=label, value=value)
+
+    if kind == 'role_slot':
+        label = _wg_loc(
+            '#veh_post_progression:roleSlotTooltipView/title',
+            'Second Slot Category',
+        )
+        if level_detail.get('is_active'):
+            value = _localize_field_mod_category(level_detail.get('category'))
+        else:
+            value = _loc('FIELD_MOD_STATUS_INACTIVE', 'Not active')
+        return _loc('FIELD_MOD_VALUE_FORMAT', '{label}: {value}', label=label, value=value)
+
+    if kind == 'dual':
+        selected_mod_name = _build_field_mod_selected_mod_name(level_detail)
+        if not selected_mod_name:
+            return _loc(
+                'FIELD_MOD_VALUE_FORMAT',
+                '{label}: {value}',
+                label=_loc('FIELD_MOD_TOOLTIP_SUBTITLE_DUAL', 'Dual Modification'),
+                value=_loc('FIELD_MOD_STATUS_NOT_SELECTED', 'Not selected'),
+            )
+
+        selected_choice_lines = level_detail.get('selected_choice_lines') or []
+        if not selected_choice_lines:
+            return selected_mod_name
+
+        lines = [selected_mod_name]
+        line = None
+        for line in selected_choice_lines:
+            text = line.get('text')
+            if text:
+                lines.append(text)
+        return '\n'.join(lines)
+    return None
+
+def _build_field_mod_completed_tooltip_html(level_detail):
+    if not level_detail or level_detail.get('kind') != 'dual':
+        return None
+
+    selected_mod_name = _build_field_mod_selected_mod_name(level_detail)
+    if not selected_mod_name:
+        return None
+
+    selected_choice_lines = level_detail.get('selected_choice_lines') or []
+    if not selected_choice_lines:
+        return None
+
+    html_lines = ['<b>{0}</b>'.format(_escape_html(selected_mod_name))]
+    line = None
+    for line in selected_choice_lines:
+        text = line.get('text')
+        if not text:
+            continue
+        html_lines.append(
+            '<font color="{0}">{1}</font>'.format(
+                FIELD_MOD_DUAL_DEBUFF_HTML_COLOR if line.get('is_debuff') else FIELD_MOD_DUAL_BUFF_HTML_COLOR,
+                _escape_html(text),
+            )
+        )
+
+    return '<br/>'.join(html_lines)
+
+
+def _build_field_mod_selected_mod_name(level_detail):
+    selected_mod_name = level_detail.get('selected_mod_name')
+    if selected_mod_name:
+        return _wg_loc(
+            '#artefacts:{0}/name'.format(selected_mod_name),
+            _humanize_field_mod_token(selected_mod_name),
+        )
+
+    selected_choice_index = _to_int(level_detail.get('selected_choice_index'))
+    multi_action_name = level_detail.get('multi_action_name')
+    if selected_choice_index is None or selected_choice_index <= 0 or not multi_action_name:
+        return None
+
+    selected_mod_name = '{0}_{1}'.format(multi_action_name, selected_choice_index)
+    return _wg_loc(
+        '#artefacts:{0}/name'.format(selected_mod_name),
+        _humanize_field_mod_token(selected_mod_name),
+    )
+
+
+def _escape_html(value):
+    text = u'{0}'.format(value or '')
+    return (
+        text.replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+    )
+
+
+def _localize_field_mod_category(category):
+    normalized_category = _normalize_t11_category(category)
+    if not normalized_category:
+        return _loc('FIELD_MOD_STATUS_INACTIVE', 'Not active')
+
+    return (
+        _wg_loc('#tank_setup:categories/{0}'.format(normalized_category))
+        or _wg_loc('#veh_post_progression:categories/{0}'.format(normalized_category))
+        or _humanize_field_mod_token(normalized_category)
+    )
+
+
+def _humanize_field_mod_token(value):
+    if not value:
+        return ''
+
+    text = u'{0}'.format(value).replace('_', ' ').strip()
+    if not text:
+        return ''
+    return text[0].upper() + text[1:]
 
 
 def _build_t11_markers(display_layout, vehicle_xp, total_xp):
@@ -971,7 +1278,9 @@ def _build_fractional_fill(base_units, max_units, step_cost, vehicle_xp, total_x
     return primary_value, secondary_value
 
 
-def _is_field_mods_mode_enabled(field_mods, tier_plan, tech_tree):
+def _is_field_mods_mode_enabled(field_mods, tier_plan, tech_tree, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
+    if field_mods_mode == FIELD_MODS_MODE_OFF:
+        return False
     if not tech_tree.get('is_elite'):
         return False
     if not field_mods.get('exists'):
@@ -980,12 +1289,16 @@ def _is_field_mods_mode_enabled(field_mods, tier_plan, tech_tree):
         return False
 
     if tier_plan.get('enabled'):
+        if field_mods_mode == FIELD_MODS_MODE_ALWAYS:
+            return (_to_int(tier_plan.get('max_level')) or 0) > 0
         return tier_plan.get('next_level') is not None
 
     unique_level_count = _to_int(field_mods.get('unique_level_count')) or 0
     unique_unlocked_level_count = _to_int(field_mods.get('unique_unlocked_level_count')) or 0
     if unique_level_count <= 0:
         return False
+    if field_mods_mode == FIELD_MODS_MODE_ALWAYS:
+        return True
     return unique_unlocked_level_count < unique_level_count
 
 

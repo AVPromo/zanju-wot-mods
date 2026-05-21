@@ -23,7 +23,7 @@ _config = {
     'enabled': True,
     'language': 'auto',
     'showTechTree': True,
-    'showFieldMods': True,
+    'fieldModsMode': 'always',
     'showUpgrades': True,
     'eliteMode': 'on',
     'scaleformPrototypeEnabled': True,
@@ -33,10 +33,22 @@ _CONFIG_PERSISTED_KEYS = (
     'enabled',
     'language',
     'showTechTree',
-    'showFieldMods',
+    'fieldModsMode',
     'showUpgrades',
     'eliteMode',
     'scaleformPrototypeEnabled',
+)
+
+_FIELD_MODS_MODE_ALWAYS = 'always'
+_FIELD_MODS_MODE_UNTIL_COMPLETE = 'until_complete'
+_FIELD_MODS_MODE_OFF = 'off'
+_FIELD_MODS_MODE_VALUES = (
+    _FIELD_MODS_MODE_ALWAYS,
+    _FIELD_MODS_MODE_UNTIL_COMPLETE,
+    _FIELD_MODS_MODE_OFF,
+)
+_FIELD_MODS_MODE_INDEX_BY_VALUE = dict(
+    (value, index) for index, value in enumerate(_FIELD_MODS_MODE_VALUES)
 )
 
 _ELITE_MODE_ON = 'on'
@@ -50,11 +62,11 @@ _ELITE_MODE_VALUES = (
 _ELITE_MODE_INDEX_BY_VALUE = dict(
     (value, index) for index, value in enumerate(_ELITE_MODE_VALUES)
 )
-_MODS_SETTINGS_SCHEMA_VERSION = 6
+_MODS_SETTINGS_SCHEMA_VERSION = 7
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
     'showTechTree',
-    'showFieldMods',
+    'showFieldModsProgress',
     'showUpgrades',
     'showEliteProgress',
 )
@@ -102,7 +114,32 @@ def _normalize_elite_mode(value):
     return _ELITE_MODE_ON
 
 
+def _normalize_field_mods_mode(value):
+    if isinstance(value, bool):
+        return _FIELD_MODS_MODE_UNTIL_COMPLETE if value else _FIELD_MODS_MODE_OFF
+    if isinstance(value, Integral):
+        index = int(value)
+        if index >= 0 and index < len(_FIELD_MODS_MODE_VALUES):
+            return _FIELD_MODS_MODE_VALUES[index]
+        return _FIELD_MODS_MODE_ALWAYS
+    if isinstance(value, _STRING_TYPES):
+        normalized = value.strip().lower().replace('-', '_').replace(' ', '_')
+        if normalized in _FIELD_MODS_MODE_INDEX_BY_VALUE:
+            return normalized
+        if normalized in ('untilcomplete', 'until_done', 'current'):
+            return _FIELD_MODS_MODE_UNTIL_COMPLETE
+        if normalized in ('true', 'enabled', 'on'):
+            return _FIELD_MODS_MODE_UNTIL_COMPLETE
+        if normalized in ('false', 'disabled'):
+            return _FIELD_MODS_MODE_OFF
+    return _FIELD_MODS_MODE_ALWAYS
+
+
 def _normalize_display_config():
+    legacy_field_mods_value = _config.get(
+        'showFieldModsProgress',
+        _config.get('fieldModsMode', _config.get('showFieldMods', _FIELD_MODS_MODE_ALWAYS)),
+    )
     legacy_elite_value = _config.get(
         'showEliteProgress',
         _config.get('eliteMode', _ELITE_MODE_ON),
@@ -114,8 +151,11 @@ def _normalize_display_config():
     if language in ('client', 'default', 'system'):
         language = 'auto'
     _config['language'] = language
-    for key in ('enabled', 'showTechTree', 'showFieldMods', 'showUpgrades'):
+    for key in ('enabled', 'showTechTree', 'showUpgrades'):
         _config[key] = bool(_config.get(key, True))
+    _config['fieldModsMode'] = _normalize_field_mods_mode(
+        _config.get('fieldModsMode', legacy_field_mods_value)
+    )
     _config['eliteMode'] = _normalize_elite_mode(
         _config.get('eliteMode', legacy_elite_value)
     )
@@ -125,7 +165,9 @@ def _normalize_display_config():
 def _build_mode_preferences():
     return {
         'showResearch': bool(_config.get('showTechTree', True)),
-        'showFieldMods': bool(_config.get('showFieldMods', True)),
+        'fieldModsMode': _normalize_field_mods_mode(
+            _config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)
+        ),
         'showUpgrades': bool(_config.get('showUpgrades', True)),
         'eliteMode': _normalize_elite_mode(_config.get('eliteMode', _ELITE_MODE_ON)),
     }
@@ -153,6 +195,8 @@ def _save_config():
             os.makedirs(directory)
 
         data['configVersion'] = data.get('configVersion', 1)
+        data.pop('showFieldMods', None)
+        data.pop('showFieldModsProgress', None)
         data.pop('showEliteProgress', None)
         for key in _CONFIG_PERSISTED_KEYS:
             data[key] = _config.get(key)
@@ -173,7 +217,10 @@ def _build_mod_settings_state():
     return {
         'enabled': bool(_config.get('enabled', True)),
         'showTechTree': bool(_config.get('showTechTree', True)),
-        'showFieldMods': bool(_config.get('showFieldMods', True)),
+        'showFieldModsProgress': _FIELD_MODS_MODE_INDEX_BY_VALUE.get(
+            _normalize_field_mods_mode(_config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)),
+            0,
+        ),
         'showUpgrades': bool(_config.get('showUpgrades', True)),
         'showEliteProgress': _ELITE_MODE_INDEX_BY_VALUE.get(
             _normalize_elite_mode(_config.get('eliteMode', _ELITE_MODE_ON)),
@@ -221,16 +268,23 @@ def _build_mod_settings_template():
                 'varName': 'showTechTree',
             },
             {
-                'type': 'CheckBox',
+                'type': 'RadioButtonGroup',
                 'text': _loc('SETTING_FIELD_MODS', 'Field Mods'),
                 'tooltip': _loc_tooltip(
                     'TOOLTIP_FIELD_MODS_HEADER',
                     'TOOLTIP_FIELD_MODS_BODY',
                     'Field Mods',
-                    'Show field modification progress for elite vehicles that support field modifications.',
+                    '<b>Always show</b>: Keep the field mods mode available even after all field modifications are complete.\n'
+                    '<b>Until complete</b>: Hide the field mods mode once all field modifications are complete.\n'
+                    '<b>Off</b>: Hide field mods entirely.',
                 ),
-                'value': settings['showFieldMods'],
-                'varName': 'showFieldMods',
+                'options': [
+                    {'label': _loc('SETTING_FIELD_MODS_OPTION_ALWAYS', 'Always show')},
+                    {'label': _loc('SETTING_FIELD_MODS_OPTION_UNTIL_COMPLETE', 'Until complete')},
+                    {'label': _loc('SETTING_FIELD_MODS_OPTION_OFF', 'Off')},
+                ],
+                'value': settings['showFieldModsProgress'],
+                'varName': 'showFieldModsProgress',
             },
             {
                 'type': 'CheckBox',
@@ -292,6 +346,9 @@ def _register_mod_settings(mod_id, on_config_changed=None):
             if key == 'showEliteProgress':
                 config_key = 'eliteMode'
                 new_value = _normalize_elite_mode(new_settings.get(key))
+            elif key == 'showFieldModsProgress':
+                config_key = 'fieldModsMode'
+                new_value = _normalize_field_mods_mode(new_settings.get(key))
             else:
                 new_value = bool(new_settings.get(key))
             if _config.get(config_key) != new_value:

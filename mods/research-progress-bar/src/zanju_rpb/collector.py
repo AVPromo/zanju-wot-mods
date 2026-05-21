@@ -2,18 +2,579 @@
 from __future__ import print_function, unicode_literals
 
 import logging
+import re
 
 try:
     from gui.prestige import prestige_helpers as _prestige_helpers
 except Exception:
     _prestige_helpers = None
+try:
+    from gui.impl import backport as _wg_backport
+except Exception:
+    _wg_backport = None
+try:
+    from gui.shared.gui_items import getKpiFormatDescription as _format_wg_kpi_description
+except Exception:
+    _format_wg_kpi_description = None
+try:
+    from gui.shared.items_parameters.param_name_helper import getVehicleParameterText as _wg_get_vehicle_parameter_text
+except Exception:
+    _wg_get_vehicle_parameter_text = None
 from gui.shared.gui_items import GUI_ITEM_TYPE_NAMES
 from items import getTypeOfCompactDescr
+try:
+    from post_progression_common import GROUP_ID_BY_FEATURE as _POST_PROGRESSION_GROUP_ID_BY_FEATURE
+except Exception:
+    _POST_PROGRESSION_GROUP_ID_BY_FEATURE = {
+        'shells_consumables_switch': 1,
+        'opt_dev_boosters_switch': 2,
+    }
 
 from .constants import _TIER_FIELD_MOD_RULES, _UNLOCK_MARKER_TYPE_BY_GUI_NAME
 from .utils import _extract_sequence_ints, _mapping_value, _to_int_or_none
 
 _logger = logging.getLogger('zanju.researchprogressbar')
+
+
+def _resolve_post_progression_step_id(step):
+    step_id = getattr(step, 'stepID', None)
+    if step_id is None:
+        step_id = getattr(step, 'id', None)
+    return step_id
+
+
+def _resolve_post_progression_step_level(step):
+    level = getattr(step, 'level', None)
+    if level is None and hasattr(step, 'getLevel'):
+        try:
+            level = step.getLevel()
+        except Exception:
+            level = None
+    return level
+
+
+def _resolve_post_progression_step_action(step):
+    for attr_name in ('action', '_PostProgressionStepItem__action'):
+        try:
+            action = getattr(step, attr_name, None)
+        except Exception:
+            action = None
+        if action is not None:
+            return action
+    return None
+
+
+def _extract_post_progression_repr_token(value, token_name):
+    try:
+        text = repr(value)
+    except Exception:
+        return None
+
+    match = re.search(r'%s: ([^>,]+)' % re.escape(token_name), text)
+    if match is None:
+        return None
+
+    token = match.group(1)
+    if token is None:
+        return None
+    return token.strip()
+
+
+def _resolve_post_progression_action_name(action):
+    for attr_name in ('name', '_name', '_PostProgressionAction__name', '_PostProgressionModItem__name'):
+        try:
+            value = getattr(action, attr_name, None)
+        except Exception:
+            value = None
+        if value:
+            return value
+
+    return _extract_post_progression_repr_token(action, 'name')
+
+
+def _resolve_post_progression_action_category(action):
+    if action is None:
+        return None
+
+    for method_name in ('getSlotCategory',):
+        try:
+            method = getattr(action, method_name, None)
+        except Exception:
+            method = None
+        if callable(method):
+            try:
+                value = method()
+            except Exception:
+                value = None
+            if value:
+                return value
+
+    for attr_name in (
+            'category',
+            '_category',
+            '_RoleSlotModItem__category',
+            '_RoleSlotModItem__slotCategory',
+            '_RoleSlotModItem__slot_category'):
+        try:
+            value = getattr(action, attr_name, None)
+        except Exception:
+            value = None
+        if value:
+            return value
+
+    return _extract_post_progression_repr_token(action, 'category')
+
+
+def _resolve_post_progression_action_class_name(action):
+    if action is None:
+        return None
+    return getattr(action, '__class__', type(action)).__name__
+
+
+def _call_post_progression_method(pp, method_name, *args):
+    try:
+        method = getattr(pp, method_name, None)
+    except Exception:
+        method = None
+
+    if not callable(method):
+        return None
+
+    try:
+        return method(*args)
+    except Exception:
+        return None
+
+
+def _call_post_progression_bool(pp, method_name, *args):
+    value = _call_post_progression_method(pp, method_name, *args)
+    if value is None:
+        return None
+    return bool(value)
+
+
+def _call_post_progression_state_bool(state, method_name, *args):
+    try:
+        method = getattr(state, method_name, None)
+    except Exception:
+        method = None
+
+    if not callable(method):
+        return None
+
+    try:
+        return bool(method(*args))
+    except Exception:
+        return None
+
+
+def _resolve_wg_resource_text(resource):
+    if resource is None:
+        return None
+
+    if _wg_backport is not None:
+        try:
+            text = _wg_backport.text(resource)
+        except Exception:
+            text = None
+        if text:
+            return text
+
+    if callable(resource):
+        try:
+            resource = resource()
+        except Exception:
+            return None
+
+    if resource is None:
+        return None
+    return u'{0}'.format(resource)
+
+
+def _resolve_post_progression_feature_group_id(action_name):
+    if not action_name:
+        return None
+    return _to_int_or_none(_POST_PROGRESSION_GROUP_ID_BY_FEATURE.get(action_name))
+
+
+def _resolve_post_progression_setup_switch_active(pp, state, vehicle, feature_group_id):
+    if feature_group_id is None:
+        return False
+
+    # `isSetupSwitchActive()` only tells us the feature is available for the vehicle.
+    # The actual per-loadout toggle state lives in the disabled-switch state.
+    setup_switch_available = _call_post_progression_bool(
+        pp,
+        'isSetupSwitchActive',
+        vehicle,
+        feature_group_id,
+    )
+    if setup_switch_available is False:
+        return False
+
+    switch_disabled = _call_post_progression_state_bool(
+        state,
+        'isSwitchDisabled',
+        feature_group_id,
+    )
+    if switch_disabled is None:
+        switch_disabled = _call_post_progression_bool(
+            pp,
+            'isPrebattleSwitchDisabled',
+            feature_group_id,
+        )
+
+    if switch_disabled is not None:
+        return not switch_disabled
+
+    return bool(setup_switch_available)
+
+
+def _resolve_post_progression_selected_modification(action):
+    if action is None:
+        return None
+
+    for method_name in ('getPurchasedModification',):
+        try:
+            method = getattr(action, method_name, None)
+        except Exception:
+            method = None
+        if not callable(method):
+            continue
+        try:
+            selected_modification = method()
+        except Exception:
+            selected_modification = None
+        if selected_modification is not None:
+            return selected_modification
+
+    return None
+
+
+def _call_post_progression_action_method(action, method_name, *args):
+    if action is None:
+        return None
+
+    try:
+        method = getattr(action, method_name, None)
+    except Exception:
+        method = None
+
+    if not callable(method):
+        return None
+
+    try:
+        return method(*args)
+    except Exception:
+        return None
+
+
+def _normalize_post_progression_modification_collection(value):
+    if value is None:
+        return []
+
+    if isinstance(value, dict):
+        try:
+            values = value.itervalues()
+        except AttributeError:
+            values = value.values()
+        return [item for item in values if item is not None]
+
+    try:
+        items = list(value)
+    except Exception:
+        items = None
+
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if item is not None]
+
+
+def _iter_post_progression_dual_modifications(action):
+    method_name = None
+    attr_name = None
+    for method_name in ('getModifications', 'iterModifications', 'getAvailableModifications'):
+        modifications = _normalize_post_progression_modification_collection(
+            _call_post_progression_action_method(action, method_name)
+        )
+        if len(modifications) >= 2:
+            return modifications
+
+    for attr_name in ('modifications', '_modifications', '_MultiModsItem__modifications'):
+        try:
+            value = getattr(action, attr_name, None)
+        except Exception:
+            value = None
+        modifications = _normalize_post_progression_modification_collection(value)
+        if len(modifications) >= 2:
+            return modifications
+
+    return []
+
+
+def _resolve_post_progression_dual_choice_index_from_name(modification_name):
+    if not modification_name:
+        return None
+
+    match = re.search(r'_(1|2)$', u'{0}'.format(modification_name))
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def _resolve_post_progression_dual_choice_index_from_modification(action, modification):
+    if modification is None:
+        return None
+
+    modification_name = _resolve_post_progression_action_name(modification)
+    derived_choice_index = _resolve_post_progression_dual_choice_index_from_name(modification_name)
+    if derived_choice_index is not None:
+        return derived_choice_index
+
+    modifications = _iter_post_progression_dual_modifications(action)
+    if not modifications:
+        return None
+
+    index = None
+    candidate = None
+    for index, candidate in enumerate(modifications[:2], 1):
+        if candidate is modification:
+            return index
+        if modification_name and _resolve_post_progression_action_name(candidate) == modification_name:
+            return index
+
+    return None
+
+
+def _resolve_post_progression_dual_selected_choice_index(action, raw_choice_index, selected_modification):
+    normalized_choice_index = _to_int_or_none(raw_choice_index)
+    if normalized_choice_index in (1, 2):
+        return normalized_choice_index
+
+    if normalized_choice_index is not None and normalized_choice_index > 0:
+        derived_modification = _call_post_progression_action_method(
+            action,
+            'getModificationByID',
+            normalized_choice_index,
+        )
+        derived_choice_index = _resolve_post_progression_dual_choice_index_from_modification(
+            action,
+            derived_modification,
+        )
+        if derived_choice_index is not None:
+            return derived_choice_index
+
+    if normalized_choice_index is not None and normalized_choice_index <= 0:
+        return None
+
+    return _resolve_post_progression_dual_choice_index_from_modification(action, selected_modification)
+
+
+def _resolve_post_progression_kpi_description(kpi):
+    if kpi is None:
+        return None
+
+    if _format_wg_kpi_description is not None:
+        try:
+            description = _format_wg_kpi_description(kpi)
+        except Exception:
+            description = None
+        if description:
+            return description
+
+    kpi_name = getattr(kpi, 'name', None)
+    value = getattr(kpi, 'value', None)
+    kpi_type = getattr(kpi, 'type', None)
+    if value is None:
+        return None
+
+    try:
+        numeric_value = float(value)
+    except Exception:
+        numeric_value = None
+
+    suffix = ''
+    if numeric_value is not None and kpi_type == 'mul':
+        numeric_value = (numeric_value - 1.0) * 100.0
+        suffix = '%'
+
+    if numeric_value is None:
+        value_text = u'{0}'.format(value)
+    else:
+        rounded_value = round(numeric_value, 2)
+        if int(rounded_value) == rounded_value:
+            value_text = str(int(rounded_value))
+        else:
+            value_text = ('%.2f' % rounded_value).rstrip('0').rstrip('.')
+        if rounded_value > 0:
+            value_text = '+' + value_text
+        value_text += suffix
+
+    label_text = None
+    if _wg_get_vehicle_parameter_text is not None and kpi_name:
+        try:
+            label_text = _resolve_wg_resource_text(
+                _wg_get_vehicle_parameter_text(
+                    paramName=kpi_name,
+                    isPositive=not bool(getattr(kpi, 'isDebuff', False)),
+                )
+            )
+        except Exception:
+            label_text = None
+
+    if label_text:
+        return u'{0} {1}'.format(value_text, label_text)
+    return value_text
+
+
+def _build_post_progression_kpi_lines(modification, vehicle):
+    if modification is None or vehicle is None:
+        return []
+
+    try:
+        kpis = modification.getKpi(vehicle) or []
+    except Exception:
+        return []
+
+    lines = []
+    kpi = None
+    for kpi in kpis:
+        description = _resolve_post_progression_kpi_description(kpi)
+        if not description:
+            continue
+        lines.append({
+            'text': description,
+            'is_debuff': bool(getattr(kpi, 'isDebuff', False)),
+        })
+
+    return lines
+
+
+def _normalize_post_progression_pairs(state):
+    raw_pairs = None
+
+    for attr_name in ('pairs', '_pairs'):
+        try:
+            raw_pairs = getattr(state, attr_name, None)
+        except Exception:
+            raw_pairs = None
+        if raw_pairs is not None:
+            break
+
+    if not isinstance(raw_pairs, dict):
+        return {}
+
+    pairs = {}
+    for step_id, choice_index in raw_pairs.iteritems():
+        normalized_step_id = _to_int_or_none(step_id)
+        normalized_choice_index = _to_int_or_none(choice_index)
+        if normalized_step_id is None or normalized_choice_index is None:
+            continue
+        pairs[normalized_step_id] = normalized_choice_index
+    return pairs
+
+
+def _build_regular_field_mod_level_details(pp, state, vehicle=None):
+    level_details = {}
+    grouped_steps = {}
+    state_pairs = _normalize_post_progression_pairs(state)
+    role_slot_active = _call_post_progression_bool(pp, 'isRoleSlotActive', vehicle)
+
+    try:
+        steps = list(pp.iterUnorderedSteps())
+    except Exception:
+        _logger.exception('Failed to iterate regular post-progression steps')
+        return level_details
+
+    step = None
+    for step in steps:
+        level = _resolve_post_progression_step_level(step)
+        step_id = _to_int_or_none(_resolve_post_progression_step_id(step))
+        action = _resolve_post_progression_step_action(step)
+        if level is None or step_id is None or action is None:
+            continue
+
+        grouped_steps.setdefault(level, []).append({
+            'step_id': step_id,
+            'action': action,
+            'action_name': _resolve_post_progression_action_name(action),
+            'action_class_name': _resolve_post_progression_action_class_name(action),
+            'category': _resolve_post_progression_action_category(action),
+        })
+
+    level = None
+    entries = None
+    for level, entries in grouped_steps.iteritems():
+        feature_entry = None
+        role_slot_entry = None
+        multi_entry = None
+
+        entry = None
+        for entry in entries:
+            action_class_name = entry.get('action_class_name')
+            if action_class_name == 'FeatureModItem':
+                feature_entry = entry
+            elif action_class_name == 'RoleSlotModItem':
+                role_slot_entry = entry
+            elif action_class_name == 'MultiModsItem':
+                multi_entry = entry
+
+        if feature_entry is not None:
+            feature_group_id = _resolve_post_progression_feature_group_id(feature_entry.get('action_name'))
+            level_details[level] = {
+                'kind': 'feature',
+                'action_name': feature_entry.get('action_name'),
+                'is_active': _resolve_post_progression_setup_switch_active(
+                    pp,
+                    state,
+                    vehicle,
+                    feature_group_id,
+                ),
+            }
+            continue
+
+        if role_slot_entry is not None:
+            level_details[level] = {
+                'kind': 'role_slot',
+                'action_name': role_slot_entry.get('action_name'),
+                'category': role_slot_entry.get('category'),
+                'is_active': bool(role_slot_active),
+            }
+            continue
+
+        if multi_entry is not None:
+            multi_action = multi_entry.get('action')
+            selected_modification = _resolve_post_progression_selected_modification(multi_action)
+            raw_selected_choice_index = state_pairs.get(multi_entry.get('step_id'))
+            selected_mod_name = _resolve_post_progression_action_name(selected_modification)
+            selected_choice_index = _resolve_post_progression_dual_selected_choice_index(
+                multi_action,
+                raw_selected_choice_index,
+                selected_modification,
+            )
+            if selected_choice_index is None and (
+                    raw_selected_choice_index is not None or selected_mod_name):
+                _logger.info(
+                    'Dual field mod selection unresolved: step=%s action=%s raw=%s selected_mod=%s options=%s',
+                    multi_entry.get('step_id'),
+                    multi_entry.get('action_name'),
+                    raw_selected_choice_index,
+                    selected_mod_name,
+                    [
+                        _resolve_post_progression_action_name(modification)
+                        for modification in _iter_post_progression_dual_modifications(multi_action)[:2]
+                    ],
+                )
+            level_details[level] = {
+                'kind': 'dual',
+                'multi_action_name': multi_entry.get('action_name'),
+                'selected_choice_index': selected_choice_index,
+                'raw_selected_choice_index': raw_selected_choice_index,
+                'selected_mod_name': selected_mod_name,
+                'selected_choice_lines': _build_post_progression_kpi_lines(selected_modification, vehicle),
+            }
+
+    return level_details
 
 
 def _next_available_unlock(vehicle, unlocks_set, available_unlocks=None):
@@ -634,16 +1195,8 @@ def _collect_post_progression_step_metadata(pp, is_veh_skill_tree, vehicle, reso
         unique_levels = set()
         step = None
         for step in steps:
-            step_id = getattr(step, 'stepID', None)
-            if step_id is None:
-                step_id = getattr(step, 'id', None)
-
-            level = getattr(step, 'level', None)
-            if level is None and hasattr(step, 'getLevel'):
-                try:
-                    level = step.getLevel()
-                except Exception:
-                    level = None
+            step_id = _resolve_post_progression_step_id(step)
+            level = _resolve_post_progression_step_level(step)
 
             if step_id is not None:
                 step_id_to_level[step_id] = level
@@ -729,10 +1282,11 @@ def _collect_t11_unlock_data(step_meta, unlocked_step_ids):
     }
 
 
-def _collect_post_progression_unlock_state(pp, step_id_to_level, step_meta, is_veh_skill_tree):
+def _collect_post_progression_unlock_state(pp, step_id_to_level, step_meta, is_veh_skill_tree, vehicle=None):
     result = {
         'unlocked_steps': 0,
         'unique_unlocked_level_count': 0,
+        'level_details': {},
         't11_bucket_researched': _make_empty_t11_bucket_counts(),
         't11_bucket_unresearched': _make_empty_t11_bucket_counts(),
         't11_action_nodes_researched': [],
@@ -766,6 +1320,9 @@ def _collect_post_progression_unlock_state(pp, step_id_to_level, step_meta, is_v
             if level is not None:
                 unlocked_levels.add(level)
         result['unique_unlocked_level_count'] = len(unlocked_levels)
+
+        if not is_veh_skill_tree:
+            result['level_details'] = _build_regular_field_mod_level_details(pp, state, vehicle)
 
         if is_veh_skill_tree and step_meta:
             result.update(_collect_t11_unlock_data(step_meta, unlocked_step_ids))
@@ -807,6 +1364,7 @@ def _collect_post_progression(vehicle, stats, resolve_t11_action_marker_meta=Non
         'is_veh_skill_tree': False,
         'unique_level_count': 0,
         'unique_unlocked_level_count': 0,
+        'level_details': {},
         'next_purchasable_step_xp': None,
         't11_bucket_researched': _make_empty_t11_bucket_counts(),
         't11_bucket_unresearched': _make_empty_t11_bucket_counts(),
@@ -843,6 +1401,7 @@ def _collect_post_progression(vehicle, stats, resolve_t11_action_marker_meta=Non
             step_id_to_level,
             step_meta,
             data['is_veh_skill_tree'],
+            vehicle,
         )
     )
 
@@ -934,6 +1493,7 @@ def _collect_research_progress_data(vehicle, stats, items, resolve_t11_action_ma
             'is_veh_skill_tree': field_mods['is_veh_skill_tree'],
             'unique_level_count': field_mods['unique_level_count'],
             'unique_unlocked_level_count': field_mods['unique_unlocked_level_count'],
+            'level_details': field_mods['level_details'],
             'next_purchasable_step_xp': field_mods['next_purchasable_step_xp'],
             't11_bucket_researched': field_mods['t11_bucket_researched'],
             't11_bucket_unresearched': field_mods['t11_bucket_unresearched'],

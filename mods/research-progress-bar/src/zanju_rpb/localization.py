@@ -45,6 +45,20 @@ def get_text(key, default=None, **format_kwargs):
     return text
 
 
+def get_wg_text(resource_key, default=None):
+    if _wg_i18n is None or not resource_key:
+        return default
+
+    try:
+        resolved = _wg_i18n.makeString(resource_key)
+    except Exception:
+        return default
+
+    if not resolved or resolved == resource_key:
+        return default
+    return resolved
+
+
 def make_tooltip(header_key, body_key, header_default, body_default):
     return (
         '{HEADER}'
