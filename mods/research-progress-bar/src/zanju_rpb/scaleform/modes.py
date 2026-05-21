@@ -567,6 +567,11 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
         )
         completed_tooltip_html = _build_field_mod_completed_tooltip_html(level_details.get(level))
         completed_tooltip_text = _build_field_mod_completed_tooltip_text(level_details.get(level))
+        tooltip_subtitle = (
+            _build_field_mod_tooltip_subtitle(level_details.get(level))
+            if marker_state != 'completed'
+            else None
+        )
         marker = {
             'id': 'field_mod_{0}'.format(level),
             'positionValue': cumulative_total_cost,
@@ -575,7 +580,7 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             'isAvailable': True,
             'name': _build_level_tooltip_title(roman_level),
             'tooltipTitle': _build_level_tooltip_title(roman_level),
-            'tooltipSubtitle': _build_field_mod_tooltip_subtitle(level_details.get(level)) if marker_state != 'completed' else None,
+            'tooltipSubtitle': tooltip_subtitle,
             'label': roman_level,
             'showBarLabel': True,
             'hideTooltipIcon': True,
@@ -763,6 +768,7 @@ def _build_field_mod_completed_tooltip_text(level_detail):
                 lines.append(text)
         return '\n'.join(lines)
     return None
+
 
 def _build_field_mod_completed_tooltip_html(level_detail):
     if not level_detail or level_detail.get('kind') != 'dual':

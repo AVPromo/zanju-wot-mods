@@ -274,7 +274,8 @@ def _build_mod_settings_template():
                     'TOOLTIP_FIELD_MODS_HEADER',
                     'TOOLTIP_FIELD_MODS_BODY',
                     'Field Mods',
-                    '<b>Always show</b>: Keep the field mods mode available even after all field modifications are complete.\n'
+                    '<b>Always show</b>: Keep the field mods mode available even after '
+                    'all field modifications are complete.\n'
                     '<b>Until complete</b>: Hide the field mods mode once all field modifications are complete.\n'
                     '<b>Off</b>: Hide field mods entirely.',
                 ),

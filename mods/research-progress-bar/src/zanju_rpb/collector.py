@@ -552,24 +552,10 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
                 raw_selected_choice_index,
                 selected_modification,
             )
-            if selected_choice_index is None and (
-                    raw_selected_choice_index is not None or selected_mod_name):
-                _logger.info(
-                    'Dual field mod selection unresolved: step=%s action=%s raw=%s selected_mod=%s options=%s',
-                    multi_entry.get('step_id'),
-                    multi_entry.get('action_name'),
-                    raw_selected_choice_index,
-                    selected_mod_name,
-                    [
-                        _resolve_post_progression_action_name(modification)
-                        for modification in _iter_post_progression_dual_modifications(multi_action)[:2]
-                    ],
-                )
             level_details[level] = {
                 'kind': 'dual',
                 'multi_action_name': multi_entry.get('action_name'),
                 'selected_choice_index': selected_choice_index,
-                'raw_selected_choice_index': raw_selected_choice_index,
                 'selected_mod_name': selected_mod_name,
                 'selected_choice_lines': _build_post_progression_kpi_lines(selected_modification, vehicle),
             }
