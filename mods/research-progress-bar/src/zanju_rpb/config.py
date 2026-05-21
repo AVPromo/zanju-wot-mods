@@ -62,7 +62,7 @@ _ELITE_MODE_VALUES = (
 _ELITE_MODE_INDEX_BY_VALUE = dict(
     (value, index) for index, value in enumerate(_ELITE_MODE_VALUES)
 )
-_MODS_SETTINGS_SCHEMA_VERSION = 7
+_MODS_SETTINGS_SCHEMA_VERSION = 8
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
     'showTechTree',

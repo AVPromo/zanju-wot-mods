@@ -9,6 +9,11 @@ import os
 from .constants import MOD_CONFIG_DIR_NAME, MOD_ID
 
 try:
+    import helpers as _wg_helpers
+except Exception:
+    _wg_helpers = None
+
+try:
     from helpers import i18n as _wg_i18n
 except Exception:
     _wg_i18n = None
@@ -110,6 +115,16 @@ def _detect_requested_languages():
 
         for attr_name in ('LANGUAGE_CODE', 'CURRENT_LANGUAGE', 'languageCode', 'currentLanguage'):
             candidates.extend(_expand_language_candidates(getattr(_wg_i18n, attr_name, None)))
+
+    if _wg_helpers is not None:
+        for attr_name in ('getLanguageCode', 'getClientLanguage'):
+            getter = getattr(_wg_helpers, attr_name, None)
+            if not callable(getter):
+                continue
+            try:
+                candidates.extend(_expand_language_candidates(getter()))
+            except Exception:
+                continue
 
     for env_name in ('WOT_LANGUAGE', 'LANGUAGE', 'LC_ALL', 'LANG'):
         candidates.extend(_expand_language_candidates(os.environ.get(env_name)))

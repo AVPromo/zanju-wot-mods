@@ -40,6 +40,8 @@ package {
             var prereqs:Array;
             var progressLabel:String = marker != null && marker.progressLabel !== undefined ? String(marker.progressLabel) : "Vehicle XP";
             var totalProgressLabel:String = marker != null && marker.totalProgressLabel !== undefined ? String(marker.totalProgressLabel) : "Total XP";
+            var progressReadyText:String = marker != null && marker.progressReadyText !== undefined ? String(marker.progressReadyText) : "ready for research";
+            var progressXpLeftFormat:String = marker != null && marker.progressXpLeftFormat !== undefined ? String(marker.progressXpLeftFormat) : "{xp} XP left";
             var singleProgressRow:Boolean = marker != null && marker.singleProgressRow !== undefined && Boolean(marker.singleProgressRow);
 
             row = createTooltipTitleCostRow(marker, markerCostXp);
@@ -122,12 +124,12 @@ package {
                 return section;
             }
 
-            var progressRows:Array = [buildTooltipProgressRowData(progressLabel, combatXp, markerCostXp)];
+            var progressRows:Array = [buildTooltipProgressRowData(progressLabel, combatXp, markerCostXp, progressReadyText, progressXpLeftFormat)];
             var progressColumnWidths:Object;
             var progressRowData:Object;
 
             if (!singleProgressRow) {
-                progressRows.push(buildTooltipProgressRowData(totalProgressLabel, combatXp + freeXp, markerCostXp));
+                progressRows.push(buildTooltipProgressRowData(totalProgressLabel, combatXp + freeXp, markerCostXp, progressReadyText, progressXpLeftFormat));
             }
 
             progressColumnWidths = resolveTooltipProgressColumnWidths(progressRows);
@@ -431,11 +433,19 @@ package {
             return html;
         }
 
-        private static function buildTooltipProgressRowData(label:String, currentXp:Number, targetXp:Number):Object {
+        private static function buildTooltipProgressRowData(label:String, currentXp:Number, targetXp:Number, readyText:String, xpLeftFormat:String):Object {
             var pct:int;
             var missingXp:Number;
+            var missingXpText:String;
             var statusText:String;
             var statusHtml:String;
+
+            if (readyText == null || readyText.length == 0) {
+                readyText = "ready for research";
+            }
+            if (xpLeftFormat == null || xpLeftFormat.length == 0) {
+                xpLeftFormat = "{xp} XP left";
+            }
 
             if (targetXp <= 0) {
                 pct = 100;
@@ -447,12 +457,13 @@ package {
             }
 
             if (missingXp <= 0) {
-                statusText = "ready for research";
+                statusText = readyText;
                 statusHtml = escapeHtml(statusText);
             }
             else {
-                statusText = formatExactXpValue(missingXp) + " XP left";
-                statusHtml = buildTooltipHighlightedHtml("", formatExactXpValue(missingXp), " XP left", true);
+                missingXpText = formatExactXpValue(missingXp);
+                statusText = formatTooltipProgressText(xpLeftFormat, missingXpText);
+                statusHtml = buildTooltipProgressFormatHtml(xpLeftFormat, missingXpText);
             }
 
             return {
@@ -461,6 +472,37 @@ package {
                 statusText: statusText,
                 statusHtml: statusHtml
             };
+        }
+
+        private static function formatTooltipProgressText(format:String, xpText:String):String {
+            if (format == null || format.length == 0) {
+                format = "{xp} XP left";
+            }
+
+            if (format.indexOf("{xp}") < 0) {
+                return xpText + " XP left";
+            }
+
+            return format.split("{xp}").join(xpText);
+        }
+
+        private static function buildTooltipProgressFormatHtml(format:String, xpText:String):String {
+            var tokenIndex:int;
+            var prefix:String;
+            var suffix:String;
+
+            if (format == null || format.length == 0) {
+                format = "{xp} XP left";
+            }
+
+            tokenIndex = format.indexOf("{xp}");
+            if (tokenIndex < 0) {
+                return escapeHtml(formatTooltipProgressText(format, xpText));
+            }
+
+            prefix = format.substring(0, tokenIndex);
+            suffix = format.substr(tokenIndex + 4);
+            return buildTooltipHighlightedHtml(prefix, xpText, suffix, true);
         }
 
         private static function resolveTooltipProgressColumnWidths(rows:Array):Object {

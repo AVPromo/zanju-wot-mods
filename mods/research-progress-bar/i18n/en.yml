@@ -72,6 +72,8 @@ UPGRADE_ALL_OTHER_NODES: "All Other Nodes"
 # Status strings
 STATUS_COMPLETE: "Complete"
 STATUS_NO_UNLOCKS: "No available unlocks"
+STATUS_READY_FOR_RESEARCH: "ready for research"
+STATUS_XP_LEFT_FORMAT: "{xp} XP left"
 STATUS_TIER_UNKNOWN: "Tier unknown"
 STATUS_FIELD_MODS_REQUIRES_ELITE: "Field mods require elite vehicle status"
 STATUS_FIELD_MODS_NOT_AVAILABLE: "Field mods are not available for this vehicle"

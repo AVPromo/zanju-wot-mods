@@ -439,6 +439,8 @@ def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosm
                 'markerState': 'completed' if position_value <= current_total_xp else 'locked',
                 'singleProgressRow': True,
                 'progressLabel': _loc('CAPTION_BASE_XP', 'Base XP'),
+                'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
+                'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
                 'isAvailable': True,
             })
 
@@ -462,6 +464,8 @@ def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosm
                 'markerState': 'completed' if position_value <= current_total_xp else 'locked',
                 'singleProgressRow': True,
                 'progressLabel': _loc('CAPTION_BASE_XP', 'Base XP'),
+                'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
+                'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
                 'isAvailable': True,
             })
     return markers
@@ -515,6 +519,8 @@ def _build_research_marker(item):
         'itemType': item['item_type'],
         'progressLabel': _loc('CAPTION_VEHICLE_XP', 'Vehicle XP'),
         'totalProgressLabel': _loc('CAPTION_TOTAL_XP', 'Total XP'),
+        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
+        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
         'isAvailable': item.get('is_available', True),
         'missingPrereqNames': item.get('missing_prereq_names', []),
         'missingPrereqs': item.get('missing_prereqs', []),
@@ -577,6 +583,8 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             'completedTooltipHtml': completed_tooltip_html,
             'completedTooltipText': completed_tooltip_text,
             'markerState': marker_state,
+            'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
+            'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
         }
         marker.update(_build_field_mod_marker_display(level_details.get(level), roman_level))
         markers.append(marker)
@@ -905,6 +913,8 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
             'label': '',
             'hideTooltipIcon': True,
             'markerState': final_state,
+            'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
+            'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
         }
         markers.append(_apply_t11_bar_icon(_apply_t11_action_metadata(final_marker, final_node), True))
 
@@ -1021,6 +1031,8 @@ def _make_t11_marker(
         'label': '',
         'hideTooltipIcon': True,
         'markerState': _resolve_remaining_cost_marker_state(remaining_cost, vehicle_xp, total_xp),
+        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
+        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
     }
     marker = _apply_t11_action_metadata(marker, action_node)
     return _apply_t11_bar_icon(marker, show_bar_icon)
@@ -1037,6 +1049,8 @@ def _make_t11_completed_marker(marker_id, position_value, cost_xp, name, action_
         'label': '',
         'hideTooltipIcon': True,
         'markerState': 'completed',
+        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
+        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
     }
     marker = _apply_t11_action_metadata(marker, action_node)
     return _apply_t11_bar_icon(marker, show_bar_icon)
