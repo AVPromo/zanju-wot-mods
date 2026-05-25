@@ -36,6 +36,14 @@ def _reschedule_immediate_callback(is_active, current_callback_id, callback_fn):
     return BigWorld.callback(0.0, callback_fn)
 
 
+def _reschedule_callback(is_active, current_callback_id, delay, callback_fn):
+    if not is_active:
+        return current_callback_id
+
+    current_callback_id = _cancel_callback(current_callback_id)
+    return BigWorld.callback(delay, callback_fn)
+
+
 def _run_visibility_probe_callback(
     is_active,
     scaleform_view,

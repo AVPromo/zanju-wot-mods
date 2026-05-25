@@ -6,8 +6,13 @@ from .modes import build_scaleform_view_payload
 _build_mode_preferences = _config_api._build_mode_preferences
 
 
-def _build_scaleform_payload(vehicle, data):
-    return build_scaleform_view_payload(vehicle, data, _build_mode_preferences())
+def _build_scaleform_payload(vehicle, data, preferred_mode_id=None):
+    return build_scaleform_view_payload(
+        vehicle,
+        data,
+        _build_mode_preferences(),
+        preferred_mode_id,
+    )
 
 
 def _log_scaleform_payload_summary(scaleform_payload, vehicle, last_log_key, logger):

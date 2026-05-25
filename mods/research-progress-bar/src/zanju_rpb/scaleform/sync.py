@@ -240,10 +240,10 @@ def _handle_scaleform_view_disposed(mod, view, logger):
     logger.info('Scaleform garage view disposed')
 
 
-def _render_scaleform_view(mod, vehicle, data, logger):
+def _render_scaleform_view(mod, vehicle, data, preferred_mode_id, logger):
     if not _config.get('scaleformPrototypeEnabled', True):
         return
-    mod._scaleform_payload = _build_scaleform_payload(vehicle, data)
+    mod._scaleform_payload = _build_scaleform_payload(vehicle, data, preferred_mode_id)
     mod._last_scaleform_payload_log_key = _log_scaleform_payload_summary(
         mod._scaleform_payload,
         vehicle,

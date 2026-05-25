@@ -26,6 +26,11 @@ class _ScaleformGarageView(View):
             return self.flashObject.as_setContext(data)
         return None
 
+    def as_getSelectedModeIdS(self):
+        if self._isDAAPIInited():
+            return self.flashObject.as_getSelectedModeId()
+        return None
+
     def as_setVisibleS(self, is_visible):
         if self._isDAAPIInited():
             return self.flashObject.as_setVisible(is_visible)

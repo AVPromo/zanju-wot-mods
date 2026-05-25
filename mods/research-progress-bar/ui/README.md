@@ -60,6 +60,7 @@ Current source split:
 If the UI needs to be rebuilt later, keep `ResearchProgressBarLobby.as` as the only WoT-facing root and keep pure construction, layout, and interaction logic in flat sibling helper classes like the list above.
 
 - The exposed ActionScript callbacks used by the Python view wiring are:
+  - `as_getSelectedModeId()`
   - `as_ping()`
   - `as_setContext(object)`
   - `as_setVisible(boolean)`

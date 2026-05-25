@@ -25,6 +25,13 @@ It captures repo-specific conventions, documentation expectations, and validatio
 
 ## Repo Conventions
 
+### Python Tooling Environment
+
+- Prefer the project venv interpreter for repo commands when available: `./.venv/Scripts/python.exe -m tools.lint ...` on Windows.
+- Do not assume the system `python` has repo lint dependencies such as Black, Ruff, autopep8, or Flake8 installed.
+- When `wot_mods_*` commands are not on `PATH`, the module form remains valid and is often the least ambiguous option, for example `./.venv/Scripts/python.exe -m tools.lint check`.
+- The Python 2.7 lint gate is still part of the normal repo workflow even when you invoke `tools.lint` from the Python 3 venv; it shells out to the configured Python 2.7 executable for the runtime source under `mods/*/src`.
+
 ### Mod Layout
 
 - Real mods live under `mods/<mod-name>/`.
@@ -112,6 +119,7 @@ Always note that WoT must be restarted or re-entered before Python, UI, or packa
 ## Validation Order
 
 - Touched Python file: prefer `python -m py_compile` or the narrowest available syntax/import check.
+- For repo lint/format gates, prefer `./.venv/Scripts/python.exe -m tools.lint ...` if the shell's default `python` is not known-good for this repo.
 - Packaging, UI, or build-flow change: run `wot_mods_build <mod>` or the relevant helper.
 - Local runtime validation for one mod: ask once about the session dev-cycle preference, then use `wot_mods_cycle <mod>` or `wot_mods_deploy <mod>` as appropriate.
 - Docs-only changes: verify links and references; do not run deploy scripts by default.
@@ -130,6 +138,7 @@ Always note that WoT must be restarted or re-entered before Python, UI, or packa
 - Update the code.
 - Check docs fallout.
 - Run a narrow Python validation step.
+- If you need the repo lint gate, use the project venv explicitly before assuming the active shell can resolve the lint dependencies.
 - If runtime validation matters, ask once about `wot_mods_cycle <mod>` and remember the answer.
 - Use `--fresh-log` only when clean-log validation is the point and WoT is closed.
 

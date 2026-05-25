@@ -36,6 +36,7 @@ def _initialize_runtime(
     try:
         _load_config()
         mod = mod_factory()
+        mod._load_mode_state(logger)
         _register_mod_settings(mod_id, on_registered_mod_settings_changed)
         mod.start()
         logger.info('%s initialized', mod_id)

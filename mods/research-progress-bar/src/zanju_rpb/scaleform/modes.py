@@ -62,7 +62,7 @@ T11_CATEGORY_SORT_ORDER = {
 }
 
 
-def build_scaleform_view_payload(vehicle, data, mode_preferences=None):
+def build_scaleform_view_payload(vehicle, data, mode_preferences=None, preferred_mode_id=None):
     """Builds the full Scaleform payload or None when no mode is available."""
     preferences = _normalize_mode_preferences(mode_preferences)
     modes = []
@@ -88,11 +88,33 @@ def build_scaleform_view_payload(vehicle, data, mode_preferences=None):
     if not modes:
         return None
 
+    selected_mode_id = _resolve_selected_mode_id(modes, preferred_mode_id)
     return {
         'vehicleLabel': _build_vehicle_label(vehicle, data),
-        'selectedModeId': modes[0]['id'],
+        'vehicleIntCD': getattr(vehicle, 'intCD', None),
+        'selectedModeId': selected_mode_id,
         'modes': modes,
     }
+
+
+def _resolve_selected_mode_id(modes, preferred_mode_id):
+    normalized_preferred_mode_id = _normalize_selected_mode_id(preferred_mode_id)
+    if normalized_preferred_mode_id is not None:
+        for mode in modes:
+            if _normalize_selected_mode_id(mode.get('id')) == normalized_preferred_mode_id:
+                return normalized_preferred_mode_id
+
+    return _normalize_selected_mode_id(modes[0].get('id'))
+
+
+def _normalize_selected_mode_id(value):
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+    return text
 
 
 def _normalize_mode_preferences(mode_preferences):

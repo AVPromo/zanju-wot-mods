@@ -15,8 +15,10 @@ import logging
 from CurrentVehicle import g_currentVehicle
 from helpers import dependency
 from . import collector as _collector_api
+from . import mode_state as _mode_state_api
 from . import runtime_lifecycle as _runtime_lifecycle_api
 from .scaleform import sync as _scaleform_sync_api
+from .scaleform import callbacks as _scaleform_callbacks_api
 from . import runtime_updates as _runtime_updates_api
 from . import t11_action_metadata as _t11_action_metadata_api
 from .constants import (
@@ -31,6 +33,7 @@ _lobby_state_logger = logging.getLogger('gui.lobby_state_machine.lobby_state_mac
 
 _config = _config_api._config
 _collect_research_progress_data = _collector_api._collect_research_progress_data
+_cancel_callback = _scaleform_callbacks_api._cancel_callback
 _cancel_pending_update_runtime = _runtime_updates_api._cancel_pending_update
 _cancel_visibility_probe_runtime = _runtime_updates_api._cancel_visibility_probe
 _finalize_runtime = _runtime_lifecycle_api._finalize_runtime
@@ -53,11 +56,15 @@ _handle_view_added_to_container_runtime = _scaleform_sync_api._handle_view_added
 _handle_scaleform_view_disposed_runtime = _scaleform_sync_api._handle_scaleform_view_disposed
 _handle_scaleform_view_populated_runtime = _scaleform_sync_api._handle_scaleform_view_populated
 _render_scaleform_view_runtime = _scaleform_sync_api._render_scaleform_view
+_reschedule_callback = _scaleform_callbacks_api._reschedule_callback
 _start_scaleform_view_runtime = _scaleform_sync_api._start_scaleform_view
 _stop_scaleform_view_runtime = _scaleform_sync_api._stop_scaleform_view
 _should_show_scaleform_view_runtime = _scaleform_sync_api._should_show_scaleform_view
 _sync_scaleform_view_runtime = _scaleform_sync_api._sync_scaleform_view
 _extract_t11_action_marker_meta = _t11_action_metadata_api._extract_t11_action_marker_meta
+_ModeSelectionState = _mode_state_api.ModeSelectionState
+
+_MODE_STATE_SAVE_DELAY = 1.0
 
 
 def _on_registered_mod_settings_changed(reason):
@@ -73,6 +80,9 @@ class ResearchProgressBar(object):
 
     def __init__(self):
         self._active = False
+        self._mode_state = _ModeSelectionState()
+        self._mode_state_capture_error_logged = False
+        self._mode_state_save_callback = None
         self._pending_update_callback = None
         self._visibility_probe_callback = None
         self._update_in_progress = False
@@ -86,6 +96,7 @@ class ResearchProgressBar(object):
         self._lobby_route_log_handler = None
         self._current_lobby_route_path = None
         self._last_context_log_key = None
+        self._last_rendered_vehicle_int_cd = None
         self._last_scaleform_payload_log_key = None
         self._last_seen_sub_view_alias = None
 
@@ -97,10 +108,15 @@ class ResearchProgressBar(object):
         # First update is triggered by onChanged once hangar vehicle selection settles.
 
     def stop(self):
+        self._capture_current_view_mode_selection()
+        self._flush_mode_state()
         _stop_runtime_lifecycle(self, _logger, _lobby_state_logger)
 
     def on_external_config_changed(self, reason):
         _handle_runtime_config_change(self, reason, _logger)
+
+    def _load_mode_state(self, logger):
+        self._mode_state.load(logger)
 
     def _start_scaleform_view(self):
         _start_scaleform_view_runtime(self, _logger)
@@ -132,8 +148,8 @@ class ResearchProgressBar(object):
     def _on_scaleform_view_disposed(self, view):
         _handle_scaleform_view_disposed_runtime(self, view, _logger)
 
-    def _render_scaleform_view(self, vehicle, data):
-        _render_scaleform_view_runtime(self, vehicle, data, _logger)
+    def _render_scaleform_view(self, vehicle, data, preferred_mode_id=None):
+        _render_scaleform_view_runtime(self, vehicle, data, preferred_mode_id, _logger)
 
     def _cancel_pending_update(self):
         _cancel_pending_update_runtime(self)
@@ -149,6 +165,55 @@ class ResearchProgressBar(object):
 
     def _schedule_update(self, reason):
         _schedule_update_runtime(self, reason)
+
+    def _schedule_mode_state_save(self):
+        self._mode_state_save_callback = _reschedule_callback(
+            self._active,
+            self._mode_state_save_callback,
+            _MODE_STATE_SAVE_DELAY,
+            self._save_mode_state,
+        )
+
+    def _save_mode_state(self):
+        self._mode_state_save_callback = None
+        self._mode_state.save(_logger)
+
+    def _flush_mode_state(self):
+        self._mode_state_save_callback = _cancel_callback(self._mode_state_save_callback)
+        self._mode_state.save(_logger)
+
+    def _remember_mode_selection(self, vehicle_int_cd, mode_id):
+        if self._mode_state.set_mode(vehicle_int_cd, mode_id):
+            self._schedule_mode_state_save()
+
+    def _resolve_preferred_mode_id(self, vehicle):
+        return self._mode_state.get_mode(getattr(vehicle, 'intCD', None))
+
+    def _capture_current_view_mode_selection(self):
+        if self._last_rendered_vehicle_int_cd is None or self._scaleform_view is None:
+            return
+
+        try:
+            mode_id = self._scaleform_view.as_getSelectedModeIdS()
+        except Exception:
+            if not self._mode_state_capture_error_logged:
+                _logger.exception('Failed to capture selected mode from Scaleform view')
+                self._mode_state_capture_error_logged = True
+            return
+
+        self._mode_state_capture_error_logged = False
+        self._remember_mode_selection(self._last_rendered_vehicle_int_cd, mode_id)
+
+    def _remember_rendered_payload_selection(self, vehicle):
+        vehicle_int_cd = getattr(vehicle, 'intCD', None) if vehicle is not None else None
+        payload = self._scaleform_payload or {}
+        selected_mode_id = payload.get('selectedModeId')
+        if vehicle_int_cd is None or selected_mode_id is None:
+            self._last_rendered_vehicle_int_cd = None
+            return
+
+        self._last_rendered_vehicle_int_cd = vehicle_int_cd
+        self._remember_mode_selection(vehicle_int_cd, selected_mode_id)
 
     # -- event handlers ------------------------------------------------------
 
@@ -176,6 +241,8 @@ class ResearchProgressBar(object):
 
         self._update_in_progress = True
         try:
+            self._capture_current_view_mode_selection()
+
             vehicle = g_currentVehicle.item
             if vehicle is None:
                 return
@@ -187,7 +254,8 @@ class ResearchProgressBar(object):
                 return
 
             data = self._collect(vehicle, stats)
-            self._render(vehicle, data)
+            preferred_mode_id = self._resolve_preferred_mode_id(vehicle)
+            self._render(vehicle, data, preferred_mode_id)
         finally:
             self._update_in_progress = False
 
@@ -201,8 +269,9 @@ class ResearchProgressBar(object):
 
     # -- rendering -----------------------------------------------------------
 
-    def _render(self, vehicle, data):
-        self._render_scaleform_view(vehicle, data)
+    def _render(self, vehicle, data, preferred_mode_id=None):
+        self._render_scaleform_view(vehicle, data, preferred_mode_id)
+        self._remember_rendered_payload_selection(vehicle)
 
 
 # ---------------------------------------------------------------------------

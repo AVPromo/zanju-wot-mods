@@ -47,6 +47,7 @@ package {
         private var tooltipContent:Sprite;
         private var _context:Object;
         private var _selectedModeId:String;
+        private var _selectedVehicleIntCD:String;
         private var _barX:Number = 0;
         private var _barY:Number = 0;
         private var _barWidth:Number = 0;
@@ -190,6 +191,10 @@ package {
             return "research-progress-bar-lobby-ready";
         }
 
+        public function as_getSelectedModeId():String {
+            return _selectedModeId;
+        }
+
         public function as_setVisible(value:Boolean):void {
             visible = value;
             if (!value) {
@@ -218,8 +223,17 @@ package {
         }
 
         private function applyContext(data:Object):void {
+            var nextVehicleIntCD:String = data != null && data.vehicleIntCD !== undefined && data.vehicleIntCD != null
+                ? String(data.vehicleIntCD)
+                : null;
+
             if (data == null) {
                 return;
+            }
+
+            if (_selectedVehicleIntCD != nextVehicleIntCD) {
+                _selectedModeId = null;
+                _selectedVehicleIntCD = nextVehicleIntCD;
             }
 
             _context = data;
