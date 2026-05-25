@@ -13,7 +13,10 @@ wot_mods_build = "tools.build:main"
 wot_mods_cleanup = "tools.cleanup:main"
 wot_mods_cycle = "tools.cycle:main"
 wot_mods_deploy = "tools.deploy:main"
+wot_mods_fetch_companion_artifacts = "tools.fetch_companion_artifacts:main"
+wot_mods_help = "tools.help:main"
 wot_mods_lint = "tools.lint:main"
+wot_mods_update_companion_manifest = "tools.update_companion_manifest:main"
 
 [tool.setuptools]
 packages = ["tools"]

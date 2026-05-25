@@ -16,6 +16,8 @@ The current mod surface includes:
 
 If you already have a prepared release bundle, follow the general install path in [Installing Mods](../../docs/installing-mods.md).
 
+The standalone configurator release shape for this mod can include companion `.wotmod` packages for `ModsSettingsApi`, `ModsListApi`, and `net.openwg.gameface`. When that bundle is used, copy the whole included `mods/` tree together rather than only `zanju.researchprogressbar_*.wotmod`.
+
 Runtime config lives under:
 
 - `mods/configs/research-progress-bar/config.json`
@@ -31,16 +33,30 @@ If `%APPDATA%` is unavailable, the runtime falls back to `%LOCALAPPDATA%`, then 
 
 ## Build From Source
 
-Build only this mod:
+Build the default standalone-configurator variant of this mod after fetching the pinned companion artifacts:
 
 ```powershell
+wot_mods_fetch_companion_artifacts
 wot_mods_build research-progress-bar
 ```
 
-Deploy it to a local WoT install:
+Build only the main mod package when you intentionally want to skip the companion `.wotmod` files:
 
 ```powershell
+wot_mods_build --no-companion-bundle research-progress-bar
+```
+
+Deploy the default standalone-configurator variant to a local WoT install after fetching the pinned companion artifacts:
+
+```powershell
+wot_mods_fetch_companion_artifacts
 wot_mods_deploy research-progress-bar
+```
+
+Deploy only the main mod package to a local WoT install:
+
+```powershell
+wot_mods_deploy --no-companion-bundle research-progress-bar
 ```
 
 Fast cleanup and redeploy loop:
@@ -72,6 +88,7 @@ For the wider repository workflow, see:
 ## Notes
 
 - The mod is designed to keep working from config alone when optional ecosystem UI/settings APIs are missing.
+- The standalone configurator bundle uses a tracked manifest plus ignored local cache for companion artifacts; update the pins with `wot_mods_update_companion_manifest`, then repopulate the cache with `wot_mods_fetch_companion_artifacts`.
 - On the first visit to a vehicle, or when a remembered mode is no longer available, the bar falls back to the left-most available mode.
 - The remembered per-vehicle mode cache is loaded once during startup, kept in memory during play, and written back with a small best-effort debounce instead of re-reading/writing on every vehicle switch.
 - Runtime localisation loads from the config-side `i18n/` directory with English fallback.

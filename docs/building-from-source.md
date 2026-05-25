@@ -18,6 +18,8 @@ python -m pip install -e .
 
 The `wot_mods_*` commands below resolve while that Python 3 environment is active.
 
+If a newly added repo command is missing after you update the workspace, rerun `python -m pip install -e .` to regenerate the console-script stubs. The module form also stays available, for example `python -m tools.fetch_companion_artifacts`.
+
 For a full workstation setup, see [Developing Mods](developing-mods.md).
 
 ## Build Commands
@@ -31,7 +33,29 @@ wot_mods_build
 Build one mod:
 
 ```powershell
+wot_mods_build crew-post-progression
+```
+
+For `research-progress-bar`, the default build now includes the standalone configurator companion chain when the manifest defines it. Fetch the pinned companion artifacts first:
+
+```powershell
+wot_mods_fetch_companion_artifacts
 wot_mods_build research-progress-bar
+```
+
+If you intentionally want only the main mod package without the companion `.wotmod` files, opt out explicitly:
+
+```powershell
+wot_mods_build --no-companion-bundle research-progress-bar
+```
+
+The tracked companion manifest lives at `tools/companion_artifacts_manifest.json`. Downloaded companion `.wotmod` files are stored in the ignored local cache under `.cache/companion-wotmods/` and are not committed.
+
+When you intentionally want to refresh the pinned companion versions, run the separate manifest-update command first. It queries upstream release APIs, verifies the candidate artifacts, and rewrites the tracked manifest. Then run the normal fetch command again to repopulate the local cache from the new pins.
+
+```powershell
+wot_mods_update_companion_manifest
+wot_mods_fetch_companion_artifacts
 ```
 
 ## Output
@@ -53,7 +77,15 @@ wot_mods_deploy
 Deploy one mod:
 
 ```powershell
-wot_mods_deploy research-progress-bar
+wot_mods_deploy crew-post-progression
+```
+
+For `research-progress-bar`, deployment also includes the configured companion chain by default after those artifacts have been fetched into the local cache.
+
+Deploy only the main mod package when you explicitly want to skip the companion `.wotmod` files:
+
+```powershell
+wot_mods_deploy --no-companion-bundle research-progress-bar
 ```
 
 Full cleanup and redeploy loop:

@@ -1,0 +1,200 @@
+"""Query upstream release APIs, resolve a pinned version set, and rewrite the tracked manifest."""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+import tempfile
+from urllib.parse import quote
+
+from .companion_artifacts import (
+    COMPANION_ARTIFACT_SCHEMA_VERSION,
+    RESEARCH_PROGRESS_BAR_BUNDLE,
+    CompanionArtifactError,
+    compute_file_sha256,
+    download_url_to_path,
+    fetch_json,
+    save_manifest,
+    utc_now_iso,
+)
+
+_GITHUB_MODSSETTINGSAPI_RELEASE_URL = "https://api.github.com/repos/izeberg/modssettingsapi/releases/latest"
+_GITLAB_MODS_LIST_RELEASE_URL = (
+    "https://gitlab.com/api/v4/projects/wot-public-mods%2Fmods-list/releases/permalink/latest"
+)
+_GITLAB_DESCRIPTION_LINK_RE = re.compile(r"\[(?P<name>[^\]]+)\]\((?P<url>[^)]+)\)")
+
+
+def parse_args(argv):
+    dry_run = False
+    for arg in argv:
+        if arg == "--dry-run":
+            dry_run = True
+            continue
+        raise RuntimeError("Unknown argument: {}".format(arg))
+    return dry_run
+
+
+def main():
+    dry_run = parse_args(sys.argv[1:])
+    manifest = _build_candidate_manifest()
+    _hydrate_checksums(manifest)
+
+    if dry_run:
+        for artifact_id, artifact in manifest["artifacts"].items():
+            print("dry-run: {} {} -> {}".format(artifact_id, artifact["version"], artifact["downloadUrl"]))
+        return
+
+    save_manifest(manifest)
+    for artifact_id, artifact in manifest["artifacts"].items():
+        print("updated: {} {}".format(artifact_id, artifact["filename"]))
+    print("Manifest updated: tools/companion_artifacts_manifest.json")
+
+
+def _build_candidate_manifest():
+    modssettingsapi = _resolve_modssettingsapi_artifact()
+    mods_list_project_id = _fetch_gitlab_project_id("wot-public-mods/mods-list")
+    mods_list_release = fetch_json(_GITLAB_MODS_LIST_RELEASE_URL)
+    mods_list_assets = _parse_gitlab_description_assets(mods_list_release, mods_list_project_id)
+
+    modslistapi = _resolve_gitlab_description_artifact(
+        artifact_id="modslistapi",
+        display_name="ModsList API",
+        release_data=mods_list_release,
+        assets=mods_list_assets,
+        filename_prefix="me.poliroid.modslistapi_",
+        provider="gitlab-release-description",
+        project="wot-public-mods/mods-list",
+        notes="Standalone configurator list/popup dependency.",
+    )
+    openwg_gameface = _resolve_gitlab_description_artifact(
+        artifact_id="openwg_gameface",
+        display_name="OpenWG Gameface",
+        release_data=mods_list_release,
+        assets=mods_list_assets,
+        filename_prefix="net.openwg.gameface_",
+        provider="gitlab-release-description",
+        project="wot-public-mods/mods-list",
+        notes="Transitive Gameface runtime paired with the pinned ModsList API release.",
+    )
+
+    return {
+        "schemaVersion": COMPANION_ARTIFACT_SCHEMA_VERSION,
+        "updatedAt": utc_now_iso(),
+        "bundles": {
+            RESEARCH_PROGRESS_BAR_BUNDLE: {
+                "description": "Standalone configurator companion chain for Research Progress Bar.",
+                "artifactIds": ["modssettingsapi", "modslistapi", "openwg_gameface"],
+            }
+        },
+        "artifacts": {
+            "modssettingsapi": modssettingsapi,
+            "modslistapi": modslistapi,
+            "openwg_gameface": openwg_gameface,
+        },
+    }
+
+
+def _resolve_modssettingsapi_artifact():
+    release_data = fetch_json(_GITHUB_MODSSETTINGSAPI_RELEASE_URL)
+    assets = release_data.get("assets") or []
+    asset = None
+    for item in assets:
+        name = item.get("name")
+        if isinstance(name, str) and name.endswith(".wotmod") and name.startswith("izeberg.modssettingsapi_"):
+            asset = item
+            break
+    if asset is None:
+        raise CompanionArtifactError("Could not resolve ModsSettingsApi .wotmod asset from the latest GitHub release")
+
+    filename = asset["name"]
+    version = _extract_version_from_filename(filename, "izeberg.modssettingsapi_")
+    return {
+        "displayName": "ModsSettings API",
+        "provider": "github-release-api",
+        "project": "izeberg/modssettingsapi",
+        "releaseTag": release_data.get("tag_name") or version,
+        "version": version,
+        "filename": filename,
+        "downloadUrl": asset["browser_download_url"],
+        "sha256": "0" * 64,
+        "notes": "Direct in-game settings API used by research-progress-bar.",
+    }
+
+
+def _parse_gitlab_description_assets(release_data, project_id):
+    description = release_data.get("description") or ""
+    assets = {}
+    for match in _GITLAB_DESCRIPTION_LINK_RE.finditer(description):
+        name = match.group("name").strip()
+        url = match.group("url").strip()
+        if not name.endswith(".wotmod"):
+            continue
+        if url.startswith("/uploads/"):
+            url = "https://gitlab.com/-/project/{}{}".format(project_id, url)
+        elif url.startswith("/"):
+            url = "https://gitlab.com{}".format(url)
+        assets[name] = url
+    return assets
+
+
+def _fetch_gitlab_project_id(project_path):
+    project_url = "https://gitlab.com/api/v4/projects/{}".format(quote(project_path, safe=""))
+    project_data = fetch_json(project_url)
+    project_id = project_data.get("id")
+    if not isinstance(project_id, int):
+        raise CompanionArtifactError("Could not resolve GitLab project id for {}".format(project_path))
+    return project_id
+
+
+def _resolve_gitlab_description_artifact(
+    artifact_id, display_name, release_data, assets, filename_prefix, provider, project, notes
+):
+    selected_name = None
+    selected_url = None
+    for name in sorted(assets):
+        if name.startswith(filename_prefix) and name.endswith(".wotmod"):
+            selected_name = name
+            selected_url = assets[name]
+            break
+
+    if selected_name is None or selected_url is None:
+        raise CompanionArtifactError(
+            "Could not resolve '{}' from the {} release description".format(artifact_id, project)
+        )
+
+    version = _extract_version_from_filename(selected_name, filename_prefix)
+    return {
+        "displayName": display_name,
+        "provider": provider,
+        "project": project,
+        "releaseTag": release_data.get("tag_name") or version,
+        "version": version,
+        "filename": selected_name,
+        "downloadUrl": selected_url,
+        "sha256": "0" * 64,
+        "notes": notes,
+    }
+
+
+def _extract_version_from_filename(filename, filename_prefix):
+    suffix = ".wotmod"
+    if not filename.startswith(filename_prefix) or not filename.endswith(suffix):
+        raise CompanionArtifactError("Unexpected artifact filename: {}".format(filename))
+    return filename[len(filename_prefix) : -len(suffix)]
+
+
+def _hydrate_checksums(manifest):
+    with tempfile.TemporaryDirectory(prefix="companion-artifacts-update-") as temp_dir:
+        for artifact in manifest["artifacts"].values():
+            temp_path = os.path.join(temp_dir, artifact["filename"])
+            download_url_to_path(artifact["downloadUrl"], temp_path)
+            artifact["sha256"] = compute_file_sha256(temp_path)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except CompanionArtifactError as exc:
+        raise SystemExit(str(exc)) from exc

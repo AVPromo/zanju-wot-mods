@@ -9,23 +9,27 @@ This page is for players who want to install a prepared mod package without buil
 
 A release bundle usually contains:
 
-- one `.wotmod` package
+- one or more `.wotmod` packages
 - one config folder or `config.json`
 - optional localisation files
+
+Some standalone bundles intentionally include companion `.wotmod` packages when a mod depends on a shared in-game UI/configuration stack. In that case, copy the whole included `mods/` tree together instead of cherry-picking only the primary mod package.
 
 If you only have the repository source tree, use [Building From Source](building-from-source.md) instead.
 
 ## Install A Release Bundle
 
 1. Find your current WoT version folder under `World_of_Tanks*/mods/`.
-2. Copy the mod's `.wotmod` file into `mods/<current-version>/`.
+2. Copy the release bundle's `.wotmod` file or files into `mods/<current-version>/`.
 3. Copy the mod's config files into `mods/configs/<mod-name>/`.
 4. Restart the game.
+
+If the bundle includes companion API packages, do not mix multiple versions of the same shared API unless the release notes explicitly say that combination was tested.
 
 ## Update A Mod
 
 1. Close the game.
-2. Replace the old `.wotmod` in `mods/<current-version>/`.
+2. Replace the old `.wotmod` file or files in `mods/<current-version>/`.
 3. Replace config files only if the release notes tell you to do so.
 4. Start the game and verify the mod loads.
 

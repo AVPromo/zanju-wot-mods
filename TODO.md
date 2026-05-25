@@ -12,6 +12,7 @@ Follow-up backlog after the initial Python format-and-lint tooling rollout.
 
 ## Research Progress Bar Guardrails
 
+- Revisit runtime/config localization switching for `research-progress-bar`: the mod content follows the selected language, but the ModsSettings config entry can get out of sync after language changes; validate which language source should drive the configurator title and whether a `settingsVersion` bump or explicit refresh is the correct fix.
 - Out of scope unless explicitly requested: changing mode semantics.
 - Out of scope unless explicitly requested: redesigning the Scaleform layout.
 - Out of scope unless explicitly requested: removing the production garage visibility-probe behavior.

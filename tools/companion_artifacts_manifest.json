@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-05-25T18:34:32Z",
+  "bundles": {
+    "research-progress-bar": {
+      "description": "Standalone configurator companion chain for Research Progress Bar.",
+      "artifactIds": [
+        "modssettingsapi",
+        "modslistapi",
+        "openwg_gameface"
+      ]
+    }
+  },
+  "artifacts": {
+    "modssettingsapi": {
+      "displayName": "ModsSettings API",
+      "provider": "github-release-api",
+      "project": "izeberg/modssettingsapi",
+      "releaseTag": "1.7.0",
+      "version": "1.7.0",
+      "filename": "izeberg.modssettingsapi_1.7.0.wotmod",
+      "downloadUrl": "https://github.com/izeberg/modssettingsapi/releases/download/1.7.0/izeberg.modssettingsapi_1.7.0.wotmod",
+      "sha256": "e09b415e28e9129c78d9697eeed42e81c10459ad6982a885f1e59322eb0c2dca",
+      "notes": "Direct in-game settings API used by research-progress-bar."
+    },
+    "modslistapi": {
+      "displayName": "ModsList API",
+      "provider": "gitlab-release-description",
+      "project": "wot-public-mods/mods-list",
+      "releaseTag": "v1.7.8",
+      "version": "1.7.8",
+      "filename": "me.poliroid.modslistapi_1.7.8.wotmod",
+      "downloadUrl": "https://gitlab.com/-/project/26509092/uploads/aaa518f7e2f84b6877ab1b4911fcc356/me.poliroid.modslistapi_1.7.8.wotmod",
+      "sha256": "3cc0cc1b5c9a3b43f3de153836636b4d999a48b62c1baea3cf7654fa02e2e1b2",
+      "notes": "Standalone configurator list/popup dependency."
+    },
+    "openwg_gameface": {
+      "displayName": "OpenWG Gameface",
+      "provider": "gitlab-release-description",
+      "project": "wot-public-mods/mods-list",
+      "releaseTag": "v1.7.8",
+      "version": "1.1.5",
+      "filename": "net.openwg.gameface_1.1.5.wotmod",
+      "downloadUrl": "https://gitlab.com/-/project/26509092/uploads/eb8c900e29727227318b6f847395e5d8/net.openwg.gameface_1.1.5.wotmod",
+      "sha256": "09feaf0332505acf7e9829d92f8389eea7aa2e8a6a4c8fd19e015c36770328e0",
+      "notes": "Transitive Gameface runtime paired with the pinned ModsList API release."
+    }
+  }
+}

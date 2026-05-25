@@ -45,11 +45,16 @@ Use the same Python 2.7 executable in the second command that you point `WOT_PYT
 
 If you do not want to activate the environment in that shell, use `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt` and `.\.venv\Scripts\python.exe -m pip install -e .` instead.
 
-The editable install adds `wot_mods_build`, `wot_mods_cleanup`, `wot_mods_cycle`, `wot_mods_deploy`, and `wot_mods_lint` to the active Python 3 environment. Activate that environment before expecting the commands to resolve on `PATH`.
+The editable install adds `wot_mods_build`, `wot_mods_cleanup`, `wot_mods_cycle`, `wot_mods_deploy`, `wot_mods_fetch_companion_artifacts`, `wot_mods_help`, `wot_mods_update_companion_manifest`, and `wot_mods_lint` to the active Python 3 environment. Activate that environment before expecting the commands to resolve on `PATH`.
+
+If `pyproject.toml` changes add a new repo command, rerun `python -m pip install -e .` in that environment so the console-script stubs are regenerated.
+
+For a quick environment check plus the available repo-command summary, run `wot_mods_help`.
 
 The module form stays available when you want it:
 
 ```powershell
+python -m tools.help
 python -m tools.build research-progress-bar
 python -m tools.lint check
 ```

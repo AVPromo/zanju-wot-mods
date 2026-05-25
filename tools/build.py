@@ -4,6 +4,7 @@ Package mods under mods/<name>/ into .wotmod archives.
 Usage:
     wot_mods_build                        # build all mods under mods/
     wot_mods_build research-progress-bar  # build one specific mod
+    wot_mods_build --no-companion-bundle research-progress-bar
     python -m tools.build research-progress-bar
 
 Output: dist/<mod-id>_<version>.wotmod
@@ -40,6 +41,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 
+from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
+from .companion_artifacts import load_manifest as load_companion_manifest
 from .paths import DIST_DIR, ENV_PATH, MODS_DIR
 
 
@@ -182,30 +185,43 @@ def copy_i18n_source(mod_dir, dst_i18n_dir):
     return i18n_dir
 
 
-def write_release_readme(readme_path, archive_name, mod_name, wot_client_version):
+def write_release_readme(readme_path, archive_name, mod_name, wot_client_version, companion_artifacts=None):
+    companion_artifacts = companion_artifacts or []
     lines = [
         "World of Tanks mod release bundle",
         "",
         "Contents:",
         "  - mods/{0}/{1}".format(wot_client_version, archive_name),
-        "  - mods/configs/{0}/".format(mod_name),
-        "",
-        "Installation:",
-        "  1. Close World of Tanks.",
-        "  2. Copy the included mods/ folder into your World of Tanks game directory.",
-        "  3. Merge/overwrite files when prompted.",
-        "  4. Launch the game and verify the mod in python.log if needed.",
-        "",
-        "Notes:",
-        "  - The .wotmod package belongs under mods/{0}/.".format(wot_client_version),
-        "  - The config folder belongs under mods/configs/{0}/.".format(mod_name),
-        "  - Optional language files live under mods/configs/{0}/i18n/ with English fallback.".format(mod_name),
     ]
+
+    for item in companion_artifacts:
+        lines.append("  - mods/{0}/{1}".format(wot_client_version, item["artifact"]["filename"]))
+
+    lines.extend(
+        [
+            "  - mods/configs/{0}/".format(mod_name),
+            "",
+            "Installation:",
+            "  1. Close World of Tanks.",
+            "  2. Copy the included mods/ folder into your World of Tanks game directory.",
+            "  3. Merge/overwrite files when prompted.",
+            "  4. Launch the game and verify the mod in python.log if needed.",
+            "",
+            "Notes:",
+            "  - The .wotmod packages belong under mods/{0}/.".format(wot_client_version),
+            "  - The config folder belongs under mods/configs/{0}/.".format(mod_name),
+            "  - Optional language files live under mods/configs/{0}/i18n/ with English fallback.".format(mod_name),
+        ]
+    )
+
+    if companion_artifacts:
+        lines.append("  - Standalone configurator companions are included; copy the whole mods/ tree together.")
+
     with open(readme_path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
 
 
-def create_release_bundle(mod_dir, mod_name, meta, output_path):
+def create_release_bundle(mod_dir, mod_name, meta, output_path, include_companion_bundle=False):
     archive_name = os.path.basename(output_path)
     bundle_name = os.path.splitext(archive_name)[0]
     bundle_root = os.path.join(DIST_DIR, bundle_name)
@@ -218,6 +234,10 @@ def create_release_bundle(mod_dir, mod_name, meta, output_path):
     os.makedirs(package_dir, exist_ok=True)
     shutil.copy2(output_path, os.path.join(package_dir, archive_name))
 
+    companion_artifacts = []
+    if include_companion_bundle:
+        companion_artifacts = stage_companion_bundle(package_dir, mod_name)
+
     bundle_config_dir = os.path.join(bundle_root, "mods", "configs", mod_name)
     copy_config_source(mod_dir, bundle_config_dir)
     copy_i18n_source(mod_dir, os.path.join(bundle_config_dir, "i18n"))
@@ -227,8 +247,24 @@ def create_release_bundle(mod_dir, mod_name, meta, output_path):
         archive_name,
         mod_name,
         wot_client_version,
+        companion_artifacts,
     )
-    return bundle_root
+    return bundle_root, companion_artifacts
+
+
+def stage_companion_bundle(package_dir, mod_name):
+    manifest = load_companion_manifest()
+    if mod_name not in (manifest.get("bundles") or {}):
+        return []
+
+    try:
+        companion_artifacts = resolve_cached_bundle_artifacts(mod_name, manifest=manifest)
+    except CompanionArtifactError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    for item in companion_artifacts:
+        shutil.copy2(item["path"], os.path.join(package_dir, item["artifact"]["filename"]))
+    return companion_artifacts
 
 
 def iter_python_source_files(src_dir):
@@ -242,7 +278,7 @@ def iter_python_source_files(src_dir):
             yield abs_path, rel_path
 
 
-def build_mod(mod_name, py2_exe):
+def build_mod(mod_name, py2_exe, include_companion_bundle=None):
     mod_dir = os.path.join(MODS_DIR, mod_name)
     if not os.path.isdir(mod_dir):
         print("ERROR: mod directory not found: {}".format(mod_dir))
@@ -296,8 +332,17 @@ def build_mod(mod_name, py2_exe):
 
     print("Built: {}".format(output_path))
 
-    release_bundle_dir = create_release_bundle(mod_dir, mod_name, meta, output_path)
+    release_bundle_dir, companion_artifacts = create_release_bundle(
+        mod_dir,
+        mod_name,
+        meta,
+        output_path,
+        include_companion_bundle=should_include_companion_bundle(mod_name, include_companion_bundle),
+    )
     print("  Release bundle: {}".format(release_bundle_dir))
+
+    for item in companion_artifacts:
+        print("  Companion artifact: {}".format(item["artifact"]["filename"]))
 
     config_source = resolve_config_source(mod_dir)
     if config_source:
@@ -309,6 +354,29 @@ def build_mod(mod_name, py2_exe):
     return True
 
 
+def should_include_companion_bundle(mod_name, include_companion_bundle):
+    if include_companion_bundle is not None:
+        return include_companion_bundle
+    try:
+        return manifest_defines_bundle(mod_name)
+    except CompanionArtifactError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
+def parse_args(argv):
+    include_companion_bundle = None
+    targets = []
+    for arg in argv:
+        if arg == "--standalone-config-bundle":
+            include_companion_bundle = True
+            continue
+        if arg == "--no-companion-bundle":
+            include_companion_bundle = False
+            continue
+        targets.append(arg)
+    return include_companion_bundle, targets
+
+
 def main():
     env = load_env(ENV_PATH)
     py2_exe = env.get("WOT_PYTHON2_EXE", "").strip()
@@ -316,11 +384,11 @@ def main():
         raise RuntimeError("WOT_PYTHON2_EXE is required in .env for this repository.")
     if not os.path.isfile(py2_exe):
         raise RuntimeError("WOT_PYTHON2_EXE does not exist: {}".format(py2_exe))
-    targets = sys.argv[1:]
+    include_companion_bundle, targets = parse_args(sys.argv[1:])
 
     if targets:
         for mod_name in targets:
-            build_mod(mod_name, py2_exe)
+            build_mod(mod_name, py2_exe, include_companion_bundle=include_companion_bundle)
     else:
         if not os.path.isdir(MODS_DIR):
             print("No mods/ directory found.")
@@ -330,7 +398,7 @@ def main():
             print("No mods found under mods/.")
             return
         for mod_name in mod_names:
-            build_mod(mod_name, py2_exe)
+            build_mod(mod_name, py2_exe, include_companion_bundle=include_companion_bundle)
 
 
 if __name__ == "__main__":

@@ -273,6 +273,13 @@ def _mods_settings_native(value):
     return value
 
 
+def _mods_settings_native_key(value):
+    native_value = _mods_settings_native(value)
+    if isinstance(native_value, _STRING_TYPES):
+        return native_value
+    return '{0}'.format(native_value)
+
+
 def _build_mod_settings_template():
     settings = _build_mod_settings_state()
     return _mods_settings_native({
@@ -358,8 +365,10 @@ def _get_mods_settings_api():
 def _register_mod_settings(mod_id, on_config_changed=None):
     global _mods_settings_sync_in_progress
 
+    native_mod_id = _mods_settings_native_key(mod_id)
+
     def _on_mod_settings_changed(linkage, new_settings):
-        if linkage != mod_id or _mods_settings_sync_in_progress:
+        if _mods_settings_native_key(linkage) != native_mod_id or _mods_settings_sync_in_progress:
             return
         if not isinstance(new_settings, dict):
             return
@@ -399,10 +408,10 @@ def _register_mod_settings(mod_id, on_config_changed=None):
         return False
 
     try:
-        api.setModTemplate(mod_id, _build_mod_settings_template(), _on_mod_settings_changed)
+        api.setModTemplate(native_mod_id, _build_mod_settings_template(), _on_mod_settings_changed)
         _mods_settings_sync_in_progress = True
         try:
-            api.updateModSettings(mod_id, _mods_settings_native(_build_mod_settings_state()))
+            api.updateModSettings(native_mod_id, _mods_settings_native(_build_mod_settings_state()))
         finally:
             _mods_settings_sync_in_progress = False
         _logger.info('ModsSettingsApi integration registered')

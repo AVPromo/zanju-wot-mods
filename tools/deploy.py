@@ -11,6 +11,7 @@ What it does:
 Usage:
     wot_mods_deploy
     wot_mods_deploy research-progress-bar
+    wot_mods_deploy --no-companion-bundle research-progress-bar
     python -m tools.deploy research-progress-bar
 
 Note:
@@ -26,6 +27,8 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
+from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
+from .companion_artifacts import load_manifest as load_companion_manifest
 from .paths import DIST_DIR, ENV_PATH, MODS_DIR
 
 
@@ -110,8 +113,12 @@ def resolve_installed_mods_versions(game_dir):
     return [name for _, name in version_dirs]
 
 
-def build_mods(mod_names):
+def build_mods(mod_names, include_companion_bundle=None):
     cmd = [sys.executable, "-m", "tools.build", *mod_names]
+    if include_companion_bundle is False:
+        cmd.insert(3, "--no-companion-bundle")
+    elif include_companion_bundle:
+        cmd.insert(3, "--standalone-config-bundle")
     print("Running:", " ".join(cmd))
     subprocess.check_call(cmd)
 
@@ -163,7 +170,7 @@ def resolve_i18n_source(mod_dir):
     return None
 
 
-def deploy_mod(game_dir, mod_name, target_wot_version):
+def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=None):
     meta = read_meta(mod_name)
     mod_id = meta["id"]
     version = meta["version"]
@@ -185,6 +192,15 @@ def deploy_mod(game_dir, mod_name, target_wot_version):
     except PermissionError:
         print("SKIP package (in use): {}".format(dst_archive))
 
+    if should_include_companion_bundle(mod_name, include_companion_bundle):
+        for item in _resolve_deploy_companion_artifacts(mod_name):
+            dst_path = os.path.join(dst_mods_dir, item["artifact"]["filename"])
+            try:
+                shutil.copy2(item["path"], dst_path)
+                print("Deployed companion: {}".format(dst_path))
+            except PermissionError:
+                print("SKIP companion (in use): {}".format(dst_path))
+
     mod_dir = os.path.join(MODS_DIR, mod_name)
     dst_config_dir = os.path.join(game_dir, "mods", "configs", mod_name)
 
@@ -204,6 +220,40 @@ def deploy_mod(game_dir, mod_name, target_wot_version):
         print("Deployed config:  {}".format(dst_config_dir))
 
 
+def _resolve_deploy_companion_artifacts(mod_name):
+    manifest = load_companion_manifest()
+    if mod_name not in (manifest.get("bundles") or {}):
+        return []
+
+    try:
+        return resolve_cached_bundle_artifacts(mod_name, manifest=manifest)
+    except CompanionArtifactError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
+def should_include_companion_bundle(mod_name, include_companion_bundle):
+    if include_companion_bundle is not None:
+        return include_companion_bundle
+    try:
+        return manifest_defines_bundle(mod_name)
+    except CompanionArtifactError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
+def parse_args(argv):
+    include_companion_bundle = None
+    mod_names = []
+    for arg in argv:
+        if arg == "--standalone-config-bundle":
+            include_companion_bundle = True
+            continue
+        if arg == "--no-companion-bundle":
+            include_companion_bundle = False
+            continue
+        mod_names.append(arg)
+    return include_companion_bundle, mod_names
+
+
 def main():
     env = load_env(ENV_PATH)
     game_dir = env.get("WOT_GAME_DIR", "")
@@ -220,7 +270,7 @@ def main():
             " but the current client session will not hot-reload Python/UI/package changes."
         )
 
-    requested_mods = sys.argv[1:]
+    include_companion_bundle, requested_mods = parse_args(sys.argv[1:])
     mod_names = requested_mods if requested_mods else discover_mods()
     if not mod_names:
         print("No mods found under mods/.")
@@ -235,11 +285,16 @@ def main():
     target_wot_versions = resolve_installed_mods_versions(game_dir)
     print("Target WoT mods versions: {}".format(", ".join(target_wot_versions)))
 
-    build_mods(mod_names)
+    build_mods(mod_names, include_companion_bundle=include_companion_bundle)
 
     for mod_name in mod_names:
         for target_wot_version in target_wot_versions:
-            deploy_mod(game_dir, mod_name, target_wot_version)
+            deploy_mod(
+                game_dir,
+                mod_name,
+                target_wot_version,
+                include_companion_bundle=include_companion_bundle,
+            )
 
     print("Done. Development deployment finished for {} mod(s).".format(len(mod_names)))
     if wot_running:
