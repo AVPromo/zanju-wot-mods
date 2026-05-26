@@ -79,7 +79,6 @@ _ELITE_MODE_VALUES = (
 _ELITE_MODE_INDEX_BY_VALUE = dict(
     (value, index) for index, value in enumerate(_ELITE_MODE_VALUES)
 )
-_MODS_SETTINGS_SCHEMA_VERSION = 9
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
     'showTechTree',
@@ -284,7 +283,6 @@ def _build_mod_settings_template():
     settings = _build_mod_settings_state()
     return _mods_settings_native({
         'modDisplayName': _loc('MOD_NAME', "Zanju's Research Progress Bar"),
-        'settingsVersion': _MODS_SETTINGS_SCHEMA_VERSION,
         'enabled': settings['enabled'],
         'column1': [
             {
