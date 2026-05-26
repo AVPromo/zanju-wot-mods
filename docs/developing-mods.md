@@ -15,7 +15,6 @@ Contributor format and lint tools:
 - Black and Ruff in the Python 3 environment.
 - Flake8 3.9.x in the Python 2.7 environment.
 - autopep8 in the Python 3 environment for conservative Python 2.7 formatting.
-- pre-commit if you want local hooks for the same commands used in CI.
 
 UI work adds:
 
@@ -92,14 +91,6 @@ wot_mods_lint py27-format
 ```
 
 The Python 2.7 autopep8 path is intentionally conservative. It only applies low-risk whitespace, indentation, and blank-line fixes. CI checks that surface in diff mode, while local rewriting stays an explicit reviewed step via `wot_mods_lint py27-format`.
-
-If you want git hooks for the same workflow:
-
-```powershell
-pre-commit install
-pre-commit run --all-files
-pre-commit run py27-format --all-files --hook-stage manual
-```
 
 ## Recommended Daily Loop
 
