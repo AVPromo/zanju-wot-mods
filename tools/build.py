@@ -2,12 +2,14 @@
 Package mods under mods/<name>/ into .wotmod archives.
 
 Usage:
-    wot_mods_build                        # build all mods under mods/
+    wot_mods_build --all                  # build all mods under mods/
     wot_mods_build research-progress-bar  # build one specific mod
+    wot_mods_build mod-a mod-b            # build selected mods
     wot_mods_build --no-companion-bundle research-progress-bar
+    wot_mods_build --verbose research-progress-bar
     python -m tools.build research-progress-bar
 
-Output: dist/<mod-id>_<version>.wotmod
+Output: dist/<mod-id>_<version>/mods/<target_wot_version>/<mod-id>_<version>.wotmod
 
 Optional prebuild hooks:
 - If mods/<name>/ui/compile_ui.py exists, it is run before packaging that mod.
@@ -21,7 +23,7 @@ Internal .wotmod layout:
 
 Additional release output:
     dist/<mod-id>_<version>/README.txt
-    dist/<mod-id>_<version>/mods/<wot_client_version>/<mod-id>_<version>.wotmod
+    dist/<mod-id>_<version>/mods/<target_wot_version>/<mod-id>_<version>.wotmod
     dist/<mod-id>_<version>/mods/configs/<mod-folder-name>/...
 
 Config files are NOT bundled.
@@ -43,7 +45,9 @@ import zipfile
 
 from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
 from .companion_artifacts import load_manifest as load_companion_manifest
+from .console import detail, section, success, warning
 from .paths import DIST_DIR, ENV_PATH, MODS_DIR
+from .wot_version import resolve_target_wot_version
 
 
 def load_env(path):
@@ -73,13 +77,15 @@ def compile_py2_to_pyc(py2_exe, src_path, out_pyc_path):
     subprocess.check_call(cmd)
 
 
-def run_optional_prebuild(mod_dir):
+def run_optional_prebuild(mod_dir, verbose=False):
     hook_path = os.path.join(mod_dir, "ui", "compile_ui.py")
     if not os.path.isfile(hook_path):
         return
 
     cmd = [sys.executable, hook_path]
-    print("Running: {}".format(" ".join(cmd)))
+    if not verbose:
+        cmd.append("--quiet")
+    detail("Running prebuild hook: {}".format(os.path.basename(hook_path)), verbose=verbose)
     subprocess.check_call(cmd)
 
 
@@ -221,18 +227,16 @@ def write_release_readme(readme_path, archive_name, mod_name, wot_client_version
         fh.write("\n".join(lines) + "\n")
 
 
-def create_release_bundle(mod_dir, mod_name, meta, output_path, include_companion_bundle=False):
+def create_release_bundle(mod_dir, mod_name, target_wot_version, output_path, include_companion_bundle=False):
     archive_name = os.path.basename(output_path)
     bundle_name = os.path.splitext(archive_name)[0]
     bundle_root = os.path.join(DIST_DIR, bundle_name)
-    wot_client_version = meta.get("wot_client_version") or "UNKNOWN_GAME_VERSION"
-
-    if os.path.isdir(bundle_root):
-        shutil.rmtree(bundle_root)
-
-    package_dir = os.path.join(bundle_root, "mods", wot_client_version)
+    package_dir = os.path.join(bundle_root, "mods", target_wot_version)
     os.makedirs(package_dir, exist_ok=True)
-    shutil.copy2(output_path, os.path.join(package_dir, archive_name))
+
+    bundled_output_path = os.path.join(package_dir, archive_name)
+    if os.path.normcase(os.path.abspath(output_path)) != os.path.normcase(os.path.abspath(bundled_output_path)):
+        shutil.copy2(output_path, bundled_output_path)
 
     companion_artifacts = []
     if include_companion_bundle:
@@ -246,7 +250,7 @@ def create_release_bundle(mod_dir, mod_name, meta, output_path, include_companio
         os.path.join(bundle_root, "README.txt"),
         archive_name,
         mod_name,
-        wot_client_version,
+        target_wot_version,
         companion_artifacts,
     )
     return bundle_root, companion_artifacts
@@ -278,24 +282,42 @@ def iter_python_source_files(src_dir):
             yield abs_path, rel_path
 
 
-def build_mod(mod_name, py2_exe, include_companion_bundle=None):
+def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=None, verbose=False):
     mod_dir = os.path.join(MODS_DIR, mod_name)
     if not os.path.isdir(mod_dir):
-        print("ERROR: mod directory not found: {}".format(mod_dir))
-        return False
+        raise RuntimeError("Mod directory not found: {}".format(mod_dir))
 
-    run_optional_prebuild(mod_dir)
+    section("Building {}".format(mod_name))
+
+    run_optional_prebuild(mod_dir, verbose=verbose)
 
     meta = read_meta(mod_dir)
     mod_id = meta["id"]
     version = meta["version"]
+    meta_wot_client_version = meta.get("wot_client_version")
+
+    if meta_wot_client_version != target_wot_version:
+        raise RuntimeError(
+            "meta.xml version mismatch for {}: meta.xml has {}, expected {} from WoT version pins".format(
+                mod_name,
+                meta_wot_client_version,
+                target_wot_version,
+            )
+        )
 
     if not mod_id or "yourname" in mod_id:
-        print("WARNING: {} — mod id looks like a placeholder: {}".format(mod_name, mod_id))
+        warning("WARNING: {} - mod id looks like a placeholder: {}".format(mod_name, mod_id))
 
     output_name = "{}_{}.wotmod".format(mod_id, version)
+    bundle_name = os.path.splitext(output_name)[0]
+    bundle_root = os.path.join(DIST_DIR, bundle_name)
+    package_dir = os.path.join(bundle_root, "mods", target_wot_version)
+
     os.makedirs(DIST_DIR, exist_ok=True)
-    output_path = os.path.join(DIST_DIR, output_name)
+    if os.path.isdir(bundle_root):
+        shutil.rmtree(bundle_root)
+    os.makedirs(package_dir, exist_ok=True)
+    output_path = os.path.join(package_dir, output_name)
 
     with (
         tempfile.TemporaryDirectory(prefix="wot-build-") as temp_dir,
@@ -330,28 +352,30 @@ def build_mod(mod_name, py2_exe, include_companion_bundle=None):
                     archive_path = "res/{}".format(os.path.relpath(abs_path, staged_res_dir).replace(os.sep, "/"))
                     zf.write(abs_path, archive_path)
 
-    print("Built: {}".format(output_path))
+    success("Package built: {}".format(output_name))
+    detail("Path: {}".format(output_path), verbose=verbose)
 
     release_bundle_dir, companion_artifacts = create_release_bundle(
         mod_dir,
         mod_name,
-        meta,
+        target_wot_version,
         output_path,
         include_companion_bundle=should_include_companion_bundle(mod_name, include_companion_bundle),
     )
-    print("  Release bundle: {}".format(release_bundle_dir))
+    success("Release bundle ready")
+    detail("Path: {}".format(release_bundle_dir), verbose=verbose)
 
-    for item in companion_artifacts:
-        print("  Companion artifact: {}".format(item["artifact"]["filename"]))
+    if companion_artifacts:
+        success("Companion artifacts staged: {}".format(len(companion_artifacts)))
+        for item in companion_artifacts:
+            detail("Companion: {}".format(item["artifact"]["filename"]), verbose=verbose)
 
     config_source = resolve_config_source(mod_dir)
     if config_source:
+        success("Config staged")
         _, config_source_path = config_source
-        print("  Config (ship separately):")
-        print("    Source: {}".format(config_source_path))
-        print("    Deploy to: <WoT install>/mods/configs/{}/".format(mod_name))
-
-    return True
+        detail("Source: {}".format(config_source_path), verbose=verbose)
+        detail("Deploy to: <WoT install>/mods/configs/{}/".format(mod_name), verbose=verbose)
 
 
 def should_include_companion_bundle(mod_name, include_companion_bundle):
@@ -365,6 +389,8 @@ def should_include_companion_bundle(mod_name, include_companion_bundle):
 
 def parse_args(argv):
     include_companion_bundle = None
+    run_all = False
+    verbose = False
     targets = []
     for arg in argv:
         if arg == "--standalone-config-bundle":
@@ -373,32 +399,69 @@ def parse_args(argv):
         if arg == "--no-companion-bundle":
             include_companion_bundle = False
             continue
+        if arg == "--all":
+            run_all = True
+            continue
+        if arg == "--verbose":
+            verbose = True
+            continue
         targets.append(arg)
-    return include_companion_bundle, targets
+    return include_companion_bundle, run_all, verbose, targets
 
 
-def main():
+def _print_targeting_help(available_mods):
+    warning("No mod targets provided")
+    success("Use --all to build all mods, or pass one or more mod names")
+    if available_mods:
+        success("Available mods: {}".format(", ".join(available_mods)))
+    else:
+        warning("No mods found under mods/")
+
+
+def _main():
     env = load_env(ENV_PATH)
     py2_exe = env.get("WOT_PYTHON2_EXE", "").strip()
     if not py2_exe:
         raise RuntimeError("WOT_PYTHON2_EXE is required in .env for this repository.")
     if not os.path.isfile(py2_exe):
         raise RuntimeError("WOT_PYTHON2_EXE does not exist: {}".format(py2_exe))
-    include_companion_bundle, targets = parse_args(sys.argv[1:])
+    target_wot_version = resolve_target_wot_version(env, require_game_dir=False)
+    include_companion_bundle, run_all, verbose, targets = parse_args(sys.argv[1:])
+    if run_all and targets:
+        raise RuntimeError("Use either --all or explicit mod names, not both")
 
-    if targets:
-        for mod_name in targets:
-            build_mod(mod_name, py2_exe, include_companion_bundle=include_companion_bundle)
+    available_mods = []
+    if os.path.isdir(MODS_DIR):
+        available_mods = sorted(d for d in os.listdir(MODS_DIR) if os.path.isdir(os.path.join(MODS_DIR, d)))
+    if run_all:
+        mod_names = available_mods
+    elif targets:
+        mod_names = targets
     else:
-        if not os.path.isdir(MODS_DIR):
-            print("No mods/ directory found.")
-            return
-        mod_names = sorted(d for d in os.listdir(MODS_DIR) if os.path.isdir(os.path.join(MODS_DIR, d)))
-        if not mod_names:
-            print("No mods found under mods/.")
-            return
-        for mod_name in mod_names:
-            build_mod(mod_name, py2_exe, include_companion_bundle=include_companion_bundle)
+        _print_targeting_help(available_mods)
+        return
+
+    if not mod_names:
+        warning("No mods found under mods/")
+        return
+
+    success("Target WoT client version: {}".format(target_wot_version))
+
+    for mod_name in mod_names:
+        build_mod(
+            mod_name,
+            py2_exe,
+            target_wot_version,
+            include_companion_bundle=include_companion_bundle,
+            verbose=verbose,
+        )
+
+
+def main():
+    try:
+        return _main()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from None
 
 
 if __name__ == "__main__":

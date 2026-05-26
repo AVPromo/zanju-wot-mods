@@ -49,6 +49,11 @@ def parse_args(argv=None):
         default="17",
         help="SWF version passed to mxmlc.",
     )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress compiler command and tool output unless a step fails.",
+    )
     return parser.parse_args(argv)
 
 
@@ -59,9 +64,36 @@ def require_tool(name):
     return tool_path
 
 
-def run_cmd(cmd):
-    print("Running: {}".format(" ".join(cmd)))
-    subprocess.check_call(cmd)
+def run_cmd(cmd, quiet=False):
+    if not quiet:
+        print("Running: {}".format(" ".join(cmd)))
+        subprocess.check_call(cmd)
+        return
+
+    result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if result.returncode != 0:
+        command = " ".join(cmd)
+        message = ["Command failed: {}".format(command)]
+        if result.stdout:
+            message.append(result.stdout.rstrip())
+        if result.stderr:
+            message.append(result.stderr.rstrip())
+        raise RuntimeError("\n".join(message))
+
+
+def run_cmd_verbose(cmd, label):
+    print(label)
+    result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+
+    stdout_lines = [line for line in (result.stdout or "").splitlines() if line.strip()]
+    stderr_lines = [line for line in (result.stderr or "").splitlines() if line.strip()]
+    for line in stdout_lines + stderr_lines:
+        if line.startswith("Loading configuration file "):
+            continue
+        print("  {}".format(line))
+
+    if result.returncode != 0:
+        raise RuntimeError("Command failed: {}".format(" ".join(cmd)))
 
 
 def main(argv=None):
@@ -83,7 +115,11 @@ def main(argv=None):
         "-source-path={}".format(os.path.abspath(args.api_source_dir)),
         "-include-sources={}".format(os.path.abspath(args.api_source_dir)),
     ]
-    run_cmd(api_arguments)
+    if args.quiet:
+        run_cmd(api_arguments, quiet=True)
+    else:
+        run_cmd_verbose(api_arguments, label="Compiling API SWC")
+        print()
 
     arguments = [
         mxmlc,
@@ -102,9 +138,11 @@ def main(argv=None):
         "30",
         os.path.abspath(args.source_file),
     ]
-    run_cmd(arguments)
+    if args.quiet:
+        run_cmd(arguments, quiet=True)
+    else:
+        run_cmd_verbose(arguments, label="Compiling lobby SWF")
 
-    print("Built UI SWF: {}".format(os.path.abspath(args.output_file)))
     return 0
 
 

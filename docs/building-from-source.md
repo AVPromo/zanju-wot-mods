@@ -6,7 +6,9 @@ This page is for users who want to build the mods in this repository without ado
 
 - Python 3 for the repository scripts.
 - Python 2.7 for WoT-compatible `.pyc` output.
-- A `.env` file with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE` configured.
+- A `.env` file copied from `.env.example`, with `WOT_PYTHON2_EXE` configured.
+- The pinned WoT client version in `tools/wot_version_manifest.json`.
+- `WOT_GAME_DIR` is optional for build-only CI, but required for deploy/cleanup/cycle and for local version.xml validation.
 - Java and Apache Flex SDK only if you build a mod with ActionScript UI assets.
 
 Install the repo commands into your active Python 3 environment once:
@@ -27,7 +29,7 @@ For a full workstation setup, see [Developing Mods](developing-mods.md).
 Build everything:
 
 ```powershell
-wot_mods_build
+wot_mods_build --all
 ```
 
 Build one mod:
@@ -35,6 +37,8 @@ Build one mod:
 ```powershell
 wot_mods_build crew-post-progression
 ```
+
+If you omit both mod names and `--all`, the command will stop and list the available mods.
 
 For `research-progress-bar`, the default build now includes the standalone configurator companion chain when the manifest defines it. Fetch the pinned companion artifacts first:
 
@@ -51,6 +55,13 @@ wot_mods_build --no-companion-bundle research-progress-bar
 
 The tracked companion manifest lives at `tools/companion_artifacts_manifest.json`. Downloaded companion `.wotmod` files are stored in the ignored local cache under `.cache/companion-wotmods/` and are not committed.
 
+The pinned WoT target version lives at `tools/wot_version_manifest.json`.
+If your local game updates, refresh that manifest before build/deploy:
+
+```powershell
+wot_mods_update_wot_version_manifest
+```
+
 When you intentionally want to refresh the pinned companion versions, run the separate manifest-update command first. It queries upstream release APIs, verifies the candidate artifacts, and rewrites the tracked manifest. Then run the normal fetch command again to repopulate the local cache from the new pins.
 
 ```powershell
@@ -60,18 +71,23 @@ wot_mods_fetch_companion_artifacts
 
 ## Output
 
-Successful builds are written to `dist/`.
-Each built mod gets:
+Successful builds are written to `dist/` as release-bundle directories with install-ready files.
 
-- a `.wotmod` package
-- a release-bundle directory with install-ready files
+Each built mod bundle includes:
+
+- `mods/<wot_client_version>/<mod-id>_<version>.wotmod`
+- `mods/configs/<mod-name>/...` for config and optional i18n files
+- `README.txt` with copy/install notes
 
 ## Deploy To A Local WoT Install
+
+`wot_mods_deploy` copies pre-built artifacts from `dist/`, so run `wot_mods_build` first if you have not just built.
+Close WoT before running `wot_mods_cleanup`, `wot_mods_deploy`, or `wot_mods_cycle`; those commands now fail fast while the client is running.
 
 Deploy all mods:
 
 ```powershell
-wot_mods_deploy
+wot_mods_deploy --all
 ```
 
 Deploy one mod:
@@ -88,7 +104,7 @@ Deploy only the main mod package when you explicitly want to skip the companion 
 wot_mods_deploy --no-companion-bundle research-progress-bar
 ```
 
-Full cleanup and redeploy loop:
+Full cleanup, rebuild, and redeploy loop:
 
 ```powershell
 wot_mods_cycle research-progress-bar

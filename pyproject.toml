@@ -17,6 +17,7 @@ wot_mods_fetch_companion_artifacts = "tools.fetch_companion_artifacts:main"
 wot_mods_help = "tools.help:main"
 wot_mods_lint = "tools.lint:main"
 wot_mods_update_companion_manifest = "tools.update_companion_manifest:main"
+wot_mods_update_wot_version_manifest = "tools.update_wot_version_manifest:main"
 
 [tool.setuptools]
 packages = ["tools"]

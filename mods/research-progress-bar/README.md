@@ -46,9 +46,10 @@ Build only the main mod package when you intentionally want to skip the companio
 wot_mods_build --no-companion-bundle research-progress-bar
 ```
 
-Deploy the default standalone-configurator variant to a local WoT install after fetching the pinned companion artifacts:
+Deploy the default standalone-configurator variant to a local WoT install after fetching the pinned companion artifacts. Build first, and keep WoT closed while deploying:
 
 ```powershell
+wot_mods_build research-progress-bar
 wot_mods_fetch_companion_artifacts
 wot_mods_deploy research-progress-bar
 ```
@@ -56,10 +57,11 @@ wot_mods_deploy research-progress-bar
 Deploy only the main mod package to a local WoT install:
 
 ```powershell
+wot_mods_build --no-companion-bundle research-progress-bar
 wot_mods_deploy --no-companion-bundle research-progress-bar
 ```
 
-Fast cleanup and redeploy loop:
+Fast cleanup, rebuild, and redeploy loop:
 
 ```powershell
 wot_mods_cycle research-progress-bar

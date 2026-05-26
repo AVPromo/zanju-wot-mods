@@ -15,9 +15,11 @@ from .companion_artifacts import (
     compute_file_sha256,
     download_url_to_path,
     fetch_json,
+    load_manifest,
     save_manifest,
     utc_now_iso,
 )
+from .console import detail, section, success
 
 _GITHUB_MODSSETTINGSAPI_RELEASE_URL = "https://api.github.com/repos/izeberg/modssettingsapi/releases/latest"
 _GITLAB_MODS_LIST_RELEASE_URL = (
@@ -28,28 +30,52 @@ _GITLAB_DESCRIPTION_LINK_RE = re.compile(r"\[(?P<name>[^\]]+)\]\((?P<url>[^)]+)\
 
 def parse_args(argv):
     dry_run = False
+    verbose = False
     for arg in argv:
         if arg == "--dry-run":
             dry_run = True
             continue
+        if arg == "--verbose":
+            verbose = True
+            continue
         raise RuntimeError("Unknown argument: {}".format(arg))
-    return dry_run
+    return dry_run, verbose
 
 
 def main():
-    dry_run = parse_args(sys.argv[1:])
-    manifest = _build_candidate_manifest()
-    _hydrate_checksums(manifest)
+    dry_run, verbose = parse_args(sys.argv[1:])
+    section("Update companion manifest")
+    current_manifest = load_manifest()
+    candidate_manifest = _build_candidate_manifest()
+    _hydrate_checksums(candidate_manifest)
+
+    changed = _manifest_changed(current_manifest, candidate_manifest)
 
     if dry_run:
-        for artifact_id, artifact in manifest["artifacts"].items():
-            print("dry-run: {} {} -> {}".format(artifact_id, artifact["version"], artifact["downloadUrl"]))
+        if not changed:
+            success("Dry-run: no manifest changes detected")
+            return
+        if verbose:
+            for artifact_id, artifact in candidate_manifest["artifacts"].items():
+                detail(
+                    "Would update {} {} -> {}".format(artifact_id, artifact["version"], artifact["downloadUrl"]),
+                    verbose=True,
+                )
+        else:
+            success("Dry-run: {} artifacts resolved and checksummed".format(len(candidate_manifest["artifacts"])))
         return
 
-    save_manifest(manifest)
-    for artifact_id, artifact in manifest["artifacts"].items():
-        print("updated: {} {}".format(artifact_id, artifact["filename"]))
-    print("Manifest updated: tools/companion_artifacts_manifest.json")
+    if not changed:
+        success("No manifest changes detected.")
+        return
+
+    candidate_manifest["updatedAt"] = utc_now_iso()
+
+    save_manifest(candidate_manifest)
+    if verbose:
+        for artifact_id, artifact in candidate_manifest["artifacts"].items():
+            detail("Updated {} {}".format(artifact_id, artifact["filename"]), verbose=True)
+    success("Companion manifest updated: tools/companion_artifacts_manifest.json")
 
 
 def _build_candidate_manifest():
@@ -81,7 +107,7 @@ def _build_candidate_manifest():
 
     return {
         "schemaVersion": COMPANION_ARTIFACT_SCHEMA_VERSION,
-        "updatedAt": utc_now_iso(),
+        "updatedAt": "",
         "bundles": {
             RESEARCH_PROGRESS_BAR_BUNDLE: {
                 "description": "Standalone configurator companion chain for Research Progress Bar.",
@@ -191,6 +217,19 @@ def _hydrate_checksums(manifest):
             temp_path = os.path.join(temp_dir, artifact["filename"])
             download_url_to_path(artifact["downloadUrl"], temp_path)
             artifact["sha256"] = compute_file_sha256(temp_path)
+
+
+def _manifest_changed(current_manifest, candidate_manifest):
+    return _normalized_manifest(current_manifest) != _normalized_manifest(candidate_manifest)
+
+
+def _normalized_manifest(manifest):
+    normalized = {
+        "schemaVersion": manifest.get("schemaVersion"),
+        "bundles": manifest.get("bundles") or {},
+        "artifacts": manifest.get("artifacts") or {},
+    }
+    return normalized
 
 
 if __name__ == "__main__":

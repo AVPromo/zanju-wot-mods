@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 
+from .console import detail, section, success, warning
 from .paths import ENV_PATH, REPO_ROOT
 
 try:
@@ -16,11 +17,23 @@ except ImportError:
 
 
 SAFE_AUTOPEP8_SELECT = "E1,E2,E3,W291,W292,W293,W391"
+COMMAND_CHOICES = (
+    "check",
+    "fix",
+    "py3-check",
+    "py3-format",
+    "py3-format-check",
+    "py3-lint",
+    "py27-lint",
+    "py27-format",
+    "py27-format-check",
+)
 ALIAS_COMMANDS = {
     "py3-check": ("check", {"py3_only": True}),
     "py3-format-check": ("py3-format", {"check": True}),
     "py27-format-check": ("py27-format", {"check": True}),
 }
+_CI_ENV_VARS = ("CI", "GITHUB_ACTIONS", "GITLAB_CI", "TF_BUILD", "BUILD_BUILDID")
 
 
 def load_env(path):
@@ -48,12 +61,64 @@ def format_command(cmd):
     return " ".join(quote_arg(part) for part in cmd)
 
 
-def run_command(cmd):
-    print("Running: {}".format(format_command(cmd)))
+def env_flag(name):
+    value = os.environ.get(name)
+    if value is None:
+        return False
+    return value.strip().lower() not in ("", "0", "false", "no")
+
+
+def default_verbose():
+    return any(env_flag(name) for name in _CI_ENV_VARS)
+
+
+def _to_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, type("")):
+        return value
     try:
-        subprocess.check_call(cmd, cwd=REPO_ROOT)
+        return value.decode("utf-8", "replace")
+    except AttributeError:
+        return "{}".format(value)
+
+
+def execute_command(cmd, verbose=False):
+    if verbose:
+        returncode = subprocess.call(cmd, cwd=REPO_ROOT)
+        return {"returncode": returncode, "stdout": "", "stderr": ""}
+
+    process = subprocess.Popen(cmd, cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    return {
+        "returncode": process.returncode,
+        "stdout": _to_text(stdout),
+        "stderr": _to_text(stderr),
+    }
+
+
+def run_command(cmd, title, success_message=None, verbose=False):
+    section(title)
+    try:
+        if verbose:
+            detail("Command: {}".format(format_command(cmd)), verbose=True)
+        result = execute_command(cmd, verbose=verbose)
     except OSError as exc:
         raise RuntimeError("Failed to run {}: {}".format(cmd[0], exc))
+
+    if result["returncode"] != 0:
+        if verbose:
+            raise RuntimeError("{} failed with exit code {}".format(title, result["returncode"]))
+
+        message = ["{} failed.".format(title), "Command: {}".format(format_command(cmd))]
+        if result["stdout"]:
+            message.append(result["stdout"].rstrip())
+        if result["stderr"]:
+            message.append(result["stderr"].rstrip())
+        raise RuntimeError("\n".join(message))
+
+    if success_message:
+        success(success_message)
 
 
 def expand_patterns(patterns):
@@ -135,11 +200,11 @@ def ensure_py27_lint_runtime(py27_python):
 def require_targets(targets, label):
     if targets:
         return targets
-    print("No {} targets found.".format(label))
+    warning("No {} targets found.".format(label))
     return []
 
 
-def run_py3_format(check):
+def run_py3_format(check, verbose=False):
     targets = require_targets(get_py3_targets(), "Python 3")
     if not targets:
         return
@@ -148,10 +213,15 @@ def run_py3_format(check):
     if check:
         cmd.append("--check")
     cmd.extend(targets)
-    run_command(cmd)
+    run_command(
+        cmd,
+        "Python 3 format check" if check else "Python 3 format",
+        success_message="Python 3 format check passed" if check else "Python 3 formatting applied",
+        verbose=verbose,
+    )
 
 
-def run_py3_lint(fix):
+def run_py3_lint(fix, verbose=False):
     targets = require_targets(get_py3_targets(), "Python 3")
     if not targets:
         return
@@ -160,10 +230,15 @@ def run_py3_lint(fix):
     if fix:
         cmd.append("--fix")
     cmd.extend(targets)
-    run_command(cmd)
+    run_command(
+        cmd,
+        "Python 3 lint" if not fix else "Python 3 lint fixes",
+        success_message="Python 3 lint passed" if not fix else "Python 3 lint fixes complete",
+        verbose=verbose,
+    )
 
 
-def run_py27_lint(py27_python):
+def run_py27_lint(py27_python, verbose=False):
     targets = require_targets(get_py27_targets(), "Python 2.7")
     if not targets:
         return
@@ -172,10 +247,10 @@ def run_py27_lint(py27_python):
 
     cmd = [py27_python, "-m", "tools.flake8_compat", "--config", ".flake8"]
     cmd.extend(targets)
-    run_command(cmd)
+    run_command(cmd, "Python 2.7 lint", success_message="Python 2.7 lint passed", verbose=verbose)
 
 
-def run_py27_format(check):
+def run_py27_format(check, verbose=False):
     targets = require_targets(get_py27_targets(), "Python 2.7")
     if not targets:
         return
@@ -195,50 +270,73 @@ def run_py27_format(check):
     else:
         cmd.append("--in-place")
     cmd.extend(targets)
-    run_command(cmd)
+    run_command(
+        cmd,
+        "Python 2.7 format check" if check else "Python 2.7 format",
+        success_message="Python 2.7 format check passed" if check else "Python 2.7 formatting applied",
+        verbose=verbose,
+    )
 
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
-        description=(
-            'Run the repository Python format and lint workflow. The default "check" command '
-            "runs Python 3 format-check and lint plus Python 2.7 lint and format-check."
-        )
+        prog="wot_mods_lint",
+        description="Run the repository Python format and lint workflow.",
+        epilog=(
+            "Defaults:\n"
+            "  wot_mods_lint                  Run the default 'check' workflow.\n"
+            "\n"
+            "Commands:\n"
+            "  check                         Python 3 format-check + lint, then Python 2.7 lint + format-check.\n"
+            "  fix                           Apply Python 3 Ruff fixes + Black formatting, then Python 2.7 lint.\n"
+            "  py3-check                     Alias for: check --py3-only\n"
+            "  py3-format                    Run Black on Python 3 targets.\n"
+            "  py3-format-check             Alias for: py3-format --check\n"
+            "  py3-lint                      Run Ruff on Python 3 targets.\n"
+            "  py27-lint                     Run flake8 compatibility checks on Python 2.7 targets.\n"
+            "  py27-format                   Run autopep8 on Python 2.7 targets.\n"
+            "  py27-format-check            Alias for: py27-format --check\n"
+            "\n"
+            "Examples:\n"
+            "  wot_mods_lint\n"
+            "  wot_mods_lint --verbose\n"
+            "  wot_mods_lint fix --py3-only\n"
+            "  wot_mods_lint py3-format --check"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "command",
         nargs="?",
         default="check",
-        choices=(
-            "check",
-            "fix",
-            "py3-check",
-            "py3-format",
-            "py3-format-check",
-            "py3-lint",
-            "py27-lint",
-            "py27-format",
-            "py27-format-check",
-        ),
+        metavar="COMMAND",
+        choices=COMMAND_CHOICES,
+        help="Command to run. Defaults to 'check'.",
     )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="For format commands, check formatting instead of rewriting files.",
+        help="Only with py3-format or py27-format; check formatting instead of rewriting files.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=default_verbose(),
+        help="Show underlying commands and raw tool output. Enabled automatically when CI is detected.",
     )
     parser.add_argument(
         "--py3-only",
         action="store_true",
-        help="Restrict composite commands such as check or fix to the Python 3 surface.",
+        help="Only with composite commands such as check or fix; skip the Python 2.7 surface.",
     )
     parser.add_argument(
         "--py27-only",
         action="store_true",
-        help="Restrict composite commands such as check to the Python 2.7 surface.",
+        help="Only with the default check workflow; skip the Python 3 surface.",
     )
     parser.add_argument(
         "--py27-python",
-        help="Override the Python 2.7 executable used for flake8, for example python inside a CI container.",
+        help="Override the Python 2.7 executable used for flake8 when a command runs the Python 2.7 lint step.",
     )
     return parser.parse_args(argv)
 
@@ -255,80 +353,101 @@ def normalize_args(args):
     return args
 
 
+def command_runs_py27_lint(args):
+    if args.py3_only:
+        return False
+    return args.command in ("check", "fix", "py27-lint")
+
+
 def validate_args(args):
     if args.py3_only and args.py27_only:
         raise RuntimeError("Choose only one of --py3-only or --py27-only.")
 
+    if args.py3_only and args.command not in ("check", "fix"):
+        raise RuntimeError("--py3-only is only valid with the check or fix workflows.")
+
+    if args.py27_only and args.command != "check":
+        raise RuntimeError("--py27-only is only valid with the default check workflow.")
+
     if args.check and args.command not in ("py3-format", "py27-format"):
+        if args.command == "check":
+            raise RuntimeError(
+                "The default command already runs checks. Use 'wot_mods_lint', 'py3-format --check', "
+                "or 'py27-format --check'."
+            )
         raise RuntimeError("--check is only valid with py3-format or py27-format.")
-
-    if args.command in ("py3-format", "py3-lint") and args.py27_only:
-        raise RuntimeError("{} does not support --py27-only.".format(args.command))
-
-    if args.command in ("py27-format", "py27-lint") and args.py3_only:
-        raise RuntimeError("{} does not support --py3-only.".format(args.command))
 
     if args.command == "fix" and args.py27_only:
         raise RuntimeError("fix only applies Python 3 auto-fixes. Use py27-format explicitly.")
 
+    if args.py27_python and not command_runs_py27_lint(args):
+        raise RuntimeError("--py27-python is only valid when the selected workflow runs Python 2.7 lint.")
+
 
 def run_check(args):
     if not args.py27_only:
-        run_py3_format(check=True)
-        run_py3_lint(fix=False)
+        run_py3_format(check=True, verbose=args.verbose)
+        run_py3_lint(fix=False, verbose=args.verbose)
 
     if not args.py3_only:
-        run_py27_lint(resolve_py27_python(args.py27_python))
-        run_py27_format(check=True)
+        run_py27_lint(resolve_py27_python(args.py27_python), verbose=args.verbose)
+        run_py27_format(check=True, verbose=args.verbose)
 
 
 def run_fix(args):
-    run_py3_lint(fix=True)
-    run_py3_format(check=False)
+    run_py3_lint(fix=True, verbose=args.verbose)
+    run_py3_format(check=False, verbose=args.verbose)
 
     if not args.py3_only:
-        run_py27_lint(resolve_py27_python(args.py27_python))
-        print(
+        run_py27_lint(resolve_py27_python(args.py27_python), verbose=args.verbose)
+        warning(
             "Note: Python 2.7 autoformatting stays explicit for now. "
             'Use "wot_mods_lint py27-format-check" or "python -m tools.lint py27-format-check" '
             "to review that diff first."
         )
 
 
-def main(argv=None):
+def _main(argv=None):
     args = normalize_args(parse_args(argv or sys.argv[1:]))
     validate_args(args)
 
     if args.command == "check":
         run_check(args)
+        section("Lint complete")
+        success("All requested lint checks passed")
         return 0
 
     if args.command == "fix":
         run_fix(args)
+        section("Lint complete")
+        success("Requested Python 3 lint fixes and formatting applied")
         return 0
 
     if args.command == "py3-format":
-        run_py3_format(check=args.check)
+        run_py3_format(check=args.check, verbose=args.verbose)
         return 0
 
     if args.command == "py3-lint":
-        run_py3_lint(fix=False)
+        run_py3_lint(fix=False, verbose=args.verbose)
         return 0
 
     if args.command == "py27-lint":
-        run_py27_lint(resolve_py27_python(args.py27_python))
+        run_py27_lint(resolve_py27_python(args.py27_python), verbose=args.verbose)
         return 0
 
     if args.command == "py27-format":
-        run_py27_format(check=args.check)
+        run_py27_format(check=args.check, verbose=args.verbose)
         return 0
 
     raise RuntimeError("Unsupported command: {}".format(args.command))
 
 
-if __name__ == "__main__":
+def main(argv=None):
     try:
-        sys.exit(main())
+        return _main(argv)
     except RuntimeError as exc:
-        print("ERROR: {}".format(exc), file=sys.stderr)
-        sys.exit(1)
+        raise SystemExit(str(exc))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

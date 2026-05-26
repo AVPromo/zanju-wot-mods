@@ -19,7 +19,7 @@ Use this path if you want to install a prepared mod package and keep it updated.
 
 Use this path if you want to build `.wotmod` packages yourself without changing the code.
 
-- Prerequisites: Python 3, Python 2.7, and `.env` configured with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE`
+- Prerequisites: Python 3, Python 2.7, `.env` copied from `.env.example` with `WOT_PYTHON2_EXE` configured, and a pinned target in `tools/wot_version_manifest.json`
 - UI builds additionally need Java and Apache Flex SDK
 - Standalone configurator bundles additionally require the pinned companion artifacts fetched into the local ignored cache
 
@@ -30,7 +30,7 @@ Use this path if you want to build `.wotmod` packages yourself without changing 
 
 Use this path if you want to change code, add features, or create new mods in this workspace.
 
-- Prerequisites: Python 3, Python 2.7, a local WoT install, and `.env` configured with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE`
+- Prerequisites: Python 3, Python 2.7, a local WoT install, and `.env` copied from `.env.example` with `WOT_GAME_DIR` and `WOT_PYTHON2_EXE` configured
 - UI and reverse-engineering work additionally need Java, Apache Flex SDK, and FFDec
 - Activate the repo `.venv` and install the repo commands with `python -m pip install -e .`
 - Re-run `python -m pip install -e .` after pulling `pyproject.toml` changes that add new `wot_mods_*` commands so the venv regenerates the console-script stubs

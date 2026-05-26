@@ -3,33 +3,36 @@ Development/test deployment helper for WoT mods.
 
 What it does:
 1. Reads WOT_GAME_DIR from .env in repo root.
-2. Builds mods via wot_mods_build (all mods by default, or selected mods via args).
-3. Detects installed WoT version folders under <WOT_GAME_DIR>/mods/.
-4. Deploys each .wotmod to every detected <WOT_GAME_DIR>/mods/<version>/.
-5. Deploys config files and optional i18n files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
+2. Resolves the pinned WoT client version and verifies it matches <WOT_GAME_DIR>/version.xml.
+3. Deploys each .wotmod from dist/ to <WOT_GAME_DIR>/mods/<version>/.
+4. Deploys config files and optional i18n files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
 
 Usage:
-    wot_mods_deploy
+    wot_mods_deploy --all
     wot_mods_deploy research-progress-bar
+    wot_mods_deploy mod-a mod-b
     wot_mods_deploy --no-companion-bundle research-progress-bar
+    wot_mods_deploy --verbose research-progress-bar
     python -m tools.deploy research-progress-bar
 
 Note:
-    Deployment updates files on disk only. A running WoT client will not hot-reload
-    Python/UI/package changes from the copied .wotmod.
+    Deployment copies pre-built artifacts from dist/ — run wot_mods_build first.
+    Deployment requires WoT to be closed. The command exits if the client is running.
 """
 
 from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
 from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
 from .companion_artifacts import load_manifest as load_companion_manifest
+from .console import detail, section, success, warning
 from .paths import DIST_DIR, ENV_PATH, MODS_DIR
+from .wot_process import ensure_wot_not_running
+from .wot_version import resolve_target_wot_version
 
 
 def load_env(path):
@@ -47,26 +50,6 @@ def load_env(path):
     return env
 
 
-def is_wot_running():
-    try:
-        result = subprocess.run(
-            ["tasklist"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        output = (result.stdout or "").lower()
-        names = [
-            "worldoftanks",
-            "worldoftanks64",
-            "worldoftanks.exe",
-            "worldoftanks64.exe",
-        ]
-        return any(name in output for name in names)
-    except Exception:
-        return False
-
-
 def read_meta(mod_name):
     meta_path = os.path.join(MODS_DIR, mod_name, "meta.xml")
     tree = ET.parse(meta_path)
@@ -82,45 +65,6 @@ def discover_mods():
     if not os.path.isdir(MODS_DIR):
         return []
     return sorted(d for d in os.listdir(MODS_DIR) if os.path.isdir(os.path.join(MODS_DIR, d)))
-
-
-def parse_version_key(name):
-    parts = name.split(".")
-    if not parts or any(not part.isdigit() for part in parts):
-        return None
-    return tuple(int(part) for part in parts)
-
-
-def resolve_installed_mods_versions(game_dir):
-    mods_root = os.path.join(game_dir, "mods")
-    if not os.path.isdir(mods_root):
-        raise RuntimeError("WoT mods directory not found: {}".format(mods_root))
-
-    version_dirs = []
-    for name in os.listdir(mods_root):
-        version_key = parse_version_key(name)
-        if version_key is None:
-            continue
-
-        version_path = os.path.join(mods_root, name)
-        if os.path.isdir(version_path):
-            version_dirs.append((version_key, name))
-
-    if not version_dirs:
-        raise RuntimeError("No WoT version folders found under {}".format(mods_root))
-
-    version_dirs.sort(key=lambda item: item[0])
-    return [name for _, name in version_dirs]
-
-
-def build_mods(mod_names, include_companion_bundle=None):
-    cmd = [sys.executable, "-m", "tools.build", *mod_names]
-    if include_companion_bundle is False:
-        cmd.insert(3, "--no-companion-bundle")
-    elif include_companion_bundle:
-        cmd.insert(3, "--standalone-config-bundle")
-    print("Running:", " ".join(cmd))
-    subprocess.check_call(cmd)
 
 
 def copy_tree_contents(src_dir, dst_dir):
@@ -170,16 +114,26 @@ def resolve_i18n_source(mod_dir):
     return None
 
 
-def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=None):
+def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=None, verbose=False):
     meta = read_meta(mod_name)
     mod_id = meta["id"]
     version = meta["version"]
+    built_wot_version = meta.get("wot_client_version")
 
     if not mod_id:
         raise RuntimeError("meta.xml for {} is missing id".format(mod_name))
+    if built_wot_version != target_wot_version:
+        raise RuntimeError(
+            "meta.xml version mismatch for {}: meta.xml has {}, expected {} from WoT version pins".format(
+                mod_name,
+                built_wot_version,
+                target_wot_version,
+            )
+        )
 
     archive_name = "{}_{}.wotmod".format(mod_id, version)
-    src_archive = os.path.join(DIST_DIR, archive_name)
+    bundle_name = "{}_{}".format(mod_id, version)
+    src_archive = os.path.join(DIST_DIR, bundle_name, "mods", built_wot_version, archive_name)
     if not os.path.isfile(src_archive):
         raise RuntimeError("Built archive not found: {}".format(src_archive))
 
@@ -188,18 +142,23 @@ def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=
     dst_archive = os.path.join(dst_mods_dir, archive_name)
     try:
         shutil.copy2(src_archive, dst_archive)
-        print("Deployed package: {}".format(dst_archive))
+        success("Package deployed to mods/{}".format(target_wot_version))
+        detail("Path: {}".format(dst_archive), verbose=verbose)
     except PermissionError:
-        print("SKIP package (in use): {}".format(dst_archive))
+        warning("SKIP package (in use): {}".format(dst_archive))
 
     if should_include_companion_bundle(mod_name, include_companion_bundle):
+        deployed_companions = 0
         for item in _resolve_deploy_companion_artifacts(mod_name):
             dst_path = os.path.join(dst_mods_dir, item["artifact"]["filename"])
             try:
                 shutil.copy2(item["path"], dst_path)
-                print("Deployed companion: {}".format(dst_path))
+                deployed_companions += 1
+                detail("Companion: {}".format(dst_path), verbose=verbose)
             except PermissionError:
-                print("SKIP companion (in use): {}".format(dst_path))
+                warning("SKIP companion (in use): {}".format(dst_path))
+        if deployed_companions:
+            success("Companions deployed: {}".format(deployed_companions))
 
     mod_dir = os.path.join(MODS_DIR, mod_name)
     dst_config_dir = os.path.join(game_dir, "mods", "configs", mod_name)
@@ -217,7 +176,8 @@ def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=
         copy_tree_contents(i18n_source, os.path.join(dst_config_dir, "i18n"))
 
     if config_source or i18n_source:
-        print("Deployed config:  {}".format(dst_config_dir))
+        success("Config deployed")
+        detail("Path: {}".format(dst_config_dir), verbose=verbose)
 
 
 def _resolve_deploy_companion_artifacts(mod_name):
@@ -242,6 +202,8 @@ def should_include_companion_bundle(mod_name, include_companion_bundle):
 
 def parse_args(argv):
     include_companion_bundle = None
+    run_all = False
+    verbose = False
     mod_names = []
     for arg in argv:
         if arg == "--standalone-config-bundle":
@@ -250,11 +212,45 @@ def parse_args(argv):
         if arg == "--no-companion-bundle":
             include_companion_bundle = False
             continue
+        if arg == "--all":
+            run_all = True
+            continue
+        if arg == "--verbose":
+            verbose = True
+            continue
         mod_names.append(arg)
-    return include_companion_bundle, mod_names
+    return include_companion_bundle, run_all, verbose, mod_names
 
 
-def main():
+def _print_targeting_help(available_mods):
+    warning("No mod targets provided")
+    success("Use --all to deploy all mods, or pass one or more mod names")
+    if available_mods:
+        success("Available mods: {}".format(", ".join(available_mods)))
+    else:
+        warning("No mods found under mods/")
+
+
+def _main():
+    include_companion_bundle, run_all, verbose, requested_mods = parse_args(sys.argv[1:])
+    if run_all and requested_mods:
+        raise RuntimeError("Use either --all or explicit mod names, not both")
+
+    available_mods = discover_mods()
+    if run_all:
+        mod_names = available_mods
+    elif requested_mods:
+        mod_names = requested_mods
+    else:
+        _print_targeting_help(available_mods)
+        return
+
+    if not mod_names:
+        warning("No mods found under mods/")
+        return
+
+    ensure_wot_not_running("wot_mods_deploy")
+
     env = load_env(ENV_PATH)
     game_dir = env.get("WOT_GAME_DIR", "")
 
@@ -262,45 +258,38 @@ def main():
         raise RuntimeError("WOT_GAME_DIR is not set. Create .env from .env.example and set it.")
     if not os.path.isdir(game_dir):
         raise RuntimeError("WOT_GAME_DIR does not exist: {}".format(game_dir))
+    target_wot_version = resolve_target_wot_version(env, require_game_dir=True)
 
-    wot_running = is_wot_running()
-    if wot_running:
-        print(
-            "WARNING: WoT appears to be running. Deployment will update files on disk,"
-            " but the current client session will not hot-reload Python/UI/package changes."
-        )
-
-    include_companion_bundle, requested_mods = parse_args(sys.argv[1:])
-    mod_names = requested_mods if requested_mods else discover_mods()
-    if not mod_names:
-        print("No mods found under mods/.")
-        return
-
-    # Validate requested mod directories before build.
+    # Validate requested mod directories before deploying.
     for mod_name in mod_names:
         mod_dir = os.path.join(MODS_DIR, mod_name)
         if not os.path.isdir(mod_dir):
             raise RuntimeError("Mod directory not found: {}".format(mod_dir))
 
-    target_wot_versions = resolve_installed_mods_versions(game_dir)
-    print("Target WoT mods versions: {}".format(", ".join(target_wot_versions)))
-
-    build_mods(mod_names, include_companion_bundle=include_companion_bundle)
+    section("Preparing deployment")
+    success("Target WoT mods version: {}".format(target_wot_version))
 
     for mod_name in mod_names:
-        for target_wot_version in target_wot_versions:
-            deploy_mod(
-                game_dir,
-                mod_name,
-                target_wot_version,
-                include_companion_bundle=include_companion_bundle,
-            )
+        section("Deploying {}".format(mod_name))
+        detail("Target version: {}".format(target_wot_version), verbose=verbose)
+        deploy_mod(
+            game_dir,
+            mod_name,
+            target_wot_version,
+            include_companion_bundle=include_companion_bundle,
+            verbose=verbose,
+        )
 
-    print("Done. Development deployment finished for {} mod(s).".format(len(mod_names)))
-    if wot_running:
-        print("Next step: restart WoT to load the updated mod package.")
-    else:
-        print("Next step: launch WoT to load the updated mod package.")
+    section("Deployment complete")
+    success("Development deployment finished for {} mod(s)".format(len(mod_names)))
+    success("Next step: launch WoT to load the updated mod package")
+
+
+def main():
+    try:
+        return _main()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from None
 
 
 if __name__ == "__main__":

@@ -54,8 +54,10 @@ It captures repo-specific conventions, documentation expectations, and validatio
 ### Packaging And Deploy
 
 - `wot_mods_build <mod>` is the canonical package build for one mod.
-- `wot_mods_deploy <mod>` builds and deploys the mod to every detected `mods/<version>/` folder and also copies config/i18n.
-- `wot_mods_cycle <mod>` performs cleanup and then deploy.
+- `wot_mods_deploy <mod>` deploys pre-built `dist/` artifacts to the pinned WoT version folder and also copies config/i18n.
+- `wot_mods_cleanup <mod>` removes deployed WoT package/config targets for the selected mod.
+- `wot_mods_cycle <mod>` performs cleanup + build + deploy.
+- `wot_mods_cleanup`, `wot_mods_deploy`, and `wot_mods_cycle` require WoT to be closed and fail fast if the client is running.
 - Prefer one-mod commands when the task is scoped to one mod.
 - `dist/<mod-id>_<version>/` is the canonical release-bundle layout.
 

@@ -24,11 +24,11 @@ UI work adds:
 
 ## Local Setup
 
-Create `.env` in the repository root and set:
+Copy `.env.example` to `.env` in the repository root and fill in:
 
 ```text
-WOT_GAME_DIR=C:\Games\World_of_Tanks_EU
-WOT_PYTHON2_EXE=C:\Python27\python.exe
+WOT_GAME_DIR=
+WOT_PYTHON2_EXE=
 ```
 
 Install the format and lint tooling with the interpreters you already use for the repo:
@@ -44,7 +44,7 @@ Use the same Python 2.7 executable in the second command that you point `WOT_PYT
 
 If you do not want to activate the environment in that shell, use `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt` and `.\.venv\Scripts\python.exe -m pip install -e .` instead.
 
-The editable install adds `wot_mods_build`, `wot_mods_cleanup`, `wot_mods_cycle`, `wot_mods_deploy`, `wot_mods_fetch_companion_artifacts`, `wot_mods_help`, `wot_mods_update_companion_manifest`, and `wot_mods_lint` to the active Python 3 environment. Activate that environment before expecting the commands to resolve on `PATH`.
+The editable install adds `wot_mods_build`, `wot_mods_cleanup`, `wot_mods_cycle`, `wot_mods_deploy`, `wot_mods_fetch_companion_artifacts`, `wot_mods_help`, `wot_mods_update_companion_manifest`, `wot_mods_update_wot_version_manifest`, and `wot_mods_lint` to the active Python 3 environment. Activate that environment before expecting the commands to resolve on `PATH`.
 
 If `pyproject.toml` changes add a new repo command, rerun `python -m pip install -e .` in that environment so the console-script stubs are regenerated.
 
@@ -56,6 +56,16 @@ The module form stays available when you want it:
 python -m tools.help
 python -m tools.build research-progress-bar
 python -m tools.lint check
+```
+
+For mod-targeting commands, pass one or more mod names explicitly. Use `--all` only when you really want every mod in the workspace.
+`wot_mods_deploy` expects current build output in `dist/`, and `wot_mods_cleanup`, `wot_mods_deploy`, and `wot_mods_cycle` require WoT to be closed:
+
+```powershell
+wot_mods_build research-progress-bar
+wot_mods_build --all
+wot_mods_deploy research-progress-bar
+wot_mods_cycle research-progress-bar
 ```
 
 ## Python Format and Lint Workflow
@@ -97,7 +107,7 @@ The Python 2.7 autopep8 path is intentionally conservative. It only applies low-
 1. Edit source files.
 2. Run `wot_mods_lint` or `wot_mods_lint check`.
 3. If you want to normalize existing Python 2.7 formatting, review `wot_mods_lint py27-format-check` before applying `wot_mods_lint py27-format`.
-4. Run `wot_mods_cycle <mod-name>`.
+4. Close WoT, then run `wot_mods_cycle <mod-name>`.
 5. Restart or relaunch WoT.
 6. Reproduce the scenario.
 7. Inspect `python.log`.
@@ -129,7 +139,7 @@ Cleanup one deployed mod:
 wot_mods_cleanup research-progress-bar
 ```
 
-Cleanup and redeploy one mod:
+Cleanup, rebuild, and redeploy one mod:
 
 ```powershell
 wot_mods_cycle research-progress-bar
