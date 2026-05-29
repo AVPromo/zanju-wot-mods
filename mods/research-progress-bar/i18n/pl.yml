@@ -40,11 +40,12 @@ BLUEPRINT_TOOLTIP_FORMAT: "<count>{count}</count>/<total>{total}</total> Schemat
 FIELD_MOD_VALUE_FORMAT: "{label}: {value}"
 FIELD_MOD_STATUS_ACTIVE: "Aktywne"
 FIELD_MOD_STATUS_INACTIVE: "Nieaktywne"
-FIELD_MOD_STATUS_NOT_SELECTED: "Nie wybrano"
 TOOLTIP_LEVEL_FORMAT: "Poziom {level}"
 FIELD_MOD_TOOLTIP_SUBTITLE_DUAL: "Dwojaka modyfikacja"
-FIELD_MOD_TOOLTIP_SUBTITLE_LOADOUT: "Konfiguracja podstawowa/pomocnicza"
 FIELD_MOD_TOOLTIP_SUBTITLE_ROLE_SLOT: "Kategoria drugiego slotu"
+FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES: "Dostępne kategorie"
+FIELD_MOD_TOOLTIP_OPTION_A: "Opcja A"
+FIELD_MOD_TOOLTIP_OPTION_B: "Opcja B"
 
 # Vehicle label formats
 VEHICLE_LABEL_TIER_FORMAT: "{name} (Poziom {tier})"

@@ -20,6 +20,18 @@ try:
     from gui.shared.items_parameters.param_name_helper import getVehicleParameterText as _wg_get_vehicle_parameter_text
 except Exception:
     _wg_get_vehicle_parameter_text = None
+try:
+    from gui.shared.items_parameters.formatters import formatParameter as _wg_format_parameter_value
+except Exception:
+    _wg_format_parameter_value = None
+try:
+    import gui.shared.items_parameters.formatters as _wg_parameter_formatters
+except Exception:
+    _wg_parameter_formatters = None
+try:
+    from gui.shared.items_parameters.params_cache import g_paramsCache as _wg_params_cache
+except Exception:
+    _wg_params_cache = None
 from gui.shared.gui_items import GUI_ITEM_TYPE_NAMES
 from items import getTypeOfCompactDescr
 try:
@@ -31,9 +43,22 @@ except Exception:
     }
 
 from .constants import _TIER_FIELD_MOD_RULES, _UNLOCK_MARKER_TYPE_BY_GUI_NAME
-from .utils import _extract_sequence_ints, _mapping_value, _to_int_or_none
+from .role_slot_ui_metadata import _get_role_slot_ui_categories
+from .utils import _clean_text_value, _extract_sequence_ints, _mapping_value, _to_int_or_none
 
 _logger = logging.getLogger('zanju.researchprogressbar')
+
+try:
+    _STRING_TYPES = (basestring,)
+except NameError:
+    _STRING_TYPES = (str,)
+
+_POST_PROGRESSION_BONUS_SOURCE_GROUPS = frozenset((
+    'postProgressionBaseModifications',
+    'postProgressionPairModifications',
+))
+
+_post_progression_bonus_param_names_by_source_name = None
 
 
 def _resolve_post_progression_step_id(step):
@@ -125,6 +150,62 @@ def _resolve_post_progression_action_category(action):
     return _extract_post_progression_repr_token(action, 'category')
 
 
+def _normalize_post_progression_category(value):
+    cleaned = _clean_text_value(value)
+    if cleaned is None:
+        return None
+
+    normalized = cleaned.strip().lower()
+    if not normalized:
+        return None
+
+    prefix = None
+    for prefix in (
+            '#tank_setup:categories/',
+            'tank_setup:categories/',
+            '#veh_post_progression:categories/',
+            'veh_post_progression:categories/',
+            'categories/'):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            break
+
+    if '/' in normalized:
+        parts = [part for part in normalized.split('/') if part]
+        if parts:
+            normalized = parts[-1]
+
+    normalized = normalized.replace(' ', '_')
+    if normalized == 'stealth':
+        normalized = 'scouting'
+    if normalized == 'reconnaissance':
+        normalized = 'scouting'
+    if normalized in ('', 'no_category', 'none', 'null', 'undefined'):
+        return None
+
+    if re.match(r'^[a-z_]+$', normalized) is None:
+        return None
+
+    return normalized
+
+
+def _resolve_role_slot_available_categories(vehicle, level=None):
+    ui_categories = _get_role_slot_ui_categories(vehicle, level)
+    if not ui_categories:
+        return []
+
+    merged_categories = []
+    seen = set()
+    category = None
+    for category in ui_categories:
+        normalized = _normalize_post_progression_category(category)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        merged_categories.append(normalized)
+    return merged_categories
+
+
 def _resolve_post_progression_action_class_name(action):
     if action is None:
         return None
@@ -191,10 +272,57 @@ def _resolve_wg_resource_text(resource):
     return u'{0}'.format(resource)
 
 
-def _resolve_post_progression_feature_group_id(action_name):
-    if not action_name:
+def _normalize_post_progression_feature_identifier(value):
+    text = _clean_text_value(value)
+    if text is None:
         return None
-    return _to_int_or_none(_POST_PROGRESSION_GROUP_ID_BY_FEATURE.get(action_name))
+    return re.sub(r'[^a-z0-9]+', '', text.lower())
+
+
+def _resolve_post_progression_feature_group_id(action_name):
+    normalized_action_name = _normalize_post_progression_feature_identifier(action_name)
+    if not normalized_action_name:
+        return None
+
+    candidate_name = None
+    candidate_group_id = None
+    try:
+        items = _POST_PROGRESSION_GROUP_ID_BY_FEATURE.iteritems()
+    except AttributeError:
+        items = _POST_PROGRESSION_GROUP_ID_BY_FEATURE.items()
+
+    for candidate_name, candidate_group_id in items:
+        if _normalize_post_progression_feature_identifier(candidate_name) == normalized_action_name:
+            return _to_int_or_none(candidate_group_id)
+
+    return None
+
+
+def _normalize_t11_action_identifier(value):
+    text = _clean_text_value(value)
+    if text is None:
+        return None
+    return re.sub(r'[^a-z0-9]+', '', text.lower())
+
+
+def _classify_t11_action_kind(action_name=None, image_name=None, action_class_name=None):
+    if action_class_name == 'RoleSlotModItem':
+        return 'role_slot'
+    if action_class_name == 'FeatureModItem':
+        return 'feature'
+
+    identifier = None
+    for identifier in (action_name, image_name):
+        normalized_identifier = _normalize_t11_action_identifier(identifier)
+        if normalized_identifier == 'roleslot':
+            return 'role_slot'
+        if normalized_identifier in (
+                'shellsconsumablesswitch',
+                'optdevboostersswitch',
+                'shellsconsumablesoptdevboostersswitch'):
+            return 'feature'
+
+    return ''
 
 
 def _resolve_post_progression_setup_switch_active(pp, state, vehicle, feature_group_id):
@@ -370,61 +498,490 @@ def _resolve_post_progression_dual_selected_choice_index(action, raw_choice_inde
     return _resolve_post_progression_dual_choice_index_from_modification(action, selected_modification)
 
 
-def _resolve_post_progression_kpi_description(kpi):
-    if kpi is None:
+def _clean_post_progression_text(text):
+    cleaned = _clean_text_value(text)
+    if cleaned is None:
         return None
 
-    if _format_wg_kpi_description is not None:
-        try:
-            description = _format_wg_kpi_description(kpi)
-        except Exception:
-            description = None
-        if description:
-            return description
+    cleaned = (
+        cleaned.replace('&nbsp;', ' ')
+        .replace('&lt;', '<')
+        .replace('&gt;', '>')
+        .replace('&amp;', '&')
+    )
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned or None
 
-    kpi_name = getattr(kpi, 'name', None)
-    value = getattr(kpi, 'value', None)
-    kpi_type = getattr(kpi, 'type', None)
-    if value is None:
+
+def _clean_post_progression_kpi_label_text(text):
+    cleaned = _clean_post_progression_text(text)
+    if cleaned in (None, '0'):
+        return None
+    return cleaned
+
+
+def _normalize_post_progression_comparable_text(text):
+    cleaned = _clean_post_progression_text(text)
+    if cleaned is None:
+        return ''
+    return cleaned.replace('−', '-').replace(' ', '').lower()
+
+
+def _tokenize_post_progression_match_text(*values):
+    tokens = set()
+    value = None
+    for value in values:
+        cleaned = _clean_post_progression_text(value)
+        if cleaned is None:
+            cleaned = _clean_text_value(value)
+        if not cleaned:
+            continue
+
+        expanded = re.sub(r'([a-z])([A-Z])', r'\1 \2', cleaned)
+        token = None
+        for token in re.split(r'[^A-Za-z0-9]+', expanded):
+            if not token:
+                continue
+            tokens.add(token.lower())
+    return tokens
+
+
+def _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=False):
+    if _wg_get_vehicle_parameter_text is None or not parameter_name:
         return None
 
     try:
+        return _clean_post_progression_kpi_label_text(
+            _resolve_wg_resource_text(
+                _wg_get_vehicle_parameter_text(
+                    paramName=parameter_name,
+                    isPositive=is_positive,
+                    isLong=is_long,
+                )
+            )
+        )
+    except Exception:
+        return None
+
+
+def _resolve_post_progression_kpi_label_text(kpi_name, is_positive):
+    return _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=False)
+
+
+def _resolve_post_progression_is_positive(value, kpi_type):
+    try:
         numeric_value = float(value)
     except Exception:
-        numeric_value = None
+        return None
 
-    suffix = ''
-    if numeric_value is not None and kpi_type == 'mul':
-        numeric_value = (numeric_value - 1.0) * 100.0
-        suffix = '%'
+    cmp_value = 0.0 if kpi_type == 'add' else 1.0
+    return numeric_value >= cmp_value
 
-    if numeric_value is None:
-        value_text = u'{0}'.format(value)
-    else:
-        rounded_value = round(numeric_value, 2)
-        if int(rounded_value) == rounded_value:
-            value_text = str(int(rounded_value))
-        else:
-            value_text = ('%.2f' % rounded_value).rstrip('0').rstrip('.')
-        if rounded_value > 0:
-            value_text = '+' + value_text
-        value_text += suffix
 
-    label_text = None
-    if _wg_get_vehicle_parameter_text is not None and kpi_name:
+def _resolve_post_progression_bonus_param_names_by_source_name():
+    global _post_progression_bonus_param_names_by_source_name
+
+    if _post_progression_bonus_param_names_by_source_name is not None:
+        return _post_progression_bonus_param_names_by_source_name
+
+    mapping = {}
+    bonuses = None
+    if _wg_params_cache is not None:
         try:
-            label_text = _resolve_wg_resource_text(
-                _wg_get_vehicle_parameter_text(
-                    paramName=kpi_name,
-                    isPositive=not bool(getattr(kpi, 'isDebuff', False)),
+            bonuses = _wg_params_cache.getBonuses() or {}
+        except Exception:
+            bonuses = {}
+
+    if bonuses:
+        try:
+            items = bonuses.iteritems()
+        except AttributeError:
+            items = bonuses.items()
+
+        param_name = None
+        sources = None
+        for param_name, sources in items:
+            cleaned_param_name = _clean_text_value(param_name)
+            if cleaned_param_name is None:
+                continue
+
+            source = None
+            for source in sources or ():
+                try:
+                    source_name, source_group = source
+                except Exception:
+                    continue
+
+                cleaned_source_name = _clean_text_value(source_name)
+                cleaned_source_group = _clean_text_value(source_group)
+                if not cleaned_source_name or cleaned_source_group not in _POST_PROGRESSION_BONUS_SOURCE_GROUPS:
+                    continue
+
+                param_names = mapping.setdefault(cleaned_source_name, [])
+                if cleaned_param_name not in param_names:
+                    param_names.append(cleaned_param_name)
+
+    _post_progression_bonus_param_names_by_source_name = mapping
+    return _post_progression_bonus_param_names_by_source_name
+
+
+def _resolve_post_progression_bonus_param_names(modification):
+    source_name = _clean_text_value(_resolve_post_progression_action_name(modification))
+    if not source_name:
+        return []
+
+    mapping = _resolve_post_progression_bonus_param_names_by_source_name()
+    return list(mapping.get(source_name) or [])
+
+
+def _score_post_progression_param_name_candidate(kpi_name, param_name, is_positive):
+    alias_short = _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=False)
+    alias_long = _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=True)
+    param_short = _resolve_post_progression_parameter_label_text(param_name, is_positive, is_long=False)
+    param_long = _resolve_post_progression_parameter_label_text(param_name, is_positive, is_long=True)
+
+    score = 0
+    comparable_pairs = (
+        (alias_short, param_short, 100),
+        (alias_long, param_long, 100),
+        (alias_short, param_long, 75),
+        (alias_long, param_short, 75),
+    )
+    left = None
+    right = None
+    weight = None
+    for left, right, weight in comparable_pairs:
+        normalized_left = _normalize_post_progression_comparable_text(left)
+        normalized_right = _normalize_post_progression_comparable_text(right)
+        if not normalized_left or not normalized_right:
+            continue
+        if normalized_left == normalized_right:
+            score += weight
+        elif normalized_left in normalized_right or normalized_right in normalized_left:
+            score += weight // 2
+
+    alias_tokens = _tokenize_post_progression_match_text(kpi_name, alias_short, alias_long)
+    param_tokens = _tokenize_post_progression_match_text(param_name, param_short, param_long)
+    score += len(alias_tokens & param_tokens) * 10
+    return score
+
+
+def _resolve_post_progression_kpi_param_names(modification, kpis):
+    candidate_param_names = _resolve_post_progression_bonus_param_names(modification)
+    if not candidate_param_names or not kpis:
+        return {}
+
+    available_param_names = list(candidate_param_names)
+    resolved_param_names = {}
+    index = None
+    kpi = None
+    for index, kpi in enumerate(kpis):
+        if not available_param_names:
+            break
+
+        kpi_name = getattr(kpi, 'name', None)
+        is_positive = _resolve_post_progression_is_positive(
+            getattr(kpi, 'value', None),
+            getattr(kpi, 'type', None),
+        )
+        if is_positive is None:
+            is_positive = not bool(getattr(kpi, 'isDebuff', False))
+
+        best_score = None
+        best_candidate_index = None
+        candidate_index = None
+        candidate_param_name = None
+        for candidate_index, candidate_param_name in enumerate(available_param_names):
+            score = _score_post_progression_param_name_candidate(kpi_name, candidate_param_name, is_positive)
+            if best_score is None or score > best_score:
+                best_score = score
+                best_candidate_index = candidate_index
+
+        if best_candidate_index is None:
+            continue
+        if best_score <= 0 and len(available_param_names) > 1:
+            continue
+
+        resolved_param_names[index] = available_param_names.pop(best_candidate_index)
+
+    return resolved_param_names
+
+
+def _resolve_post_progression_kpi_numeric_values(value, kpi_type):
+    try:
+        numeric_value = float(value)
+    except Exception:
+        return None, None
+
+    display_value = numeric_value
+    if kpi_type == 'mul':
+        display_value = (numeric_value - 1.0) * 100.0
+    return numeric_value, display_value
+
+
+def _resolve_post_progression_kpi_sign(display_value, force_positive=False):
+    if display_value is None:
+        return ''
+    if force_positive:
+        return '+'
+    if display_value > 0:
+        return '+'
+    if display_value < 0:
+        return '-'
+    return ''
+
+
+def _strip_post_progression_kpi_sign(text):
+    cleaned = _clean_post_progression_text(text)
+    if cleaned is None:
+        return None
+    cleaned = re.sub(r'^\s*[+\-−]\s*', '', cleaned)
+    return cleaned or None
+
+
+def _has_post_progression_kpi_sign(text):
+    cleaned = _clean_post_progression_text(text)
+    if cleaned is None:
+        return False
+    return re.match(r'^\s*[+\-−]', cleaned) is not None
+
+
+def _format_post_progression_fallback_value_text(display_value, kpi_name=None, kpi_type=None, force_positive=False):
+    if display_value is None:
+        return None
+
+    magnitude = abs(display_value) if force_positive or display_value < 0 else display_value
+    rounded_value = round(magnitude, 2)
+    if int(rounded_value) == rounded_value:
+        value_text = str(int(rounded_value))
+    else:
+        value_text = ('%.2f' % rounded_value).rstrip('0').rstrip('.')
+
+    sign = _resolve_post_progression_kpi_sign(display_value, force_positive)
+    if sign:
+        value_text = sign + value_text
+
+    cleaned_name = _clean_text_value(kpi_name)
+    if kpi_type == 'mul' or cleaned_name == 'value':
+        value_text += '%'
+    return value_text
+
+
+def _resolve_post_progression_kpi_formatted_value_text(kpi_name, value, kpi_type, force_positive=False):
+    numeric_value, display_value = _resolve_post_progression_kpi_numeric_values(value, kpi_type)
+    if numeric_value is None:
+        return None
+
+    formatted_value_text = None
+    if _wg_format_parameter_value is not None and kpi_name:
+        source_value = abs(numeric_value) if force_positive else numeric_value
+        try:
+            formatted_value_text = _clean_post_progression_text(
+                _wg_format_parameter_value(
+                    kpi_name,
+                    round(source_value, 3),
+                    None,
+                    None,
+                    None,
+                    False,
+                    True,
                 )
             )
         except Exception:
-            label_text = None
+            formatted_value_text = None
 
-    if label_text:
-        return u'{0} {1}'.format(value_text, label_text)
-    return value_text
+    if formatted_value_text and formatted_value_text != '--':
+        if _has_post_progression_kpi_sign(formatted_value_text):
+            return formatted_value_text
+        stripped_text = _strip_post_progression_kpi_sign(formatted_value_text)
+        sign = _resolve_post_progression_kpi_sign(display_value, force_positive)
+        if stripped_text:
+            return sign + stripped_text if sign else stripped_text
+
+    return _format_post_progression_fallback_value_text(display_value, kpi_name, kpi_type, force_positive)
+
+
+def _resolve_post_progression_regular_param_description(parameter_name, is_positive):
+    description = _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=True)
+    if description:
+        return description
+    return _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=False)
+
+
+def _resolve_post_progression_regular_param_measure_unit_text(parameter_name, vehicle):
+    if not parameter_name or vehicle is None or _wg_parameter_formatters is None:
+        return None
+
+    try:
+        return _clean_post_progression_text(
+            _wg_parameter_formatters.getMeasureUnitsForParameter(
+                getattr(vehicle, 'descriptor', None),
+                parameter_name,
+            )
+        )
+    except Exception:
+        return None
+
+
+def _resolve_post_progression_regular_param_formatted_value_text(parameter_name, value, kpi_type, vehicle):
+    if not parameter_name or vehicle is None:
+        return None
+
+    numeric_value, display_value = _resolve_post_progression_kpi_numeric_values(value, kpi_type)
+    if numeric_value is None:
+        return None
+
+    if kpi_type == 'mul':
+        return _format_post_progression_fallback_value_text(display_value, parameter_name, kpi_type)
+
+    if _wg_parameter_formatters is None:
+        return None
+
+    raw_value = numeric_value
+    try:
+        settings = _wg_parameter_formatters.FORMAT_SETTINGS.get(
+            parameter_name,
+            _wg_parameter_formatters._listFormat,
+        )
+    except Exception:
+        settings = None
+    if not settings:
+        return None
+
+    formatted_value_text = None
+    try:
+        preprocessor = settings.get('preprocessor')
+        parameter_state = None
+        values = raw_value
+        separator = None
+        if preprocessor:
+            values, separator, parameter_state = preprocessor(raw_value, None)
+
+        if isinstance(values, (tuple, list)):
+            if parameter_state is None:
+                parameter_state = [None] * len(values)
+            params = []
+            current_value = None
+            current_state = None
+            for current_value, current_state in zip(values, parameter_state):
+                params.append(
+                    _wg_parameter_formatters._applyFormat(
+                        current_value,
+                        current_state,
+                        settings,
+                        False,
+                        None,
+                    )
+                )
+            separator = separator or settings.get('separator', '')
+            formatted_value_text = separator.join(params)
+        else:
+            formatted_value_text = _wg_parameter_formatters._applyFormat(
+                values,
+                parameter_state,
+                settings,
+                False,
+                None,
+            )
+    except Exception:
+        formatted_value_text = None
+
+    formatted_value_text = _clean_post_progression_text(formatted_value_text)
+    if not formatted_value_text or formatted_value_text == '--':
+        return None
+
+    if _has_post_progression_kpi_sign(formatted_value_text):
+        measure_unit_text = _resolve_post_progression_regular_param_measure_unit_text(parameter_name, vehicle)
+        if measure_unit_text:
+            return u'{0} {1}'.format(formatted_value_text, measure_unit_text)
+        return formatted_value_text
+
+    stripped_value_text = _strip_post_progression_kpi_sign(formatted_value_text)
+    sign = _resolve_post_progression_kpi_sign(display_value)
+    if stripped_value_text:
+        formatted_value_text = sign + stripped_value_text if sign else stripped_value_text
+
+    measure_unit_text = _resolve_post_progression_regular_param_measure_unit_text(parameter_name, vehicle)
+
+    if measure_unit_text:
+        return u'{0} {1}'.format(formatted_value_text, measure_unit_text)
+    return formatted_value_text
+
+
+def _resolve_post_progression_kpi_description(kpi, is_positive=None):
+    if kpi is None:
+        return None
+
+    kpi_name = getattr(kpi, 'name', None)
+    kpi_type = getattr(kpi, 'type', None)
+    if not kpi_name:
+        return None
+
+    if is_positive is None:
+        is_positive = _resolve_post_progression_is_positive(getattr(kpi, 'value', None), kpi_type)
+    if is_positive is None:
+        is_positive = not bool(getattr(kpi, 'isDebuff', False))
+
+    description = _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=True)
+    if description:
+        return description
+    return _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=False)
+
+
+def _resolve_post_progression_kpi_line(kpi, vehicle=None, parameter_name=None):
+    if kpi is None:
+        return None
+
+    kpi_name = getattr(kpi, 'name', None)
+    kpi_value = getattr(kpi, 'value', None)
+    kpi_type = getattr(kpi, 'type', None)
+    resolved_param_name = _clean_text_value(parameter_name)
+    is_debuff = bool(getattr(kpi, 'isDebuff', False))
+    positive_label = _resolve_post_progression_kpi_label_text(kpi_name, True)
+    negative_label = _resolve_post_progression_kpi_label_text(kpi_name, False)
+    description = None
+    if resolved_param_name:
+        description = _resolve_post_progression_regular_param_description(resolved_param_name, not is_debuff)
+    if description is None:
+        description = _clean_post_progression_text(
+            _resolve_post_progression_kpi_description(kpi, is_positive=not is_debuff)
+        )
+
+    formatted_value_text = None
+    if resolved_param_name:
+        formatted_value_text = _resolve_post_progression_regular_param_formatted_value_text(
+            resolved_param_name,
+            kpi_value,
+            kpi_type,
+            vehicle,
+        )
+    if formatted_value_text is None:
+        formatted_value_text = _resolve_post_progression_kpi_formatted_value_text(
+            kpi_name,
+            kpi_value,
+            kpi_type,
+        )
+
+    text = description
+    if description and formatted_value_text:
+        text = u'{0} {1}'.format(formatted_value_text, description)
+    elif description is None:
+        text = formatted_value_text
+
+    if not text:
+        return None
+
+    return {
+        'text': text,
+        'is_debuff': is_debuff,
+        'kpi_name': kpi_name,
+        'kpi_value': kpi_value,
+        'kpi_type': kpi_type,
+        'param_name': resolved_param_name,
+        'positive_label': positive_label,
+        'negative_label': negative_label,
+        'formatted_value_text': formatted_value_text,
+    }
 
 
 def _build_post_progression_kpi_lines(modification, vehicle):
@@ -436,18 +993,40 @@ def _build_post_progression_kpi_lines(modification, vehicle):
     except Exception:
         return []
 
+    resolved_param_names = _resolve_post_progression_kpi_param_names(modification, kpis)
     lines = []
+    index = None
     kpi = None
-    for kpi in kpis:
-        description = _resolve_post_progression_kpi_description(kpi)
-        if not description:
+    for index, kpi in enumerate(kpis):
+        line = _resolve_post_progression_kpi_line(
+            kpi,
+            vehicle=vehicle,
+            parameter_name=resolved_param_names.get(index),
+        )
+        if not line:
             continue
-        lines.append({
-            'text': description,
-            'is_debuff': bool(getattr(kpi, 'isDebuff', False)),
-        })
+        lines.append(line)
 
     return lines
+
+
+def _build_post_progression_dual_available_choices(action, vehicle):
+    modifications = _iter_post_progression_dual_modifications(action)
+    choices = []
+    position = None
+    modification = None
+
+    for position, modification in enumerate(modifications[:2], 1):
+        choice_index = _resolve_post_progression_dual_choice_index_from_modification(action, modification)
+        if choice_index not in (1, 2):
+            choice_index = position
+        choices.append({
+            'choice_index': choice_index,
+            'mod_name': _resolve_post_progression_action_name(modification),
+            'lines': _build_post_progression_kpi_lines(modification, vehicle),
+        })
+
+    return sorted(choices, key=lambda item: item.get('choice_index') or 99)
 
 
 def _normalize_post_progression_pairs(state):
@@ -538,6 +1117,7 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
                 'kind': 'role_slot',
                 'action_name': role_slot_entry.get('action_name'),
                 'category': role_slot_entry.get('category'),
+                'categories': _resolve_role_slot_available_categories(vehicle, level),
                 'is_active': bool(role_slot_active),
             }
             continue
@@ -558,6 +1138,7 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
                 'selected_choice_index': selected_choice_index,
                 'selected_mod_name': selected_mod_name,
                 'selected_choice_lines': _build_post_progression_kpi_lines(selected_modification, vehicle),
+                'available_choices': _build_post_progression_dual_available_choices(multi_action, vehicle),
             }
 
     return level_details
@@ -1183,6 +1764,7 @@ def _collect_post_progression_step_metadata(pp, is_veh_skill_tree, vehicle, reso
         for step in steps:
             step_id = _resolve_post_progression_step_id(step)
             level = _resolve_post_progression_step_level(step)
+            action = _resolve_post_progression_step_action(step) if is_veh_skill_tree else None
 
             if step_id is not None:
                 step_id_to_level[step_id] = level
@@ -1192,8 +1774,13 @@ def _collect_post_progression_step_metadata(pp, is_veh_skill_tree, vehicle, reso
                     if resolve_t11_action_marker_meta is not None:
                         action_meta = resolve_t11_action_marker_meta(step, step_id, vehicle)
                     step_meta[step_id] = {
+                        'level': level,
                         'xp_cost': step_xp_cost,
                         'bucket': _make_t11_bucket(step_xp_cost),
+                        'action': action,
+                        'action_name': _resolve_post_progression_action_name(action),
+                        'action_class_name': _resolve_post_progression_action_class_name(action),
+                        'action_category': _resolve_post_progression_action_category(action),
                         'action_meta': action_meta,
                     }
 
@@ -1221,7 +1808,65 @@ def _normalize_t11_final_bucket(step_meta):
         step_meta[fallback_final_id]['bucket'] = 'big_25k'
 
 
-def _collect_t11_unlock_data(step_meta, unlocked_step_ids):
+def _build_t11_action_node(step_id, meta, pp, state, vehicle):
+    action_meta = meta.get('action_meta')
+    if action_meta is None:
+        return None
+
+    action = meta.get('action')
+    action_name = meta.get('action_name')
+    action_class_name = meta.get('action_class_name')
+    image_name = action_meta.get('image_name')
+    kind = _classify_t11_action_kind(action_name, image_name, action_class_name)
+
+    action_node = {
+        'step_id': step_id,
+        'xp_cost': meta.get('xp_cost'),
+        'bucket': meta.get('bucket') or 'unknown',
+        'name': action_meta.get('name'),
+        'tooltip_title': action_meta.get('tooltip_title'),
+        'ui_localized_name': action_meta.get('ui_localized_name'),
+        'localized_name': action_meta.get('localized_name'),
+        'loc_name': action_meta.get('loc_name'),
+        'tech_name': action_meta.get('tech_name'),
+        'image_name': image_name,
+        'action_name': action_name,
+        'slot_category': action_meta.get('slot_category'),
+        'category': action_meta.get('category'),
+        'kind': kind,
+    }
+
+    kpi_lines = _build_post_progression_kpi_lines(action, vehicle)
+    if kpi_lines:
+        action_node['kpi_lines'] = kpi_lines
+
+    if kind == 'feature':
+        feature_group_id = _resolve_post_progression_feature_group_id(action_name or image_name)
+        action_node['is_active'] = _resolve_post_progression_setup_switch_active(
+            pp,
+            state,
+            vehicle,
+            feature_group_id,
+        )
+    elif kind == 'role_slot':
+        action_node['is_active'] = bool(_call_post_progression_bool(pp, 'isRoleSlotActive', vehicle))
+        current_category = _normalize_post_progression_category(
+            meta.get('action_category')
+            or action_meta.get('slot_category')
+            or action_meta.get('category')
+            or _resolve_post_progression_action_category(action)
+        )
+        if current_category:
+            action_node['slot_category'] = current_category
+
+        available_categories = _resolve_role_slot_available_categories(vehicle, meta.get('level'))
+        if available_categories:
+            action_node['available_categories'] = available_categories
+
+    return action_node
+
+
+def _collect_t11_unlock_data(pp, state, vehicle, step_meta, unlocked_step_ids):
     researched_action_nodes = []
     unresearched_action_nodes = []
     researched_buckets = _make_empty_t11_bucket_counts()
@@ -1237,24 +1882,9 @@ def _collect_t11_unlock_data(step_meta, unlocked_step_ids):
         bucket_counts = researched_buckets if is_researched else unresearched_buckets
         bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
 
-        action_meta = meta.get('action_meta')
-        if action_meta is None:
+        action_node = _build_t11_action_node(step_id, meta, pp, state, vehicle)
+        if action_node is None:
             continue
-
-        action_node = {
-            'step_id': step_id,
-            'xp_cost': meta.get('xp_cost'),
-            'bucket': bucket,
-            'name': action_meta.get('name'),
-            'tooltip_title': action_meta.get('tooltip_title'),
-            'ui_localized_name': action_meta.get('ui_localized_name'),
-            'localized_name': action_meta.get('localized_name'),
-            'loc_name': action_meta.get('loc_name'),
-            'tech_name': action_meta.get('tech_name'),
-            'image_name': action_meta.get('image_name'),
-            'slot_category': action_meta.get('slot_category'),
-            'category': action_meta.get('category'),
-        }
         if is_researched:
             researched_action_nodes.append(action_node)
         else:
@@ -1311,7 +1941,7 @@ def _collect_post_progression_unlock_state(pp, step_id_to_level, step_meta, is_v
             result['level_details'] = _build_regular_field_mod_level_details(pp, state, vehicle)
 
         if is_veh_skill_tree and step_meta:
-            result.update(_collect_t11_unlock_data(step_meta, unlocked_step_ids))
+            result.update(_collect_t11_unlock_data(pp, state, vehicle, step_meta, unlocked_step_ids))
     except Exception:
         _logger.exception('Failed to read post-progression state/unlocks')
 

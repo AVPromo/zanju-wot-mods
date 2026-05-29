@@ -1,6 +1,7 @@
 from __future__ import print_function, unicode_literals
 
 from . import config as _config_api
+from . import role_slot_ui_metadata as _role_slot_ui_metadata_api
 from .scaleform import hooks as _scaleform_hooks_api
 from .scaleform import runtime as _scaleform_runtime_api
 from . import t11_action_metadata as _t11_action_metadata_api
@@ -14,8 +15,10 @@ _detach_vehicle_change_hooks = _scaleform_hooks_api._detach_vehicle_change_hooks
 _detach_lobby_route_log_handler = _scaleform_hooks_api._detach_lobby_route_log_handler
 _LobbyStateRouteLogHandler = _scaleform_hooks_api._LobbyStateRouteLogHandler
 _hide_scaleform_view = _scaleform_runtime_api._hide_scaleform_view
+_install_role_slot_ui_hooks = _role_slot_ui_metadata_api._install_role_slot_ui_hooks
 _install_t11_ui_name_hooks = _t11_action_metadata_api._install_t11_ui_name_hooks
 _refresh_vehicle_change_hooks = _scaleform_hooks_api._refresh_vehicle_change_hooks
+_uninstall_role_slot_ui_hooks = _role_slot_ui_metadata_api._uninstall_role_slot_ui_hooks
 _uninstall_t11_ui_name_hooks = _t11_action_metadata_api._uninstall_t11_ui_name_hooks
 
 
@@ -62,6 +65,7 @@ def _start_runtime_lifecycle(mod, logger, lobby_state_logger):
         mod._on_scaleform_view_disposed,
         mod._on_lobby_route_log,
     )
+    _install_role_slot_ui_hooks(mod._schedule_update)
     _install_t11_ui_name_hooks(mod._schedule_update)
     mod._lobby_route_log_handler = _attach_lobby_route_log_handler(
         mod._lobby_route_log_handler,
@@ -88,6 +92,7 @@ def _stop_runtime_lifecycle(mod, logger, lobby_state_logger):
         logger,
     )
     mod._current_lobby_route_path = None
+    _uninstall_role_slot_ui_hooks()
     _uninstall_t11_ui_name_hooks()
     mod._stop_scaleform_view()
     _detach_vehicle_change_hooks(mod._on_vehicle_changed, mod._on_preview_vehicle_changed)

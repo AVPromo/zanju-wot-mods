@@ -40,11 +40,12 @@ BLUEPRINT_TOOLTIP_FORMAT: "<count>{count}</count>/<total>{total}</total> Bluepri
 FIELD_MOD_VALUE_FORMAT: "{label}: {value}"
 FIELD_MOD_STATUS_ACTIVE: "Active"
 FIELD_MOD_STATUS_INACTIVE: "Not active"
-FIELD_MOD_STATUS_NOT_SELECTED: "Not selected"
 TOOLTIP_LEVEL_FORMAT: "Level {level}"
 FIELD_MOD_TOOLTIP_SUBTITLE_DUAL: "Dual Modification"
-FIELD_MOD_TOOLTIP_SUBTITLE_LOADOUT: "Essentials/Auxiliary Loadout"
 FIELD_MOD_TOOLTIP_SUBTITLE_ROLE_SLOT: "Second Slot Category"
+FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES: "Available categories"
+FIELD_MOD_TOOLTIP_OPTION_A: "Option A"
+FIELD_MOD_TOOLTIP_OPTION_B: "Option B"
 
 # Vehicle label formats
 VEHICLE_LABEL_TIER_FORMAT: "{name} (Tier {tier})"

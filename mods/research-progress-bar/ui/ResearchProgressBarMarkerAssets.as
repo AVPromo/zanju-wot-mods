@@ -3,9 +3,6 @@ package {
     import flash.display.BitmapData;
 
     public final class ResearchProgressBarMarkerAssets {
-        [Embed(source="assets/cog.png")]
-        private static const T11CogAsset:Class;
-
         [Embed(source="assets/star.png")]
         private static const T11StarAsset:Class;
 
@@ -63,6 +60,12 @@ package {
         [Embed(source="assets/style.png")]
         private static const StyleFilterAsset:Class;
 
+        [Embed(source="assets/loadout_switch.png")]
+        private static const LoadoutSwitchAsset:Class;
+
+        [Embed(source="assets/role_slot.png")]
+        private static const RoleSlotAsset:Class;
+
         private static const MARKER_TYPE_NAMES:Object = {
             gun: "Gun",
             turret: "Turret",
@@ -76,7 +79,8 @@ package {
             stealth: "Scouting",
             reconnaissance: "Scouting",
             scouting: "Scouting",
-            special: "Special Upgrade",
+            role_slot: "Second Slot Category",
+            loadout_switch: "Loadout Switch",
             mechanic: "Mechanic Upgrade",
             mechanics: "Mechanic Upgrade",
             minor_upgrade: "Minor Upgrade",
@@ -97,9 +101,10 @@ package {
             stealth: StealthFilterAsset,
             reconnaissance: StealthFilterAsset,
             scouting: StealthFilterAsset,
+            role_slot: RoleSlotAsset,
+            loadout_switch: LoadoutSwitchAsset,
             minor_upgrade: T11MinorUpgradeAsset,
             major_upgrade: T11MajorUpgradeAsset,
-            special: T11CogAsset,
             mechanic: T11StarAsset,
             mechanics: T11StarAsset,
             "elite:bronze": PrestigeBronzeAsset,

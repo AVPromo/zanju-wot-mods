@@ -177,6 +177,8 @@ Current production payload expectations:
 - `pp.getState(True).unlocks` is sufficient for researched/unresearched splits.
 - `pp.getFirstPurchasableStep(balance)` is only used as a safe hint for the next Tier XI XP threshold.
 - Tier XI marker text and icon/category metadata come from `step.action` getter methods and descriptor fields, plus the session UI-name cache populated from the vehicle hub.
+- Real Tier XI action nodes can also carry runtime state and stat detail derived from the garage-side post-progression state: setup-switch nodes reuse the shared `loadout_switch` marker type, role-slot nodes switch between `role_slot` and the active slot-category icon, and other real nodes can surface KPI stat lines in their tooltips.
+- Aggregate minor/major placeholders stay intentionally generic: they still use the circle/rhomb marker types and do not expose per-node KPI details even though their bucket seed action supplies naming/icon metadata elsewhere in the payload.
 
 Exploratory surfaces removed from production code but still worth remembering if deeper investigation is needed later:
 

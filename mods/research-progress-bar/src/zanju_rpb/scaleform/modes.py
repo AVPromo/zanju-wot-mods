@@ -1,6 +1,8 @@
 """Scaleform payload builders for the research progress bar."""
 from __future__ import print_function, unicode_literals
 
+import re
+
 from ..localization import get_text as _loc, get_wg_text as _wg_loc
 
 
@@ -25,6 +27,12 @@ FIELD_MOD_BAR_ICON_CATEGORIES = frozenset((
     'reconnaissance',
     'scouting',
 ))
+FIELD_MOD_ROLE_SLOT_OPTION_CATEGORIES = (
+    'firepower',
+    'survivability',
+    'mobility',
+    'scouting',
+)
 
 ELITE_MODE_ON = 'on'
 ELITE_MODE_CUSTOMIZATION_ONLY = 'customization_only'
@@ -60,6 +68,15 @@ T11_CATEGORY_SORT_ORDER = {
     'special': 4,
     'mechanics': 5,
 }
+
+_T11_DESCRIPTION_TAG_TOKEN_RE = re.compile(
+    r'%\((\w*?)(?:_?(Open|Start|Close|End))\)s|{(\w*?)(?:_?(Open|Start|Close|End))}'
+)
+_T11_DESCRIPTION_PLACEHOLDER_RE = re.compile(r'%\(([^)]+)\)s|{([^{}]+)}')
+_T11_DESCRIPTION_TAG_COLORS = {
+    'colorTag': '#EDE6D9',
+}
+_T11_DESCRIPTION_DEFAULT_TAG_COLOR = '#EDE6D9'
 
 
 def build_scaleform_view_payload(vehicle, data, mode_preferences=None, preferred_mode_id=None):
@@ -580,6 +597,7 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
         cumulative_total_cost += xp_per_level
         remaining_cost = max(0, (level - current_level) * xp_per_level)
         roman_level = _to_roman(level)
+        level_detail = level_details.get(level)
         marker_state = _resolve_field_mod_marker_state(
             level,
             current_level,
@@ -587,10 +605,22 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             vehicle_xp,
             total_xp,
         )
-        completed_tooltip_html = _build_field_mod_completed_tooltip_html(level_details.get(level))
-        completed_tooltip_text = _build_field_mod_completed_tooltip_text(level_details.get(level))
+        completed_tooltip_html = _build_field_mod_completed_tooltip_html(level_detail)
+        completed_tooltip_text = _build_field_mod_completed_tooltip_text(level_detail)
+        pending_tooltip_html = _build_field_mod_pending_tooltip_html(level_detail)
+        pending_tooltip_text = _build_field_mod_pending_tooltip_text(level_detail)
+        pre_progress_tooltip_html = None
+        pre_progress_tooltip_text = None
+        detail_tooltip_html = None
+        detail_tooltip_text = None
+        if _is_field_mod_pre_progress_detail(level_detail):
+            pre_progress_tooltip_html = pending_tooltip_html
+            pre_progress_tooltip_text = pending_tooltip_text
+        else:
+            detail_tooltip_html = pending_tooltip_html
+            detail_tooltip_text = pending_tooltip_text
         tooltip_subtitle = (
-            _build_field_mod_tooltip_subtitle(level_details.get(level))
+            _build_field_mod_tooltip_subtitle(level_detail)
             if marker_state != 'completed'
             else None
         )
@@ -609,14 +639,24 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             'hideBarIcon': True,
             'completedTooltipHtml': completed_tooltip_html,
             'completedTooltipText': completed_tooltip_text,
+            'preProgressTooltipHtml': pre_progress_tooltip_html,
+            'preProgressTooltipText': pre_progress_tooltip_text,
+            'detailTooltipHtml': detail_tooltip_html,
+            'detailTooltipText': detail_tooltip_text,
             'markerState': marker_state,
             'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
             'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
         }
-        marker.update(_build_field_mod_marker_display(level_details.get(level), roman_level))
+        marker.update(_build_field_mod_marker_display(level_detail, roman_level))
         markers.append(marker)
 
     return markers
+
+
+def _is_field_mod_pre_progress_detail(level_detail):
+    if not level_detail:
+        return False
+    return level_detail.get('kind') in ('role_slot', 'dual')
 
 
 def _build_field_mod_marker_display(level_detail, roman_level):
@@ -629,13 +669,12 @@ def _build_field_mod_marker_display(level_detail, roman_level):
 
     kind = level_detail.get('kind')
     if kind == 'feature':
-        is_active = bool(level_detail.get('is_active'))
-        symbol = '+' if is_active else '-'
         return {
-            'label': symbol,
-            'labelHtml': _build_field_mod_marker_html_text(symbol, is_active, True),
-            'showBarLabel': True,
-            'hideBarIcon': True,
+            'label': '',
+            'showBarLabel': False,
+            'hideBarIcon': False,
+            'barItemType': 'loadout_switch',
+            'itemType': 'loadout_switch',
         }
 
     if kind == 'role_slot':
@@ -649,10 +688,11 @@ def _build_field_mod_marker_display(level_detail, roman_level):
                 'itemType': normalized_category,
             }
         return {
-            'label': '-',
-            'labelHtml': _build_field_mod_marker_html_text('-', False, True),
-            'showBarLabel': True,
-            'hideBarIcon': True,
+            'label': '',
+            'showBarLabel': False,
+            'hideBarIcon': False,
+            'barItemType': 'role_slot',
+            'itemType': 'role_slot',
         }
 
     if kind == 'dual':
@@ -758,25 +798,25 @@ def _build_field_mod_completed_tooltip_text(level_detail):
         return _loc('FIELD_MOD_VALUE_FORMAT', '{label}: {value}', label=label, value=value)
 
     if kind == 'role_slot':
-        label = _wg_loc(
-            '#veh_post_progression:roleSlotTooltipView/title',
-            'Second Slot Category',
-        )
+        lines = []
         if level_detail.get('is_active'):
+            label = _wg_loc(
+                '#veh_post_progression:roleSlotTooltipView/title',
+                'Second Slot Category',
+            )
             value = _localize_field_mod_category(level_detail.get('category'))
-        else:
-            value = _loc('FIELD_MOD_STATUS_INACTIVE', 'Not active')
-        return _loc('FIELD_MOD_VALUE_FORMAT', '{label}: {value}', label=label, value=value)
+            if value:
+                lines.append(_loc('FIELD_MOD_VALUE_FORMAT', '{label}: {value}', label=label, value=value))
+
+        available_categories_text = _build_field_mod_available_categories_text(level_detail)
+        if available_categories_text:
+            lines.append(available_categories_text)
+        return '\n'.join(lines) if lines else None
 
     if kind == 'dual':
         selected_mod_name = _build_field_mod_selected_mod_name(level_detail)
         if not selected_mod_name:
-            return _loc(
-                'FIELD_MOD_VALUE_FORMAT',
-                '{label}: {value}',
-                label=_loc('FIELD_MOD_TOOLTIP_SUBTITLE_DUAL', 'Dual Modification'),
-                value=_loc('FIELD_MOD_STATUS_NOT_SELECTED', 'Not selected'),
-            )
+            return _build_field_mod_pending_tooltip_text(level_detail)
 
         selected_choice_lines = level_detail.get('selected_choice_lines') or []
         if not selected_choice_lines:
@@ -793,12 +833,31 @@ def _build_field_mod_completed_tooltip_text(level_detail):
 
 
 def _build_field_mod_completed_tooltip_html(level_detail):
-    if not level_detail or level_detail.get('kind') != 'dual':
+    if not level_detail:
+        return None
+
+    if level_detail.get('kind') == 'role_slot':
+        html_lines = []
+        if level_detail.get('is_active'):
+            label = _wg_loc(
+                '#veh_post_progression:roleSlotTooltipView/title',
+                'Second Slot Category',
+            )
+            value = _localize_field_mod_category(level_detail.get('category'))
+            if value:
+                html_lines.append(_build_field_mod_label_value_html(label, value))
+
+        available_categories_html = _build_field_mod_available_categories_html(level_detail)
+        if available_categories_html:
+            html_lines.append(available_categories_html)
+        return '<br/>'.join(html_lines) if html_lines else None
+
+    if level_detail.get('kind') != 'dual':
         return None
 
     selected_mod_name = _build_field_mod_selected_mod_name(level_detail)
     if not selected_mod_name:
-        return None
+        return _build_field_mod_pending_tooltip_html(level_detail)
 
     selected_choice_lines = level_detail.get('selected_choice_lines') or []
     if not selected_choice_lines:
@@ -820,13 +879,240 @@ def _build_field_mod_completed_tooltip_html(level_detail):
     return '<br/>'.join(html_lines)
 
 
+def _build_field_mod_pending_tooltip_text(level_detail):
+    if not level_detail:
+        return None
+
+    kind = level_detail.get('kind')
+    if kind == 'role_slot':
+        return _build_field_mod_available_categories_text(level_detail)
+
+    if kind == 'dual':
+        return _build_field_mod_dual_choice_names_text(level_detail)
+
+    return None
+
+
+def _build_field_mod_pending_tooltip_html(level_detail):
+    if not level_detail:
+        return None
+
+    kind = level_detail.get('kind')
+    if kind == 'role_slot':
+        return _build_field_mod_available_categories_html(level_detail)
+
+    if kind == 'dual':
+        return _build_field_mod_dual_choice_names_html(level_detail)
+
+    return None
+
+
+def _build_field_mod_available_categories_text(level_detail):
+    categories = _resolve_field_mod_role_slot_category_labels(level_detail)
+    if not categories:
+        return None
+    return _loc(
+        'FIELD_MOD_VALUE_FORMAT',
+        '{label}: {value}',
+        label=_loc('FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES', 'Available categories'),
+        value=', '.join(categories),
+    )
+
+
+def _build_field_mod_available_categories_html(level_detail):
+    categories = _resolve_field_mod_role_slot_category_labels(level_detail)
+    if not categories:
+        return None
+    return _build_field_mod_label_value_html(
+        _loc('FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES', 'Available categories'),
+        ', '.join(categories),
+    )
+
+
+def _build_field_mod_dual_choice_names_text(level_detail):
+    option_sections = _resolve_field_mod_dual_option_sections(level_detail)
+    if not option_sections:
+        return None
+
+    rendered_sections = []
+    section = None
+    for section in option_sections:
+        lines = [
+            _loc(
+                'FIELD_MOD_VALUE_FORMAT',
+                '{label}: {value}',
+                label=section.get('label'),
+                value=section.get('name'),
+            )
+        ]
+        stat = None
+        for stat in section.get('lines') or []:
+            text = stat.get('text')
+            if text:
+                lines.append(text)
+        rendered_sections.append('\n'.join(lines))
+
+    return '\n\n'.join(rendered_sections)
+
+
+def _build_field_mod_dual_choice_names_html(level_detail):
+    option_sections = _resolve_field_mod_dual_option_sections(level_detail)
+    if not option_sections:
+        return None
+
+    rendered_sections = []
+    section = None
+    for section in option_sections:
+        html_lines = [
+            _build_field_mod_label_value_html(section.get('label'), section.get('name')),
+        ]
+        stat = None
+        for stat in section.get('lines') or []:
+            text = stat.get('text')
+            if not text:
+                continue
+            html_lines.append(_build_field_mod_dual_stat_html(text, bool(stat.get('is_debuff'))))
+        rendered_sections.append('<br/>'.join([line for line in html_lines if line]))
+
+    return '<br/><br/>'.join([section_html for section_html in rendered_sections if section_html])
+
+
+def _resolve_field_mod_dual_option_sections(level_detail):
+    option_sections = []
+    choice_index = None
+    for choice_index in (1, 2):
+        option_name = _resolve_field_mod_dual_choice_name(level_detail, choice_index)
+        if not option_name:
+            continue
+        option_label = _loc(
+            'FIELD_MOD_TOOLTIP_OPTION_A',
+            'Option A',
+        ) if choice_index == 1 else _loc(
+            'FIELD_MOD_TOOLTIP_OPTION_B',
+            'Option B',
+        )
+        choice = _resolve_field_mod_dual_choice(level_detail, choice_index) or {}
+        option_sections.append({
+            'label': option_label,
+            'name': option_name,
+            'lines': _resolve_field_mod_dual_choice_lines(choice),
+        })
+    return option_sections
+
+
+def _resolve_field_mod_dual_choice_lines(choice):
+    if not choice:
+        return []
+
+    result = []
+    line = None
+    for line in choice.get('lines') or []:
+        text = line.get('text')
+        if not text:
+            continue
+        result.append({
+            'text': text,
+            'is_debuff': bool(line.get('is_debuff')),
+        })
+    return result
+
+
+def _resolve_field_mod_dual_choice(level_detail, choice_index):
+    choice = None
+    for choice in level_detail.get('available_choices') or []:
+        if _to_int(choice.get('choice_index')) != choice_index:
+            continue
+        return choice
+    return None
+
+
+def _resolve_field_mod_dual_choice_name(level_detail, choice_index):
+    choice = _resolve_field_mod_dual_choice(level_detail, choice_index)
+    if choice is not None:
+        return _localize_field_mod_mod_name(choice.get('mod_name'))
+    return None
+
+
+def _build_field_mod_label_value_html(label, value):
+    if not label or not value:
+        return None
+    return '<b>{0}:</b> {1}'.format(_escape_html(label), _escape_html(value))
+
+
+def _resolve_field_mod_role_slot_category_labels(level_detail):
+    category_labels = []
+    seen = set()
+    category = None
+
+    for category in level_detail.get('categories') or []:
+        normalized_category = _normalize_field_mod_role_slot_category(category)
+        if not normalized_category:
+            continue
+        label = _localize_field_mod_category(normalized_category)
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        category_labels.append(label)
+
+    if category_labels:
+        return category_labels
+
+    fallback_category = _normalize_field_mod_role_slot_category(level_detail.get('category'))
+    if fallback_category:
+        fallback_label = _localize_field_mod_category(fallback_category)
+        if fallback_label:
+            return [fallback_label]
+
+    for category in FIELD_MOD_ROLE_SLOT_OPTION_CATEGORIES:
+        label = _localize_field_mod_category(category)
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        category_labels.append(label)
+    return category_labels
+
+
+def _build_field_mod_dual_stat_html(stat_text, is_debuff):
+    color = FIELD_MOD_DUAL_DEBUFF_HTML_COLOR if is_debuff else FIELD_MOD_DUAL_BUFF_HTML_COLOR
+    return '<font color="{0}">{1}</font>'.format(
+        color,
+        _escape_html(stat_text),
+    )
+
+
+def _resolve_t11_completed_tooltip_status_text():
+    return _loc('CAPTION_UNLOCKED', 'Unlocked')
+
+
+def _resolve_t11_completed_tooltip_status_html():
+    return '<font color="{0}"><b>{1}</b></font>'.format(
+        FIELD_MOD_MARKER_HIGHLIGHT_HTML_COLOR,
+        _escape_html(_resolve_t11_completed_tooltip_status_text()),
+    )
+
+
+def _resolve_t11_action_status_text(action_node, marker_state):
+    status_text = _build_t11_action_special_info_text(action_node)
+    if status_text:
+        return status_text
+    if marker_state == 'completed':
+        return _resolve_t11_completed_tooltip_status_text()
+    return None
+
+
+def _resolve_t11_action_status_html(action_node, marker_state):
+    status_html = _build_t11_action_special_info_html(action_node)
+    if status_html:
+        return status_html
+    if marker_state == 'completed':
+        return _resolve_t11_completed_tooltip_status_html()
+    return None
+
+
 def _build_field_mod_selected_mod_name(level_detail):
     selected_mod_name = level_detail.get('selected_mod_name')
     if selected_mod_name:
-        return _wg_loc(
-            '#artefacts:{0}/name'.format(selected_mod_name),
-            _humanize_field_mod_token(selected_mod_name),
-        )
+        return _localize_field_mod_mod_name(selected_mod_name)
 
     selected_choice_index = _to_int(level_detail.get('selected_choice_index'))
     multi_action_name = level_detail.get('multi_action_name')
@@ -834,9 +1120,15 @@ def _build_field_mod_selected_mod_name(level_detail):
         return None
 
     selected_mod_name = '{0}_{1}'.format(multi_action_name, selected_choice_index)
+    return _localize_field_mod_mod_name(selected_mod_name)
+
+
+def _localize_field_mod_mod_name(mod_name):
+    if not mod_name:
+        return None
     return _wg_loc(
-        '#artefacts:{0}/name'.format(selected_mod_name),
-        _humanize_field_mod_token(selected_mod_name),
+        '#artefacts:{0}/name'.format(mod_name),
+        _humanize_field_mod_token(mod_name),
     )
 
 
@@ -851,15 +1143,58 @@ def _escape_html(value):
 
 
 def _localize_field_mod_category(category):
-    normalized_category = _normalize_t11_category(category)
-    if not normalized_category:
+    localization_keys = _iter_field_mod_category_localization_keys(category)
+    if not localization_keys:
         return _loc('FIELD_MOD_STATUS_INACTIVE', 'Not active')
 
-    return (
-        _wg_loc('#tank_setup:categories/{0}'.format(normalized_category))
-        or _wg_loc('#veh_post_progression:categories/{0}'.format(normalized_category))
-        or _humanize_field_mod_token(normalized_category)
+    localization_key = None
+    for localization_key in localization_keys:
+        localized_text = _sanitize_field_mod_category_label(
+            _wg_loc('#tank_setup:categories/{0}'.format(localization_key)),
+            localization_key,
+        ) or _sanitize_field_mod_category_label(
+            _wg_loc('#veh_post_progression:categories/{0}'.format(localization_key)),
+            localization_key,
+        )
+        if localized_text:
+            return localized_text
+
+    return _humanize_field_mod_token(localization_keys[0])
+
+
+def _sanitize_field_mod_category_label(label, localization_key):
+    text = u'{0}'.format(label or '').strip()
+    if not text:
+        return None
+
+    normalized_text = text.lower()
+    unresolved_values = (
+        '#tank_setup:categories/{0}'.format(localization_key),
+        'tank_setup:categories/{0}'.format(localization_key),
+        '#veh_post_progression:categories/{0}'.format(localization_key),
+        'veh_post_progression:categories/{0}'.format(localization_key),
+        'categories/{0}'.format(localization_key),
     )
+    if normalized_text in unresolved_values:
+        return None
+    return text
+
+
+def _iter_field_mod_category_localization_keys(category):
+    normalized_category = _normalize_t11_category(category)
+    if not normalized_category:
+        return []
+
+    localization_keys = [normalized_category]
+    alias_map = {
+        'scouting': ('reconnaissance', 'stealth'),
+        'mechanics': ('mechanic',),
+    }
+    alias = None
+    for alias in alias_map.get(normalized_category, ()):
+        if alias not in localization_keys:
+            localization_keys.append(alias)
+    return localization_keys
 
 
 def _humanize_field_mod_token(value):
@@ -944,7 +1279,9 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
             'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
             'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
         }
-        markers.append(_apply_t11_bar_icon(_apply_t11_action_metadata(final_marker, final_node), True))
+        final_marker = _apply_t11_action_metadata(final_marker, final_node)
+        final_marker = _apply_t11_action_tooltip_details(final_marker, final_node)
+        markers.append(_apply_t11_bar_icon(final_marker, True))
 
     return markers
 
@@ -1081,6 +1418,7 @@ def _make_t11_completed_marker(marker_id, position_value, cost_xp, name, action_
         'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
     }
     marker = _apply_t11_action_metadata(marker, action_node)
+    marker = _apply_t11_action_tooltip_details(marker, action_node)
     return _apply_t11_bar_icon(marker, show_bar_icon)
 
 
@@ -1095,11 +1433,40 @@ def _filter_t11_action_nodes(nodes, xp_cost):
 def _normalize_t11_category(category):
     if not category:
         return ''
+
     normalized = u'{0}'.format(category).strip().lower()
+    if not normalized:
+        return ''
+
+    prefix = None
+    for prefix in (
+            '#tank_setup:categories/',
+            'tank_setup:categories/',
+            '#veh_post_progression:categories/',
+            'veh_post_progression:categories/',
+            'categories/'):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            break
+
+    if normalized in ('no category', 'no_category', 'none', 'null', 'undefined'):
+        return ''
+
+    if normalized == 'stealth':
+        return 'scouting'
     if normalized == 'reconnaissance':
         return 'scouting'
     if normalized == 'mechanic':
         return 'mechanics'
+    return normalized
+
+
+def _normalize_field_mod_role_slot_category(category):
+    normalized = _normalize_t11_category(category)
+    if normalized in ('special', 'universal'):
+        return ''
+    if normalized and normalized not in FIELD_MOD_ROLE_SLOT_OPTION_CATEGORIES:
+        return ''
     return normalized
 
 
@@ -1133,9 +1500,9 @@ def _first_t11_action_node(nodes):
 def _resolve_t11_action_node_name(action_node, fallback_name):
     if action_node is None:
         return fallback_name
-    for key in ('tooltip_title', 'name', 'localized_name', 'ui_localized_name', 'image_name', 'loc_name', 'tech_name'):
-        value = action_node.get(key)
-        if value:
+    for key in ('tooltip_title', 'name', 'localized_name', 'ui_localized_name'):
+        value = _clean_t11_action_stat_text(action_node.get(key))
+        if value and not _looks_like_internal_t11_action_label(value):
             return value
     return fallback_name
 
@@ -1198,13 +1565,307 @@ def _build_t11_action_icon_paths(action_node):
     return paths
 
 
+def _resolve_t11_action_display_item_type(action_node):
+    if action_node is None:
+        return ''
+
+    kind = action_node.get('kind')
+    if kind == 'feature':
+        return 'loadout_switch'
+
+    if kind == 'role_slot':
+        if action_node.get('is_active'):
+            active_category = _normalize_field_mod_role_slot_category(
+                action_node.get('slot_category') or action_node.get('category')
+            )
+            if active_category in FIELD_MOD_BAR_ICON_CATEGORIES:
+                return active_category
+        return 'role_slot'
+
+    return _normalize_t11_category(action_node.get('category'))
+
+
+def _build_t11_action_role_slot_detail(action_node):
+    if action_node is None or action_node.get('kind') != 'role_slot':
+        return None
+
+    return {
+        'kind': 'role_slot',
+        'category': action_node.get('slot_category') or action_node.get('category'),
+        'categories': action_node.get('available_categories') or [],
+        'is_active': bool(action_node.get('is_active')),
+    }
+
+
+def _build_t11_action_special_info_text(action_node):
+    if action_node is None:
+        return None
+
+    kind = action_node.get('kind')
+    if kind == 'feature':
+        return _loc(
+            'FIELD_MOD_STATUS_ACTIVE',
+            'Active',
+        ) if action_node.get('is_active') else _loc(
+            'FIELD_MOD_STATUS_INACTIVE',
+            'Not active',
+        )
+
+    role_slot_detail = _build_t11_action_role_slot_detail(action_node)
+    if role_slot_detail is not None:
+        return _build_field_mod_completed_tooltip_text(role_slot_detail)
+
+    return None
+
+
+def _build_t11_action_special_info_html(action_node):
+    if action_node is None:
+        return None
+
+    kind = action_node.get('kind')
+    if kind == 'feature':
+        status_text = _build_t11_action_special_info_text(action_node)
+        if not status_text:
+            return None
+        return _build_field_mod_marker_html_text(status_text, bool(action_node.get('is_active')), True)
+
+    role_slot_detail = _build_t11_action_role_slot_detail(action_node)
+    if role_slot_detail is not None:
+        return _build_field_mod_completed_tooltip_html(role_slot_detail)
+
+    return None
+
+
+def _clean_t11_action_stat_text(text):
+    if text is None:
+        return None
+
+    cleaned = re.sub(r'<[^>]+>', '', u'{0}'.format(text))
+    cleaned = (
+        cleaned.replace('&nbsp;', ' ')
+        .replace('&lt;', '<')
+        .replace('&gt;', '>')
+        .replace('&amp;', '&')
+    )
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned or None
+
+
+def _looks_like_internal_t11_action_label(text):
+    cleaned = _clean_t11_action_stat_text(text)
+    if not cleaned:
+        return True
+    normalized = cleaned.strip()
+    lowered = normalized.lower()
+    if any(token in normalized for token in ('/', '\\', '#', ':')):
+        return True
+    if re.match(r'^[a-z0-9_]+$', lowered) is not None:
+        return True
+    if ' ' not in normalized and re.match(r'^[a-z][A-Za-z0-9_]+$', normalized) is not None:
+        return True
+    return False
+
+
+def _normalize_t11_description_key(value):
+    if value is None:
+        return None
+
+    key = u'{0}'.format(value).strip()
+    if not key or ' ' in key:
+        return None
+    if any(token in key for token in ('/', '\\', '#', ':')):
+        return None
+    return key
+
+
+def _looks_like_unresolved_t11_description_text(text, description_key=None):
+    cleaned = _clean_t11_action_stat_text(text)
+    if not cleaned:
+        return True
+
+    normalized = cleaned.replace('\\', '/').strip()
+    lowered = normalized.lower()
+    if lowered.startswith('tooltips/description/'):
+        return True
+
+    key = _normalize_t11_description_key(description_key)
+    if key:
+        if lowered in (
+                'tooltips/description/{0}'.format(key.lower()),
+                'veh_skill_tree/tooltips/description/{0}'.format(key.lower()),
+                '#veh_skill_tree:tooltips/description/{0}'.format(key.lower())):
+            return True
+
+    return False
+
+
+def _resolve_t11_action_description_template(action_node):
+    if action_node is None:
+        return None
+
+    for field_name in ('ui_localized_name', 'loc_name'):
+        key = _normalize_t11_description_key(action_node.get(field_name))
+        if not key:
+            continue
+        resource_key = '#veh_skill_tree:tooltips/description/{0}'.format(key)
+        text = _wg_loc(resource_key)
+        if text and text not in (key, resource_key) and not _looks_like_unresolved_t11_description_text(text, key):
+            return text
+    return None
+
+
+def _format_t11_description_binding_value(value, kpi_type):
+    if value is None:
+        return None
+
+    try:
+        numeric_value = float(value)
+    except Exception:
+        return None
+
+    if kpi_type == 'mul':
+        numeric_value = 100.0 * (numeric_value - 1.0)
+
+    numeric_value = abs(numeric_value)
+    if abs(numeric_value - round(numeric_value)) < 0.0001:
+        return u'{0}'.format(int(round(numeric_value)))
+    return u'{0}'.format('{0:.15g}'.format(numeric_value))
+
+
+def _build_t11_action_description_bindings(action_node):
+    if action_node is None:
+        return {}
+
+    bindings = {}
+    lines = action_node.get('kpi_lines') or []
+    index = None
+    line = None
+    for index, line in enumerate(lines):
+        key = _normalize_t11_description_key(line.get('kpi_name'))
+        if not key:
+            continue
+
+        value_text = _format_t11_description_binding_value(
+            line.get('kpi_value'),
+            line.get('kpi_type'),
+        )
+        if value_text is None:
+            continue
+
+        if key not in bindings:
+            bindings[key] = value_text
+        bindings[u'{0}{1}'.format(key, index)] = value_text
+    return bindings
+
+
+def _replace_t11_action_description_tag_tokens(template_text, use_html=False):
+    if not template_text:
+        return None
+
+    def _replace(match):
+        tag_name = match.group(1) or match.group(3) or ''
+        token_kind = (match.group(2) or match.group(4) or '').lower()
+        if not use_html:
+            return ''
+        if token_kind in ('open', 'start'):
+            color = _T11_DESCRIPTION_TAG_COLORS.get(tag_name, _T11_DESCRIPTION_DEFAULT_TAG_COLOR)
+            return '<font color="{0}">'.format(color)
+        return '</font>'
+
+    return _T11_DESCRIPTION_TAG_TOKEN_RE.sub(_replace, u'{0}'.format(template_text))
+
+
+def _bind_t11_action_description_template(template_text, bindings, use_html=False):
+    if not template_text:
+        return None
+
+    text = _replace_t11_action_description_tag_tokens(template_text, use_html=use_html)
+    unresolved = []
+
+    def _replace(match):
+        placeholder = match.group(1) or match.group(2)
+        value = bindings.get(placeholder)
+        if value is None:
+            unresolved.append(placeholder)
+            return match.group(0)
+        return _escape_html(value) if use_html else value
+
+    text = _T11_DESCRIPTION_PLACEHOLDER_RE.sub(_replace, text)
+    if unresolved:
+        return None
+
+    if use_html:
+        return text.replace('\r\n', '\n').replace('\r', '\n').replace('\n', '<br/>')
+
+    return _clean_t11_action_stat_text(text)
+
+
+def _build_t11_action_description_text(action_node):
+    template_text = _resolve_t11_action_description_template(action_node)
+    if not template_text:
+        return None
+    return _bind_t11_action_description_template(
+        template_text,
+        _build_t11_action_description_bindings(action_node),
+        use_html=False,
+    )
+
+
+def _build_t11_action_description_html(action_node):
+    template_text = _resolve_t11_action_description_template(action_node)
+    if not template_text:
+        return None
+    return _bind_t11_action_description_template(
+        template_text,
+        _build_t11_action_description_bindings(action_node),
+        use_html=True,
+    )
+
+
+def _join_t11_tooltip_text_sections(*sections):
+    return '\n\n'.join([section for section in sections if section])
+
+
+def _join_t11_tooltip_html_sections(*sections):
+    return '<br/><br/>'.join([section for section in sections if section])
+
+
+def _apply_t11_action_tooltip_details(marker, action_node):
+    if marker is None or action_node is None:
+        return marker
+
+    description_text = _build_t11_action_description_text(action_node)
+    description_html = _build_t11_action_description_html(action_node)
+    marker_state = marker.get('markerState')
+    status_text = _resolve_t11_action_status_text(action_node, marker_state)
+    status_html = _resolve_t11_action_status_html(action_node, marker_state)
+    body_text = _join_t11_tooltip_text_sections(description_text, status_text)
+    body_html = _join_t11_tooltip_html_sections(description_html, status_html)
+
+    if marker_state == 'completed':
+        if body_text:
+            marker['completedTooltipText'] = body_text
+        if body_html:
+            marker['completedTooltipHtml'] = body_html
+        return marker
+
+    if body_text:
+        marker['preProgressTooltipText'] = body_text
+    if body_html:
+        marker['preProgressTooltipHtml'] = body_html
+    return marker
+
+
 def _apply_t11_action_metadata(marker, action_node):
     if action_node is None:
         return marker
 
     image_name = action_node.get('image_name')
     category = _normalize_t11_category(action_node.get('category'))
-    if category:
+    display_item_type = _resolve_t11_action_display_item_type(action_node)
+    if display_item_type:
+        marker['itemType'] = display_item_type
+    elif category:
         marker['itemType'] = category
     icon_paths = _build_t11_action_icon_paths(action_node)
     if icon_paths:
@@ -1214,12 +1875,14 @@ def _apply_t11_action_metadata(marker, action_node):
         else:
             marker['iconCacheKey'] = 't11:{0}'.format(image_name)
         marker['hideTooltipIcon'] = False
+    elif display_item_type:
+        marker['hideTooltipIcon'] = False
     return marker
 
 
 def _resolve_t11_bar_item_type(marker):
     category = _normalize_t11_category(marker.get('itemType'))
-    if category in ('firepower', 'survivability', 'mobility', 'scouting', 'stealth'):
+    if category in ('firepower', 'survivability', 'mobility', 'scouting', 'stealth', 'role_slot', 'loadout_switch'):
         return category
     return ''
 

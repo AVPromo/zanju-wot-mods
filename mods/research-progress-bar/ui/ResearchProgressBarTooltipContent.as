@@ -43,6 +43,8 @@ package {
             var progressReadyText:String = marker != null && marker.progressReadyText !== undefined ? String(marker.progressReadyText) : "ready for research";
             var progressXpLeftFormat:String = marker != null && marker.progressXpLeftFormat !== undefined ? String(marker.progressXpLeftFormat) : "{xp} XP left";
             var singleProgressRow:Boolean = marker != null && marker.singleProgressRow !== undefined && Boolean(marker.singleProgressRow);
+            var preProgressRow:Sprite = createTooltipBodyRow(marker, "preProgressTooltipHtml", "preProgressTooltipText");
+            var detailRow:Sprite = createDetailTooltipRow(marker);
 
             row = createTooltipTitleCostRow(marker, markerCostXp);
             row.y = cursorY;
@@ -134,12 +136,25 @@ package {
 
             progressColumnWidths = resolveTooltipProgressColumnWidths(progressRows);
 
+            if (preProgressRow != null) {
+                preProgressRow.y = cursorY;
+                section.addChild(preProgressRow);
+                rowBounds = preProgressRow.getBounds(preProgressRow);
+                cursorY += rowBounds.height + TOOLTIP_PROGRESS_GAP;
+            }
+
             for each (progressRowData in progressRows) {
                 row = createTooltipProgressRow(progressRowData, progressColumnWidths);
                 row.y = cursorY;
                 section.addChild(row);
                 rowBounds = row.getBounds(row);
                 cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+            }
+
+            if (detailRow != null) {
+                cursorY += TOOLTIP_PROGRESS_GAP - TOOLTIP_ROW_GAP;
+                detailRow.y = cursorY;
+                section.addChild(detailRow);
             }
 
             return section;
@@ -203,6 +218,36 @@ package {
             }
 
             return "Unlocked";
+        }
+
+        private static function createDetailTooltipRow(marker:Object):Sprite {
+            return createTooltipBodyRow(marker, "detailTooltipHtml", "detailTooltipText");
+        }
+
+        private static function createTooltipBodyRow(marker:Object, htmlKey:String, textKey:String):Sprite {
+            if (marker != null && marker[htmlKey] !== undefined && marker[htmlKey] != null) {
+                if (String(marker[htmlKey]).length > 0) {
+                    return createTooltipHtmlTextRow(
+                        String(marker[htmlKey]),
+                        TOOLTIP_BODY_SIZE,
+                        TOOLTIP_TEXT_COLOR,
+                        false
+                    );
+                }
+            }
+
+            if (marker != null && marker[textKey] !== undefined && marker[textKey] != null) {
+                if (String(marker[textKey]).length > 0) {
+                    return createTooltipTextRow(
+                        String(marker[textKey]),
+                        TOOLTIP_BODY_SIZE,
+                        TOOLTIP_TEXT_COLOR,
+                        false
+                    );
+                }
+            }
+
+            return null;
         }
 
         private static function createTooltipProgressRow(rowData:Object, columnWidths:Object):Sprite {
