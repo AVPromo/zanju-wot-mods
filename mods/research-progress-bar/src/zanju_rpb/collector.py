@@ -28,10 +28,6 @@ try:
     import gui.shared.items_parameters.formatters as _wg_parameter_formatters
 except Exception:
     _wg_parameter_formatters = None
-try:
-    from gui.shared.items_parameters.params_cache import g_paramsCache as _wg_params_cache
-except Exception:
-    _wg_params_cache = None
 from gui.shared.gui_items import GUI_ITEM_TYPE_NAMES
 from items import getTypeOfCompactDescr
 try:
@@ -52,13 +48,6 @@ try:
     _STRING_TYPES = (basestring,)
 except NameError:
     _STRING_TYPES = (str,)
-
-_POST_PROGRESSION_BONUS_SOURCE_GROUPS = frozenset((
-    'postProgressionBaseModifications',
-    'postProgressionPairModifications',
-))
-
-_post_progression_bonus_param_names_by_source_name = None
 
 
 def _resolve_post_progression_step_id(step):
@@ -520,32 +509,6 @@ def _clean_post_progression_kpi_label_text(text):
     return cleaned
 
 
-def _normalize_post_progression_comparable_text(text):
-    cleaned = _clean_post_progression_text(text)
-    if cleaned is None:
-        return ''
-    return cleaned.replace('−', '-').replace(' ', '').lower()
-
-
-def _tokenize_post_progression_match_text(*values):
-    tokens = set()
-    value = None
-    for value in values:
-        cleaned = _clean_post_progression_text(value)
-        if cleaned is None:
-            cleaned = _clean_text_value(value)
-        if not cleaned:
-            continue
-
-        expanded = re.sub(r'([a-z])([A-Z])', r'\1 \2', cleaned)
-        token = None
-        for token in re.split(r'[^A-Za-z0-9]+', expanded):
-            if not token:
-                continue
-            tokens.add(token.lower())
-    return tokens
-
-
 def _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=False):
     if _wg_get_vehicle_parameter_text is None or not parameter_name:
         return None
@@ -568,6 +531,26 @@ def _resolve_post_progression_kpi_label_text(kpi_name, is_positive):
     return _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=False)
 
 
+def _resolve_post_progression_preferred_label_text(parameter_name, is_positive):
+    label = _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=False)
+    if label:
+        return label
+    return _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=True)
+
+
+def _resolve_post_progression_kpi_is_positive(kpi):
+    if kpi is None:
+        return None
+
+    is_positive = _resolve_post_progression_is_positive(
+        getattr(kpi, 'value', None),
+        getattr(kpi, 'type', None),
+    )
+    if is_positive is None:
+        return not bool(getattr(kpi, 'isDebuff', False))
+    return is_positive
+
+
 def _resolve_post_progression_is_positive(value, kpi_type):
     try:
         numeric_value = float(value)
@@ -576,135 +559,6 @@ def _resolve_post_progression_is_positive(value, kpi_type):
 
     cmp_value = 0.0 if kpi_type == 'add' else 1.0
     return numeric_value >= cmp_value
-
-
-def _resolve_post_progression_bonus_param_names_by_source_name():
-    global _post_progression_bonus_param_names_by_source_name
-
-    if _post_progression_bonus_param_names_by_source_name is not None:
-        return _post_progression_bonus_param_names_by_source_name
-
-    mapping = {}
-    bonuses = None
-    if _wg_params_cache is not None:
-        try:
-            bonuses = _wg_params_cache.getBonuses() or {}
-        except Exception:
-            bonuses = {}
-
-    if bonuses:
-        try:
-            items = bonuses.iteritems()
-        except AttributeError:
-            items = bonuses.items()
-
-        param_name = None
-        sources = None
-        for param_name, sources in items:
-            cleaned_param_name = _clean_text_value(param_name)
-            if cleaned_param_name is None:
-                continue
-
-            source = None
-            for source in sources or ():
-                try:
-                    source_name, source_group = source
-                except Exception:
-                    continue
-
-                cleaned_source_name = _clean_text_value(source_name)
-                cleaned_source_group = _clean_text_value(source_group)
-                if not cleaned_source_name or cleaned_source_group not in _POST_PROGRESSION_BONUS_SOURCE_GROUPS:
-                    continue
-
-                param_names = mapping.setdefault(cleaned_source_name, [])
-                if cleaned_param_name not in param_names:
-                    param_names.append(cleaned_param_name)
-
-    _post_progression_bonus_param_names_by_source_name = mapping
-    return _post_progression_bonus_param_names_by_source_name
-
-
-def _resolve_post_progression_bonus_param_names(modification):
-    source_name = _clean_text_value(_resolve_post_progression_action_name(modification))
-    if not source_name:
-        return []
-
-    mapping = _resolve_post_progression_bonus_param_names_by_source_name()
-    return list(mapping.get(source_name) or [])
-
-
-def _score_post_progression_param_name_candidate(kpi_name, param_name, is_positive):
-    alias_short = _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=False)
-    alias_long = _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=True)
-    param_short = _resolve_post_progression_parameter_label_text(param_name, is_positive, is_long=False)
-    param_long = _resolve_post_progression_parameter_label_text(param_name, is_positive, is_long=True)
-
-    score = 0
-    comparable_pairs = (
-        (alias_short, param_short, 100),
-        (alias_long, param_long, 100),
-        (alias_short, param_long, 75),
-        (alias_long, param_short, 75),
-    )
-    left = None
-    right = None
-    weight = None
-    for left, right, weight in comparable_pairs:
-        normalized_left = _normalize_post_progression_comparable_text(left)
-        normalized_right = _normalize_post_progression_comparable_text(right)
-        if not normalized_left or not normalized_right:
-            continue
-        if normalized_left == normalized_right:
-            score += weight
-        elif normalized_left in normalized_right or normalized_right in normalized_left:
-            score += weight // 2
-
-    alias_tokens = _tokenize_post_progression_match_text(kpi_name, alias_short, alias_long)
-    param_tokens = _tokenize_post_progression_match_text(param_name, param_short, param_long)
-    score += len(alias_tokens & param_tokens) * 10
-    return score
-
-
-def _resolve_post_progression_kpi_param_names(modification, kpis):
-    candidate_param_names = _resolve_post_progression_bonus_param_names(modification)
-    if not candidate_param_names or not kpis:
-        return {}
-
-    available_param_names = list(candidate_param_names)
-    resolved_param_names = {}
-    index = None
-    kpi = None
-    for index, kpi in enumerate(kpis):
-        if not available_param_names:
-            break
-
-        kpi_name = getattr(kpi, 'name', None)
-        is_positive = _resolve_post_progression_is_positive(
-            getattr(kpi, 'value', None),
-            getattr(kpi, 'type', None),
-        )
-        if is_positive is None:
-            is_positive = not bool(getattr(kpi, 'isDebuff', False))
-
-        best_score = None
-        best_candidate_index = None
-        candidate_index = None
-        candidate_param_name = None
-        for candidate_index, candidate_param_name in enumerate(available_param_names):
-            score = _score_post_progression_param_name_candidate(kpi_name, candidate_param_name, is_positive)
-            if best_score is None or score > best_score:
-                best_score = score
-                best_candidate_index = candidate_index
-
-        if best_candidate_index is None:
-            continue
-        if best_score <= 0 and len(available_param_names) > 1:
-            continue
-
-        resolved_param_names[index] = available_param_names.pop(best_candidate_index)
-
-    return resolved_param_names
 
 
 def _resolve_post_progression_kpi_numeric_values(value, kpi_type):
@@ -744,6 +598,49 @@ def _has_post_progression_kpi_sign(text):
     if cleaned is None:
         return False
     return re.match(r'^\s*[+\-−]', cleaned) is not None
+
+
+def _replace_post_progression_fmt_in_text(text, original_fmt, adjusted_fmt):
+    cleaned_text = _clean_post_progression_text(text)
+    cleaned_original_fmt = _clean_post_progression_text(original_fmt)
+    cleaned_adjusted_fmt = _clean_post_progression_text(adjusted_fmt)
+
+    if cleaned_text is None or not cleaned_original_fmt or not cleaned_adjusted_fmt:
+        return text
+    if cleaned_original_fmt == cleaned_adjusted_fmt:
+        return cleaned_text
+    if cleaned_original_fmt not in cleaned_text:
+        return cleaned_text
+
+    return cleaned_text.replace(cleaned_original_fmt, cleaned_adjusted_fmt, 1)
+
+
+def _adjust_post_progression_targeted_formatted_value_text(
+        formatted_value_text,
+        raw_value,
+        kpi_type=None,
+        force_mul_delta=False):
+    cleaned_formatted_value_text = _clean_post_progression_text(formatted_value_text)
+    if cleaned_formatted_value_text is None:
+        return formatted_value_text
+
+    try:
+        numeric_value = float(raw_value)
+    except Exception:
+        return formatted_value_text
+
+    if force_mul_delta and kpi_type == 'mul':
+        if '%' not in cleaned_formatted_value_text:
+            return formatted_value_text
+
+        delta_percent = (numeric_value - 1.0) * 100.0
+        return _format_post_progression_fallback_value_text(
+            delta_percent,
+            kpi_name='value',
+            kpi_type='add',
+        )
+
+    return formatted_value_text
 
 
 def _format_post_progression_fallback_value_text(display_value, kpi_name=None, kpi_type=None, force_positive=False):
@@ -802,10 +699,7 @@ def _resolve_post_progression_kpi_formatted_value_text(kpi_name, value, kpi_type
 
 
 def _resolve_post_progression_regular_param_description(parameter_name, is_positive):
-    description = _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=True)
-    if description:
-        return description
-    return _resolve_post_progression_parameter_label_text(parameter_name, is_positive, is_long=False)
+    return _resolve_post_progression_preferred_label_text(parameter_name, is_positive)
 
 
 def _resolve_post_progression_regular_param_measure_unit_text(parameter_name, vehicle):
@@ -913,22 +807,20 @@ def _resolve_post_progression_kpi_description(kpi, is_positive=None):
         return None
 
     kpi_name = getattr(kpi, 'name', None)
-    kpi_type = getattr(kpi, 'type', None)
     if not kpi_name:
         return None
 
     if is_positive is None:
-        is_positive = _resolve_post_progression_is_positive(getattr(kpi, 'value', None), kpi_type)
-    if is_positive is None:
-        is_positive = not bool(getattr(kpi, 'isDebuff', False))
+        is_positive = _resolve_post_progression_kpi_is_positive(kpi)
 
-    description = _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=True)
-    if description:
-        return description
-    return _resolve_post_progression_parameter_label_text(kpi_name, is_positive, is_long=False)
+    return _resolve_post_progression_preferred_label_text(kpi_name, is_positive)
 
 
-def _resolve_post_progression_kpi_line(kpi, vehicle=None, parameter_name=None):
+def _resolve_post_progression_kpi_line(
+        kpi,
+        vehicle=None,
+        parameter_name=None,
+        force_mul_delta=False):
     if kpi is None:
         return None
 
@@ -962,11 +854,26 @@ def _resolve_post_progression_kpi_line(kpi, vehicle=None, parameter_name=None):
             kpi_type,
         )
 
+    original_formatted_value_text = formatted_value_text
+
     text = description
     if description and formatted_value_text:
         text = u'{0} {1}'.format(formatted_value_text, description)
     elif description is None:
         text = formatted_value_text
+
+    formatted_value_text = _adjust_post_progression_targeted_formatted_value_text(
+        original_formatted_value_text,
+        kpi_value,
+        kpi_type=kpi_type,
+        force_mul_delta=force_mul_delta,
+    )
+    if formatted_value_text != original_formatted_value_text:
+        text = _replace_post_progression_fmt_in_text(
+            text,
+            original_formatted_value_text,
+            formatted_value_text,
+        )
 
     if not text:
         return None
@@ -993,7 +900,6 @@ def _build_post_progression_kpi_lines(modification, vehicle):
     except Exception:
         return []
 
-    resolved_param_names = _resolve_post_progression_kpi_param_names(modification, kpis)
     lines = []
     index = None
     kpi = None
@@ -1001,7 +907,7 @@ def _build_post_progression_kpi_lines(modification, vehicle):
         line = _resolve_post_progression_kpi_line(
             kpi,
             vehicle=vehicle,
-            parameter_name=resolved_param_names.get(index),
+            force_mul_delta=True,
         )
         if not line:
             continue
@@ -1020,10 +926,14 @@ def _build_post_progression_dual_available_choices(action, vehicle):
         choice_index = _resolve_post_progression_dual_choice_index_from_modification(action, modification)
         if choice_index not in (1, 2):
             choice_index = position
+        choice_lines = _build_post_progression_kpi_lines(
+            modification,
+            vehicle,
+        )
         choices.append({
             'choice_index': choice_index,
             'mod_name': _resolve_post_progression_action_name(modification),
-            'lines': _build_post_progression_kpi_lines(modification, vehicle),
+            'lines': choice_lines,
         })
 
     return sorted(choices, key=lambda item: item.get('choice_index') or 99)
@@ -1127,6 +1037,10 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
             selected_modification = _resolve_post_progression_selected_modification(multi_action)
             raw_selected_choice_index = state_pairs.get(multi_entry.get('step_id'))
             selected_mod_name = _resolve_post_progression_action_name(selected_modification)
+            selected_choice_lines = _build_post_progression_kpi_lines(
+                selected_modification,
+                vehicle,
+            )
             selected_choice_index = _resolve_post_progression_dual_selected_choice_index(
                 multi_action,
                 raw_selected_choice_index,
@@ -1137,7 +1051,7 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
                 'multi_action_name': multi_entry.get('action_name'),
                 'selected_choice_index': selected_choice_index,
                 'selected_mod_name': selected_mod_name,
-                'selected_choice_lines': _build_post_progression_kpi_lines(selected_modification, vehicle),
+                'selected_choice_lines': selected_choice_lines,
                 'available_choices': _build_post_progression_dual_available_choices(multi_action, vehicle),
             }
 
@@ -1869,7 +1783,10 @@ def _build_t11_action_node(step_id, meta, pp, state, vehicle):
         'kind': kind,
     }
 
-    kpi_lines = _build_post_progression_kpi_lines(action, vehicle)
+    kpi_lines = _build_post_progression_kpi_lines(
+        action,
+        vehicle,
+    )
     if kpi_lines:
         action_node['kpi_lines'] = kpi_lines
 

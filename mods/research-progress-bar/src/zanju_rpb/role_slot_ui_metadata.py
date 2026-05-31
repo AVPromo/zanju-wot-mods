@@ -8,7 +8,9 @@ try:
 except Exception:
     g_currentVehicle = None
 try:
-    from gui.Scaleform.daapi.view.lobby.veh_post_progression.veh_post_progression_vehicle import g_postProgressionVehicle
+    from gui.Scaleform.daapi.view.lobby.veh_post_progression.veh_post_progression_vehicle import (
+        g_postProgressionVehicle,
+    )
 except Exception:
     g_postProgressionVehicle = None
 
@@ -315,7 +317,12 @@ def _wrap_role_slot_tooltip_hook(module_name, owner_name, attr_name, original):
                 '{0}.{1}.{2}'.format(module_name, owner_name, attr_name),
             )
         except Exception:
-            _logger.exception('Failed to capture role-slot UI metadata from %s.%s.%s', module_name, owner_name, attr_name)
+            _logger.exception(
+                'Failed to capture role-slot UI metadata from %s.%s.%s',
+                module_name,
+                owner_name,
+                attr_name,
+            )
         return result
 
     _wrapped.__name__ = getattr(original, '__name__', attr_name)
