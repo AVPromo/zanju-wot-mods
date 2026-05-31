@@ -9,6 +9,8 @@ MODE_ELITE: "Elite"
 
 # Configurator labels
 SETTING_ENABLED: "Enable / Disable mod"
+SETTING_RESEARCH_REMINDER: "Show research reminder"
+SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Show accelerated crew training reminder"
 SETTING_RESEARCH: "Research"
 SETTING_FIELD_MODS: "Field Mods"
 SETTING_FIELD_MODS_OPTION_ALWAYS: "Always show"
@@ -21,6 +23,8 @@ SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY: "Customization only"
 SETTING_ELITE_OPTION_OFF: "Off"
 
 # Configurator tooltips
+TOOLTIP_RESEARCH_REMINDER_BODY: "Show the \"Research now!\" reminder above the mode buttons."
+TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY: "Show the accelerated crew training reminder above the mode buttons."
 TOOLTIP_RESEARCH_HEADER: "Research"
 TOOLTIP_RESEARCH_BODY: "Show XP progress toward the next researchable module or vehicle."
 TOOLTIP_FIELD_MODS_HEADER: "Field Mods"
@@ -72,6 +76,8 @@ UPGRADE_ALL_OTHER_NODES: "All Other Nodes"
 
 # Status strings
 STATUS_COMPLETE: "Complete"
+SEPARATE_STATUS_ACCELERATE_CREW_TRAINING: "Accelerate crew training!"
+SEPARATE_STATUS_RESEARCH_NOW: "Research now!"
 STATUS_NO_UNLOCKS: "No available unlocks"
 STATUS_READY_FOR_RESEARCH: "ready for research"
 STATUS_XP_LEFT_FORMAT: "{xp} XP left"

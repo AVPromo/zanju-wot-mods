@@ -23,6 +23,8 @@ except NameError:
 _config = {
     'enabled': True,
     'language': 'auto',
+    'showResearchReminder': True,
+    'showAcceleratedCrewTrainingReminder': True,
     'showTechTree': True,
     'showUpgrades': True,
     'fieldModsMode': 'always',
@@ -33,6 +35,8 @@ _config = {
 _CONFIG_PERSISTED_KEYS = (
     'enabled',
     'language',
+    'showResearchReminder',
+    'showAcceleratedCrewTrainingReminder',
     'showTechTree',
     'showUpgrades',
     'fieldModsMode',
@@ -46,6 +50,8 @@ _CONFIG_SAVE_KEY_ORDER = (
     'enabled',
     '_language_comment',
     'language',
+    'showResearchReminder',
+    'showAcceleratedCrewTrainingReminder',
     'showTechTree',
     'showUpgrades',
     '_fieldModsMode_comment',
@@ -81,11 +87,15 @@ _ELITE_MODE_INDEX_BY_VALUE = dict(
 )
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
+    'showResearchReminder',
+    'showAcceleratedCrewTrainingReminder',
     'showTechTree',
     'showUpgrades',
     'showFieldModsProgress',
     'showEliteProgress',
 )
+
+_MODS_SETTINGS_TEMPLATE_VERSION = 1
 
 _mods_settings_sync_in_progress = False
 
@@ -167,7 +177,12 @@ def _normalize_display_config():
     if language in ('client', 'default', 'system'):
         language = 'auto'
     _config['language'] = language
-    for key in ('enabled', 'showTechTree', 'showUpgrades'):
+    for key in (
+            'enabled',
+            'showResearchReminder',
+            'showAcceleratedCrewTrainingReminder',
+            'showTechTree',
+            'showUpgrades'):
         _config[key] = bool(_config.get(key, True))
     _config['fieldModsMode'] = _normalize_field_mods_mode(
         _config.get('fieldModsMode', legacy_field_mods_value)
@@ -180,6 +195,10 @@ def _normalize_display_config():
 
 def _build_mode_preferences():
     return {
+        'showResearchReminder': bool(_config.get('showResearchReminder', True)),
+        'showAcceleratedCrewTrainingReminder': bool(
+            _config.get('showAcceleratedCrewTrainingReminder', True)
+        ),
         'showResearch': bool(_config.get('showTechTree', True)),
         'showUpgrades': bool(_config.get('showUpgrades', True)),
         'fieldModsMode': _normalize_field_mods_mode(
@@ -240,6 +259,10 @@ def _save_config():
 def _build_mod_settings_state():
     return {
         'enabled': bool(_config.get('enabled', True)),
+        'showResearchReminder': bool(_config.get('showResearchReminder', True)),
+        'showAcceleratedCrewTrainingReminder': bool(
+            _config.get('showAcceleratedCrewTrainingReminder', True)
+        ),
         'showTechTree': bool(_config.get('showTechTree', True)),
         'showUpgrades': bool(_config.get('showUpgrades', True)),
         'showFieldModsProgress': _FIELD_MODS_MODE_INDEX_BY_VALUE.get(
@@ -283,8 +306,33 @@ def _build_mod_settings_template():
     settings = _build_mod_settings_state()
     return _mods_settings_native({
         'modDisplayName': _loc('MOD_NAME', "Zanju's Research Progress Bar"),
+        'settingsVersion': _MODS_SETTINGS_TEMPLATE_VERSION,
         'enabled': settings['enabled'],
         'column1': [
+            {
+                'type': 'CheckBox',
+                'text': _loc('SETTING_RESEARCH_REMINDER', 'Show research reminder'),
+                'tooltip': _loc_tooltip(
+                    'SETTING_RESEARCH_REMINDER',
+                    'TOOLTIP_RESEARCH_REMINDER_BODY',
+                    'Research reminder',
+                    'Show the separate "Research now!" reminder above the mode buttons.',
+                ),
+                'value': settings['showResearchReminder'],
+                'varName': 'showResearchReminder',
+            },
+            {
+                'type': 'CheckBox',
+                'text': _loc('SETTING_ACCELERATED_CREW_TRAINING_REMINDER', 'Show accelerated crew training reminder'),
+                'tooltip': _loc_tooltip(
+                    'SETTING_ACCELERATED_CREW_TRAINING_REMINDER',
+                    'TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY',
+                    'Accelerated crew training reminder',
+                    'Show the separate accelerated crew training reminder above the mode buttons.',
+                ),
+                'value': settings['showAcceleratedCrewTrainingReminder'],
+                'varName': 'showAcceleratedCrewTrainingReminder',
+            },
             {
                 'type': 'CheckBox',
                 'text': _loc('SETTING_RESEARCH', 'Research'),

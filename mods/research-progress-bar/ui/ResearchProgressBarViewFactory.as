@@ -3,11 +3,14 @@ package {
     import flash.display.Shape;
     import flash.display.Sprite;
     import flash.text.TextField;
+    import flash.text.TextFieldAutoSize;
     import flash.text.TextFormat;
     import flash.text.TextFormatAlign;
 
     public final class ResearchProgressBarViewFactory {
         private static const COUNTER_VERTICAL_PADDING:Number = 8;
+        private static const SEPARATE_STATUS_COLOR:uint = 0x80D43A;
+        private static const SEPARATE_STATUS_FONT_SIZE:int = 15;
 
         public static function build(
             host:Sprite,
@@ -95,6 +98,10 @@ package {
             parts.modeButtonsContainer.visible = false;
             host.addChild(parts.modeButtonsContainer);
 
+            parts.separateStatusLabel = makeSeparateStatusField();
+            parts.separateStatusLabel.visible = false;
+            host.addChild(parts.separateStatusLabel);
+
             parts.tooltipContainer = new Sprite();
             parts.tooltipContainer.mouseEnabled = false;
             parts.tooltipContainer.mouseChildren = false;
@@ -138,6 +145,14 @@ package {
             field.width = ResearchProgressBarCounterLayout.COUNTER_CAPTION_WIDTH;
             field.height = resolveCounterFieldHeight(size, fieldHeight);
             field.text = text;
+            return field;
+        }
+
+        private static function makeSeparateStatusField():TextField {
+            var field:TextField = makeTextField(SEPARATE_STATUS_COLOR, SEPARATE_STATUS_FONT_SIZE, true);
+
+            alignTextField(field, TextFormatAlign.LEFT);
+            field.autoSize = TextFieldAutoSize.LEFT;
             return field;
         }
 

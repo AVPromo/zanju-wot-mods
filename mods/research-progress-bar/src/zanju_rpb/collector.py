@@ -1657,6 +1657,39 @@ def _collect_elite_progression(vehicle):
     return data
 
 
+def _collect_accelerate_crew_training_status(vehicle):
+    data = {
+        'available': False,
+        'enabled': None,
+    }
+
+    if vehicle is None or not getattr(vehicle, 'isElite', False):
+        return data
+
+    data['available'] = True
+
+    attr_name = None
+    for attr_name in ('isXPToTman', 'isXPToTMan'):
+        try:
+            value = getattr(vehicle, attr_name, None)
+        except Exception:
+            value = None
+
+        if value is None:
+            continue
+
+        if callable(value):
+            try:
+                value = value()
+            except Exception:
+                continue
+
+        data['enabled'] = bool(value)
+        return data
+
+    return data
+
+
 def _make_t11_bucket(xp_cost):
     if xp_cost == 10000:
         return 'small_10k'
@@ -2066,6 +2099,7 @@ def _collect_research_progress_data(vehicle, stats, items, resolve_t11_action_ma
     elite_pct = int(elite_unlocked * 100 / elite_total) if elite_total > 0 else 100
 
     elite_progression = _collect_elite_progression(vehicle)
+    accelerate_crew_training = _collect_accelerate_crew_training_status(vehicle)
 
     # --- Field modifications / post-progression (per vehicle) ---
     field_mods = _collect_post_progression(vehicle, stats, resolve_t11_action_marker_meta)
@@ -2102,6 +2136,7 @@ def _collect_research_progress_data(vehicle, stats, items, resolve_t11_action_ma
             'pct': elite_pct,
         },
         'elite_progression': elite_progression,
+        'accelerate_crew_training': accelerate_crew_training,
         'field_mods': {
             'exists': field_mods['exists'],
             'total_steps': field_mods['total_steps'],

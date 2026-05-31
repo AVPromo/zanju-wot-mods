@@ -27,12 +27,14 @@ package {
         private static const COUNTER_FIELD_HEIGHT:Number = 18;
         private static const MARKER_VALUE_COLOR:uint = 0xB8AC97;
         private static const BAR_FILL_MODE_COMPLETED_ONLY:String = "completed_only";
+        private static const SEPARATE_STATUS_VERTICAL_GAP:Number = 4;
         private var combatPercentLabel:TextField;
         private var combatPercentCaption:TextField;
         private var totalPercentLabel:TextField;
         private var totalPercentCaption:TextField;
         private var sideCounterLabel:TextField;
         private var sideCounterCaption:TextField;
+        private var separateStatusLabel:TextField;
         private var baseBar:Bitmap;
         private var completedBar:Bitmap;
         private var combatBar:Bitmap;
@@ -146,6 +148,7 @@ package {
             totalPercentCaption = parts.totalPercentCaption as TextField;
             sideCounterLabel = parts.sideCounterLabel as TextField;
             sideCounterCaption = parts.sideCounterCaption as TextField;
+            separateStatusLabel = parts.separateStatusLabel as TextField;
             baseBar = parts.baseBar as Bitmap;
             completedBar = parts.completedBar as Bitmap;
             combatBar = parts.combatBar as Bitmap;
@@ -273,8 +276,12 @@ package {
                 onModeButtonClick,
                 BAR_FILL_MODE_COMPLETED_ONLY
             );
-            _selectedModeId = String(viewState.selectedModeId);
+            _selectedModeId = viewState.selectedModeId != null
+                ? String(viewState.selectedModeId)
+                : null;
             _modeIdByButton = viewState.modeIdByButton;
+
+            updateSeparateStatusLabel();
 
             activeMode = viewState.activeMode;
             if (activeMode == null) {
@@ -446,6 +453,39 @@ package {
                 sideCounterLabel,
                 sideCounterCaption
             );
+        }
+
+        private function updateSeparateStatusLabel():void {
+            var modes:Array;
+            var layout:Object;
+            var nextText:String = "";
+
+            if (separateStatusLabel == null || _context == null) {
+                return;
+            }
+
+            if (_context.separateStatusText !== undefined && _context.separateStatusText != null) {
+                nextText = String(_context.separateStatusText);
+            }
+
+            separateStatusLabel.text = nextText;
+            separateStatusLabel.visible = nextText.length > 0;
+            if (!separateStatusLabel.visible) {
+                return;
+            }
+
+            modes = ResearchProgressBarModes.resolveModes(_context);
+            layout = ResearchProgressBarModes.resolveModeButtonsLayout(
+                modes,
+                _barX,
+                _barY,
+                ResearchProgressBarLayout.BAR_HEIGHT,
+                ResearchProgressBarLayout.BAR_MIN_STAGE_SIDE_MARGIN
+            );
+
+            separateStatusLabel.visible = true;
+            separateStatusLabel.x = Number(layout.x) + Number(layout.width) - separateStatusLabel.width;
+            separateStatusLabel.y = Number(layout.y) - separateStatusLabel.height - SEPARATE_STATUS_VERTICAL_GAP;
         }
 
     }

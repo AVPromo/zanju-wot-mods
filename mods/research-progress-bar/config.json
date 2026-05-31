@@ -4,6 +4,8 @@
     "enabled": true,
     "_language_comment": "auto | <language-code>; runtime loads mods/configs/research-progress-bar/i18n/<code>.yml with English fallback",
     "language": "auto",
+    "showResearchReminder": true,
+    "showAcceleratedCrewTrainingReminder": true,
     "showTechTree": true,
     "showUpgrades": true,
     "_fieldModsMode_comment": "always | until_complete | off",

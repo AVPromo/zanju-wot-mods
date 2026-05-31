@@ -80,7 +80,7 @@ _T11_DESCRIPTION_DEFAULT_TAG_COLOR = '#EDE6D9'
 
 
 def build_scaleform_view_payload(vehicle, data, mode_preferences=None, preferred_mode_id=None):
-    """Builds the full Scaleform payload or None when no mode is available."""
+    """Builds the full Scaleform payload, including empty-mode UI states."""
     preferences = _normalize_mode_preferences(mode_preferences)
     modes = []
 
@@ -102,14 +102,12 @@ def build_scaleform_view_payload(vehicle, data, mode_preferences=None, preferred
     if elite_mode is not None:
         modes.append(elite_mode)
 
-    if not modes:
-        return None
-
-    selected_mode_id = _resolve_selected_mode_id(modes, preferred_mode_id)
+    selected_mode_id = _resolve_selected_mode_id(modes, preferred_mode_id) if modes else None
     return {
         'vehicleLabel': _build_vehicle_label(vehicle, data),
         'vehicleIntCD': getattr(vehicle, 'intCD', None),
         'selectedModeId': selected_mode_id,
+        'separateStatusText': _build_separate_status_text(data, selected_mode_id, preferences),
         'modes': modes,
     }
 
@@ -147,6 +145,10 @@ def _normalize_mode_preferences(mode_preferences):
         elite_mode = ELITE_MODE_ON
 
     return {
+        'showResearchReminder': bool(preferences.get('showResearchReminder', True)),
+        'showAcceleratedCrewTrainingReminder': bool(
+            preferences.get('showAcceleratedCrewTrainingReminder', True)
+        ),
         'showResearch': bool(preferences.get('showResearch', True)),
         'showUpgrades': bool(preferences.get('showUpgrades', True)),
         'fieldModsMode': field_mods_mode,
@@ -160,6 +162,106 @@ def _build_vehicle_label(vehicle, data):
     if tier is None:
         return _loc('VEHICLE_LABEL_TIER_UNKNOWN_FORMAT', '{name} (Tier unknown)', name=name)
     return _loc('VEHICLE_LABEL_TIER_FORMAT', '{name} (Tier {tier})', name=name, tier=tier)
+
+
+def _build_separate_status_text(data, selected_mode_id, preferences):
+    if preferences.get('showResearchReminder', True) and _should_show_research_now_text(data, selected_mode_id):
+        return _loc('SEPARATE_STATUS_RESEARCH_NOW', 'Research now!')
+
+    if (preferences.get('showAcceleratedCrewTrainingReminder', True)
+            and _should_show_accelerate_crew_training_text(data)):
+        return _loc(
+            'SEPARATE_STATUS_ACCELERATE_CREW_TRAINING',
+            'Accelerate Crew Training!',
+        )
+
+    return ''
+
+
+def _should_show_accelerate_crew_training_text(data):
+    crew_training = (data or {}).get('accelerate_crew_training') or {}
+
+    if not crew_training.get('available'):
+        return False
+    if crew_training.get('enabled') is not False:
+        return False
+    if _build_regular_research_mode(data) is not None:
+        return False
+    if _build_field_mods_mode(data, FIELD_MODS_MODE_UNTIL_COMPLETE) is not None:
+        return False
+    if _build_tier11_mode(data) is not None:
+        return False
+    return True
+
+
+def _should_show_research_now_text(data, selected_mode_id):
+    normalized_mode_id = _normalize_selected_mode_id(selected_mode_id)
+    tech_tree = (data or {}).get('tech_tree') or {}
+    vehicle_xp = max(0, _to_int(tech_tree.get('vehicle_xp')) or 0)
+
+    if normalized_mode_id == MODE_REGULAR_RESEARCH:
+        return _is_regular_research_ready_now(tech_tree, vehicle_xp)
+    if normalized_mode_id == MODE_FIELD_MODS:
+        return _is_field_mods_ready_now(data, vehicle_xp)
+    if normalized_mode_id == MODE_TIER11_UPGRADES:
+        return _is_tier11_research_ready_now(data, vehicle_xp)
+    return False
+
+
+def _is_regular_research_ready_now(tech_tree, vehicle_xp):
+    available_unlocks = (tech_tree or {}).get('available_unlocks') or []
+    if not available_unlocks:
+        return False
+
+    unlock = None
+    for unlock in available_unlocks:
+        xp_cost = _to_int((unlock or {}).get('xp_cost'))
+        if xp_cost is None or xp_cost > vehicle_xp:
+            return False
+    return True
+
+
+def _resolve_field_mods_next_vehicle_xp_cost(data):
+    field_mods = (data or {}).get('field_mods') or {}
+    tier_plan = field_mods.get('tier_plan') or {}
+
+    next_level_xp_cost = _to_int(tier_plan.get('next_level_xp_cost'))
+    if next_level_xp_cost is not None and next_level_xp_cost > 0:
+        return next_level_xp_cost
+
+    next_step_xp_cost = _to_int(field_mods.get('next_purchasable_step_xp'))
+    if next_step_xp_cost is not None and next_step_xp_cost > 0:
+        return next_step_xp_cost
+
+    return None
+
+
+def _is_field_mods_ready_now(data, vehicle_xp):
+    next_cost = _resolve_field_mods_next_vehicle_xp_cost(data)
+    return next_cost is not None and next_cost <= vehicle_xp
+
+
+def _is_tier11_research_ready_now(data, vehicle_xp):
+    field_mods = (data or {}).get('field_mods') or {}
+    tech_tree = (data or {}).get('tech_tree') or {}
+    if not _is_tier11_mode_enabled(field_mods, tech_tree):
+        return False
+
+    display_layout = _build_t11_display_layout(field_mods)
+    placeholder_costs = []
+    if display_layout.get('remaining_minor_count'):
+        placeholder_costs.append(10000)
+    if display_layout.get('remaining_major_count'):
+        placeholder_costs.append(20000)
+
+    if placeholder_costs:
+        return all(cost <= vehicle_xp for cost in placeholder_costs)
+
+    if display_layout.get('remaining_final_count'):
+        return 25000 <= vehicle_xp
+
+    next_step_xp_cost = _to_int(field_mods.get('next_purchasable_step_xp'))
+    return next_step_xp_cost is not None and next_step_xp_cost > 0 and next_step_xp_cost <= vehicle_xp
 
 
 def _build_regular_research_mode(data):

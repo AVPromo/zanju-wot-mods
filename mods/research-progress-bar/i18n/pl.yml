@@ -9,6 +9,8 @@ MODE_ELITE: "Elita"
 
 # Configurator labels
 SETTING_ENABLED: "Włącz / wyłącz mod"
+SETTING_RESEARCH_REMINDER: "Pokaż przypomnienie o badaniu"
+SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Pokaż przypomnienie o przyspieszonym szkoleniu załogi"
 SETTING_RESEARCH: "Badania"
 SETTING_FIELD_MODS: "Ulepszenia polowe"
 SETTING_FIELD_MODS_OPTION_ALWAYS: "Zawsze pokazuj"
@@ -21,6 +23,8 @@ SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY: "Tylko personalizacja"
 SETTING_ELITE_OPTION_OFF: "Wyłączone"
 
 # Configurator tooltips
+TOOLTIP_RESEARCH_REMINDER_BODY: "Pokaż przypomnienie \"Badaj teraz!\" nad przyciskami trybów."
+TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY: "Pokaż przypomnienie o przyspieszonym szkoleniu załogi nad przyciskami trybów."
 TOOLTIP_RESEARCH_HEADER: "Badania"
 TOOLTIP_RESEARCH_BODY: "Pokaż postęp PD do następnego modułu lub pojazdu do zbadania."
 TOOLTIP_FIELD_MODS_HEADER: "Ulepszenia polowe"
@@ -72,6 +76,8 @@ UPGRADE_ALL_OTHER_NODES: "Wszystkie pozostałe węzły"
 
 # Status strings
 STATUS_COMPLETE: "Ukończono"
+SEPARATE_STATUS_ACCELERATE_CREW_TRAINING: "Przyspiesz szkolenie załogi!"
+SEPARATE_STATUS_RESEARCH_NOW: "Badaj teraz!"
 STATUS_NO_UNLOCKS: "Brak dostępnych odblokowań"
 STATUS_READY_FOR_RESEARCH: "gotowe do zbadania"
 STATUS_XP_LEFT_FORMAT: "Pozostało {xp} PD"

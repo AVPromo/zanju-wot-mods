@@ -101,10 +101,15 @@ package {
             minStageSideMargin:Number,
             clickHandler:Function
         ):Dictionary {
-            var totalWidth:Number = measureModeButtonsWidth(modes);
-            var cursorX:Number = Math.max(minStageSideMargin, barX - MODE_BUTTON_BAR_GAP - totalWidth);
-            var buttonHeight:Number = MODE_BUTTON_HEIGHT + MODE_BUTTON_BOTTOM_PADDING;
-            var buttonY:Number = barY + Math.round((barHeight - buttonHeight) * 0.5);
+            var layout:Object = resolveModeButtonsLayout(
+                modes,
+                barX,
+                barY,
+                barHeight,
+                minStageSideMargin
+            );
+            var cursorX:Number = Number(layout.x);
+            var buttonY:Number = Number(layout.y);
             var mode:Object;
             var button:Sprite;
             var modeIdByButton:Dictionary = clearModeButtons(container, clickHandler);
@@ -129,6 +134,24 @@ package {
             }
 
             return modeIdByButton;
+        }
+
+        public static function resolveModeButtonsLayout(
+            modes:Array,
+            barX:Number,
+            barY:Number,
+            barHeight:Number,
+            minStageSideMargin:Number
+        ):Object {
+            var totalWidth:Number = measureModeButtonsWidth(modes);
+            var buttonHeight:Number = MODE_BUTTON_HEIGHT + MODE_BUTTON_BOTTOM_PADDING;
+
+            return {
+                x: Math.max(minStageSideMargin, barX - MODE_BUTTON_BAR_GAP - totalWidth),
+                y: barY + Math.round((barHeight - buttonHeight) * 0.5),
+                width: totalWidth,
+                height: buttonHeight
+            };
         }
 
         public static function clearModeButtons(container:Sprite, clickHandler:Function):Dictionary {

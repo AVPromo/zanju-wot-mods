@@ -30,6 +30,7 @@ package {
             var rightCounterEdge:Number = barX + barWidth;
 
             if (activeCounterLayout == COUNTER_LAYOUT_RIGHT_SINGLE) {
+                positionOptionalLeftCounterGroup(sideCounterLabel, sideCounterCaption, leftCounterX, counterTop);
                 positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop);
                 return;
             }
@@ -40,17 +41,34 @@ package {
 
                 combatPercentCaption.x = leftCounterX;
                 combatPercentCaption.y = counterTop + combatPercentLabel.height;
+                positionOptionalLeftCounterGroup(
+                    sideCounterLabel,
+                    sideCounterCaption,
+                    leftCounterX,
+                    counterTop + combatPercentLabel.height + combatPercentCaption.height
+                );
 
                 positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop);
                 return;
             }
 
-            if (hasCounterText(sideCounterLabel) || hasCounterText(sideCounterCaption)) {
-                positionLeftCounterGroup(sideCounterLabel, sideCounterCaption, leftCounterX, counterTop);
-            }
+            positionOptionalLeftCounterGroup(sideCounterLabel, sideCounterCaption, leftCounterX, counterTop);
 
             positionRightCounterGroup(combatPercentLabel, combatPercentCaption, rightCounterEdge, counterTop);
             positionRightCounterGroup(totalPercentLabel, totalPercentCaption, rightCounterEdge, counterTop + combatPercentLabel.height);
+        }
+
+        private static function positionOptionalLeftCounterGroup(
+            valueField:TextField,
+            captionField:TextField,
+            groupX:Number,
+            groupY:Number
+        ):void {
+            if (!hasCounterText(valueField) && !hasCounterText(captionField)) {
+                return;
+            }
+
+            positionLeftCounterGroup(valueField, captionField, groupX, groupY);
         }
 
         private static function positionLeftCounterGroup(valueField:TextField, captionField:TextField, groupX:Number, groupY:Number):void {
