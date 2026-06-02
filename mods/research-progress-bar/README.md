@@ -90,8 +90,8 @@ For the wider repository workflow, see:
 ## Notes
 
 - The mod is designed to keep working from config alone when optional ecosystem UI/settings APIs are missing.
-- When the optional `ModsSettingsApi` stack is present, the in-game configurator exposes `enabled`, `Research`, `Upgrades`, `Field Mods`, and `Elite`, and writes changes back to `mods/configs/research-progress-bar/config.json`.
-- The configurator template is intentionally left without `settingsVersion` so localized labels, tooltips, and option text are refreshed from template diffs on full client restart after a language change.
+- When the optional `ModsSettingsApi` stack is present, the in-game configurator exposes `enabled`, reminder toggles, `Research` with hypothetical tier XI / real-only / off options, `Upgrades`, `Field Mods`, and `Elite`, and writes changes back to `mods/configs/research-progress-bar/config.json`.
+- The configurator template intentionally omits `settingsVersion` so template diffs remain eligible for refresh without version-gating.
 - The standalone configurator bundle uses a tracked manifest plus ignored local cache for companion artifacts; update the pins with `wot_mods_update_companion_manifest`, then repopulate the cache with `wot_mods_fetch_companion_artifacts`.
 - On the first visit to a vehicle, or when a remembered mode is no longer available, the bar falls back to the left-most available mode.
 - The remembered per-vehicle mode cache is loaded once during startup, kept in memory during play, and written back with a small best-effort debounce instead of re-reading/writing on every vehicle switch.

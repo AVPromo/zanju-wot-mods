@@ -49,6 +49,8 @@ try:
 except NameError:
     _STRING_TYPES = (str,)
 
+_HYPOTHETICAL_T11_XP_COST = 325000
+
 
 def _resolve_post_progression_step_id(step):
     step_id = getattr(step, 'stepID', None)
@@ -1183,6 +1185,151 @@ def _extract_int_pair(value):
     return None, None
 
 
+def _resolve_vehicle_runtime_flag(vehicle, attr_names):
+    attr_name = None
+    for attr_name in attr_names:
+        try:
+            value = getattr(vehicle, attr_name, None)
+        except Exception:
+            value = None
+
+        if callable(value):
+            try:
+                value = value()
+            except Exception:
+                value = None
+
+        if value is not None:
+            return bool(value)
+
+    return None
+
+
+def _normalize_vehicle_runtime_tag(value):
+    cleaned_value = _clean_text_value(value)
+    if cleaned_value is None:
+        return None
+    return re.sub(r'[^a-z0-9]+', '', cleaned_value.lower()) or None
+
+
+def _resolve_vehicle_runtime_tags(vehicle):
+    tags = set()
+    sources = []
+
+    descriptor = getattr(vehicle, 'descriptor', None)
+    vehicle_type = getattr(descriptor, 'type', None) if descriptor is not None else None
+    for source in (
+            getattr(vehicle, 'tags', None),
+            getattr(vehicle_type, 'tags', None),
+            getattr(vehicle_type, 'typeTags', None)):
+        if source is None or isinstance(source, _STRING_TYPES):
+            continue
+        sources.append(source)
+
+    source = None
+    for source in sources:
+        try:
+            values = list(source)
+        except Exception:
+            continue
+        tag = None
+        for tag in values:
+            normalized_tag = _normalize_vehicle_runtime_tag(tag)
+            if normalized_tag:
+                tags.add(normalized_tag)
+
+    return tags
+
+
+def _resolve_hypothetical_t11_vehicle_probe(vehicle, vehicle_tier):
+    if vehicle is None:
+        return False
+
+    vehicle_flags = {
+        'is_premium': _resolve_vehicle_runtime_flag(vehicle, ('isPremium',)),
+        'is_premium_igr': _resolve_vehicle_runtime_flag(vehicle, ('isPremiumIGR',)),
+        'is_special': _resolve_vehicle_runtime_flag(vehicle, ('isSpecial',)),
+        'is_reward': _resolve_vehicle_runtime_flag(vehicle, ('isReward',)),
+        'is_collectible': _resolve_vehicle_runtime_flag(vehicle, ('isCollectible', 'isCollectibleVehicle')),
+        'is_collector_vehicle': _resolve_vehicle_runtime_flag(vehicle, ('isCollectorVehicle',)),
+    }
+    vehicle_tags = _resolve_vehicle_runtime_tags(vehicle)
+
+    is_collector = bool(
+        vehicle_flags.get('is_collectible')
+        or vehicle_flags.get('is_collector_vehicle')
+        or vehicle_tags.intersection(frozenset(('collector', 'collectorvehicle')))
+    )
+    is_premium = bool(
+        vehicle_flags.get('is_premium')
+        or vehicle_flags.get('is_premium_igr')
+        or vehicle_tags.intersection(frozenset(('premium', 'premiumigr')))
+    )
+    is_special = bool(
+        vehicle_flags.get('is_special')
+        or vehicle_tags.intersection(frozenset(('special',)))
+    )
+    return bool(vehicle_tier == 10 and not is_collector and not is_special and not is_premium)
+
+
+def _has_real_tier11_vehicle_unlock(vehicle, items=None):
+    if vehicle is None:
+        return False
+
+    try:
+        unlock_descrs = list(vehicle.getUnlocksDescrs() or [])
+    except Exception:
+        return False
+
+    unlock_entry = None
+    for unlock_entry in unlock_descrs:
+        if len(unlock_entry) < 4:
+            continue
+
+        intcd = unlock_entry[2]
+        if _resolve_unlock_item_type(intcd) != 'vehicle':
+            continue
+
+        unlock_item = None
+        if items is not None:
+            try:
+                unlock_item = items.getItemByCD(intcd)
+            except Exception:
+                unlock_item = None
+
+        if _resolve_unlock_vehicle_level(unlock_item) == 11:
+            return True
+
+    return False
+
+
+def _build_hypothetical_t11_unlock_marker():
+    return {
+        'xp_cost': _HYPOTHETICAL_T11_XP_COST,
+        'intcd': -1,
+        'item_type': 'vehicle',
+        'name': None,
+        'is_available': True,
+        'missing_prereq_names': [],
+        'missing_prereqs': [],
+        'is_hypothetical_t11': True,
+    }
+
+
+def _append_hypothetical_t11_unlock(visible_unlocks, available_unlocks):
+    hypothetical_unlock = _build_hypothetical_t11_unlock_marker()
+
+    updated_visible_unlocks = list(visible_unlocks or [])
+    updated_visible_unlocks.append(hypothetical_unlock)
+    updated_visible_unlocks.sort(key=lambda item: (item['xp_cost'], item['intcd']))
+
+    updated_available_unlocks = list(available_unlocks or [])
+    updated_available_unlocks.append(hypothetical_unlock)
+    updated_available_unlocks.sort(key=lambda item: (item['xp_cost'], item['intcd']))
+
+    return updated_visible_unlocks, updated_available_unlocks
+
+
 def _get_blueprints_requester(items):
     if items is None:
         return None
@@ -1984,7 +2131,12 @@ def _collect_post_progression(vehicle, stats, resolve_t11_action_marker_meta=Non
     return data
 
 
-def _collect_research_progress_data(vehicle, stats, items, resolve_t11_action_marker_meta=None):
+def _collect_research_progress_data(
+        vehicle,
+        stats,
+        items,
+        resolve_t11_action_marker_meta=None,
+        include_hypothetical_t11=False):
     unlocks_set = stats.unlocks
     vehicle_tier = _get_vehicle_tier(vehicle)
     visible_unlocks = _collect_visible_unlocks(vehicle, unlocks_set, items)
@@ -1994,13 +2146,23 @@ def _collect_research_progress_data(vehicle, stats, items, resolve_t11_action_ma
         items,
         visible_unlocks=visible_unlocks,
     )
+    real_available_unlocks = list(available_unlocks)
+    can_show_hypothetical_t11 = _resolve_hypothetical_t11_vehicle_probe(vehicle, vehicle_tier)
+
+    if (include_hypothetical_t11
+            and can_show_hypothetical_t11
+            and not _has_real_tier11_vehicle_unlock(vehicle, items)):
+        visible_unlocks, available_unlocks = _append_hypothetical_t11_unlock(
+            visible_unlocks,
+            available_unlocks,
+        )
 
     # --- Tech tree XP progress ---
     veh_xp = stats.vehiclesXPs.get(vehicle.intCD, 0)
     free_xp = max(0, stats.freeXP)
     total_xp = veh_xp + free_xp
 
-    next_cost, next_intcd = _next_available_unlock(vehicle, unlocks_set, available_unlocks)
+    next_cost, next_intcd = _next_available_unlock(vehicle, unlocks_set, real_available_unlocks)
     if next_cost and next_cost > 0:
         tt_pct = min(100, int(total_xp * 100 / next_cost))
     else:

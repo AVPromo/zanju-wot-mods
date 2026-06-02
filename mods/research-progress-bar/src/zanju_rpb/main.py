@@ -265,6 +265,7 @@ class ResearchProgressBar(object):
             stats,
             self.itemsCache.items,
             _extract_t11_action_marker_meta,
+            include_hypothetical_t11=(_config.get('researchMode', 'hypothetical_t11') == 'hypothetical_t11'),
         )
 
     # -- rendering -----------------------------------------------------------

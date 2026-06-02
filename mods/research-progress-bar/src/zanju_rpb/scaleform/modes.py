@@ -178,14 +178,52 @@ def _build_separate_status_text(data, selected_mode_id, preferences):
     return ''
 
 
+def _is_hypothetical_research_unlock(unlock):
+    return bool((unlock or {}).get('is_hypothetical_t11'))
+
+
+def _filter_real_research_unlocks(unlocks):
+    return [unlock for unlock in (unlocks or []) if not _is_hypothetical_research_unlock(unlock)]
+
+
+def _filter_hypothetical_research_unlocks(unlocks):
+    return [unlock for unlock in (unlocks or []) if _is_hypothetical_research_unlock(unlock)]
+
+
+def _resolve_hypothetical_research_unlock_cost(tech_tree):
+    visible_unlocks = (tech_tree or {}).get('visible_unlocks') or []
+    hypothetical_unlocks = _filter_hypothetical_research_unlocks(visible_unlocks)
+    if not hypothetical_unlocks:
+        return None
+
+    costs = []
+    unlock = None
+    for unlock in hypothetical_unlocks:
+        xp_cost = _to_int((unlock or {}).get('xp_cost'))
+        if xp_cost is not None and xp_cost > 0:
+            costs.append(xp_cost)
+
+    if not costs:
+        return None
+    return max(costs)
+
+
 def _should_show_accelerate_crew_training_text(data):
     crew_training = (data or {}).get('accelerate_crew_training') or {}
+    tech_tree = (data or {}).get('tech_tree') or {}
+    real_visible_unlocks = _filter_real_research_unlocks(tech_tree.get('visible_unlocks') or [])
+    hypothetical_unlock_cost = _resolve_hypothetical_research_unlock_cost(tech_tree)
+    vehicle_xp = max(0, _to_int(tech_tree.get('vehicle_xp')) or 0)
 
     if not crew_training.get('available'):
         return False
     if crew_training.get('enabled') is not False:
         return False
-    if _build_regular_research_mode(data) is not None:
+    if real_visible_unlocks:
+        return False
+    if hypothetical_unlock_cost is not None and vehicle_xp < hypothetical_unlock_cost:
+        return False
+    if hypothetical_unlock_cost is None and _build_regular_research_mode(data) is not None:
         return False
     if _build_field_mods_mode(data, FIELD_MODS_MODE_UNTIL_COMPLETE) is not None:
         return False
@@ -209,7 +247,7 @@ def _should_show_research_now_text(data, selected_mode_id):
 
 
 def _is_regular_research_ready_now(tech_tree, vehicle_xp):
-    available_unlocks = (tech_tree or {}).get('available_unlocks') or []
+    available_unlocks = _filter_real_research_unlocks((tech_tree or {}).get('available_unlocks') or [])
     if not available_unlocks:
         return False
 
@@ -652,6 +690,9 @@ def _build_research_marker(item):
     blueprint_count = item.get('blueprint_count')
     blueprint_total = item.get('blueprint_total')
     blueprint_discount_percent = item.get('blueprint_discount_percent')
+    marker_name = item.get('name')
+    if item.get('is_hypothetical_t11'):
+        marker_name = _loc('HYPOTHETICAL_T11_VEHICLE_NAME', 'Hypothetical tier 11 vehicle')
 
     return {
         'id': 'unlock_{0}'.format(item['intcd']),
@@ -663,9 +704,10 @@ def _build_research_marker(item):
         'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
         'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
         'isAvailable': item.get('is_available', True),
+        'isHypotheticalT11': bool(item.get('is_hypothetical_t11')),
         'missingPrereqNames': item.get('missing_prereq_names', []),
         'missingPrereqs': item.get('missing_prereqs', []),
-        'name': item.get('name'),
+        'name': marker_name,
         'blueprintCount': blueprint_count,
         'blueprintTotal': blueprint_total,
         'blueprintDiscountPercent': blueprint_discount_percent,

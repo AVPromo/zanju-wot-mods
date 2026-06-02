@@ -25,8 +25,8 @@ _config = {
     'language': 'auto',
     'showResearchReminder': True,
     'showAcceleratedCrewTrainingReminder': True,
-    'showTechTree': True,
-    'showUpgrades': True,
+    'researchMode': 'hypothetical_t11',
+    'upgradesMode': 'on',
     'fieldModsMode': 'always',
     'eliteMode': 'on',
     'scaleformPrototypeEnabled': True,
@@ -37,8 +37,8 @@ _CONFIG_PERSISTED_KEYS = (
     'language',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
-    'showTechTree',
-    'showUpgrades',
+    'researchMode',
+    'upgradesMode',
     'fieldModsMode',
     'eliteMode',
     'scaleformPrototypeEnabled',
@@ -52,8 +52,8 @@ _CONFIG_SAVE_KEY_ORDER = (
     'language',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
-    'showTechTree',
-    'showUpgrades',
+    'researchMode',
+    'upgradesMode',
     '_fieldModsMode_comment',
     'fieldModsMode',
     '_eliteMode_comment',
@@ -85,17 +85,38 @@ _ELITE_MODE_VALUES = (
 _ELITE_MODE_INDEX_BY_VALUE = dict(
     (value, index) for index, value in enumerate(_ELITE_MODE_VALUES)
 )
+
+_RESEARCH_MODE_HYPOTHETICAL_T11 = 'hypothetical_t11'
+_RESEARCH_MODE_REAL_ONLY = 'real_only'
+_RESEARCH_MODE_OFF = 'off'
+_RESEARCH_MODE_VALUES = (
+    _RESEARCH_MODE_HYPOTHETICAL_T11,
+    _RESEARCH_MODE_REAL_ONLY,
+    _RESEARCH_MODE_OFF,
+)
+_RESEARCH_MODE_INDEX_BY_VALUE = dict(
+    (value, index) for index, value in enumerate(_RESEARCH_MODE_VALUES)
+)
+
+_UPGRADES_MODE_ON = 'on'
+_UPGRADES_MODE_OFF = 'off'
+_UPGRADES_MODE_VALUES = (
+    _UPGRADES_MODE_ON,
+    _UPGRADES_MODE_OFF,
+)
+_UPGRADES_MODE_INDEX_BY_VALUE = dict(
+    (value, index) for index, value in enumerate(_UPGRADES_MODE_VALUES)
+)
+
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
-    'showTechTree',
-    'showUpgrades',
+    'showResearchMode',
+    'showUpgradesMode',
     'showFieldModsProgress',
     'showEliteProgress',
 )
-
-_MODS_SETTINGS_TEMPLATE_VERSION = 1
 
 _mods_settings_sync_in_progress = False
 
@@ -161,6 +182,44 @@ def _normalize_field_mods_mode(value):
     return _FIELD_MODS_MODE_ALWAYS
 
 
+def _normalize_research_mode(value):
+    if isinstance(value, bool):
+        return _RESEARCH_MODE_HYPOTHETICAL_T11 if value else _RESEARCH_MODE_OFF
+    if isinstance(value, Integral):
+        index = int(value)
+        if index >= 0 and index < len(_RESEARCH_MODE_VALUES):
+            return _RESEARCH_MODE_VALUES[index]
+        return _RESEARCH_MODE_HYPOTHETICAL_T11
+    if isinstance(value, _STRING_TYPES):
+        normalized = value.strip().lower().replace('-', '_').replace(' ', '_')
+        if normalized in _RESEARCH_MODE_INDEX_BY_VALUE:
+            return normalized
+        if normalized in ('real', 'realresearch', 'real_items', 'realonly'):
+            return _RESEARCH_MODE_REAL_ONLY
+        if normalized in ('false', 'disabled'):
+            return _RESEARCH_MODE_OFF
+    return _RESEARCH_MODE_HYPOTHETICAL_T11
+
+
+def _normalize_upgrades_mode(value):
+    if isinstance(value, bool):
+        return _UPGRADES_MODE_ON if value else _UPGRADES_MODE_OFF
+    if isinstance(value, Integral):
+        index = int(value)
+        if index >= 0 and index < len(_UPGRADES_MODE_VALUES):
+            return _UPGRADES_MODE_VALUES[index]
+        return _UPGRADES_MODE_ON
+    if isinstance(value, _STRING_TYPES):
+        normalized = value.strip().lower().replace('-', '_').replace(' ', '_')
+        if normalized in _UPGRADES_MODE_INDEX_BY_VALUE:
+            return normalized
+        if normalized in ('true', 'enabled'):
+            return _UPGRADES_MODE_ON
+        if normalized in ('false', 'disabled'):
+            return _UPGRADES_MODE_OFF
+    return _UPGRADES_MODE_ON
+
+
 def _normalize_display_config():
     legacy_field_mods_value = _config.get(
         'showFieldModsProgress',
@@ -170,6 +229,9 @@ def _normalize_display_config():
         'showEliteProgress',
         _config.get('eliteMode', _ELITE_MODE_ON),
     )
+    legacy_show_research = bool(_config.get('showTechTree', True))
+    legacy_show_hypothetical_t11 = bool(_config.get('showHypotheticalTier11InResearch', True))
+    legacy_show_upgrades = bool(_config.get('showUpgrades', True))
     language = _config.get('language', 'auto')
     if not isinstance(language, _STRING_TYPES):
         language = 'auto'
@@ -180,10 +242,19 @@ def _normalize_display_config():
     for key in (
             'enabled',
             'showResearchReminder',
-            'showAcceleratedCrewTrainingReminder',
-            'showTechTree',
-            'showUpgrades'):
+            'showAcceleratedCrewTrainingReminder'):
         _config[key] = bool(_config.get(key, True))
+    legacy_research_mode = _RESEARCH_MODE_OFF
+    if legacy_show_research:
+        legacy_research_mode = (
+            _RESEARCH_MODE_HYPOTHETICAL_T11 if legacy_show_hypothetical_t11 else _RESEARCH_MODE_REAL_ONLY
+        )
+    _config['researchMode'] = _normalize_research_mode(
+        _config.get('researchMode', legacy_research_mode)
+    )
+    _config['upgradesMode'] = _normalize_upgrades_mode(
+        _config.get('upgradesMode', legacy_show_upgrades)
+    )
     _config['fieldModsMode'] = _normalize_field_mods_mode(
         _config.get('fieldModsMode', legacy_field_mods_value)
     )
@@ -194,13 +265,17 @@ def _normalize_display_config():
 
 
 def _build_mode_preferences():
+    research_mode = _normalize_research_mode(
+        _config.get('researchMode', _RESEARCH_MODE_HYPOTHETICAL_T11)
+    )
+    upgrades_mode = _normalize_upgrades_mode(_config.get('upgradesMode', _UPGRADES_MODE_ON))
     return {
         'showResearchReminder': bool(_config.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
             _config.get('showAcceleratedCrewTrainingReminder', True)
         ),
-        'showResearch': bool(_config.get('showTechTree', True)),
-        'showUpgrades': bool(_config.get('showUpgrades', True)),
+        'showResearch': research_mode != _RESEARCH_MODE_OFF,
+        'showUpgrades': upgrades_mode == _UPGRADES_MODE_ON,
         'fieldModsMode': _normalize_field_mods_mode(
             _config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)
         ),
@@ -230,6 +305,9 @@ def _save_config():
             os.makedirs(directory)
 
         data['configVersion'] = data.get('configVersion', 1)
+        data.pop('showTechTree', None)
+        data.pop('showHypotheticalTier11InResearch', None)
+        data.pop('showUpgrades', None)
         data.pop('showFieldMods', None)
         data.pop('showFieldModsProgress', None)
         data.pop('showEliteProgress', None)
@@ -257,14 +335,18 @@ def _save_config():
 
 
 def _build_mod_settings_state():
+    research_mode = _normalize_research_mode(
+        _config.get('researchMode', _RESEARCH_MODE_HYPOTHETICAL_T11)
+    )
+    upgrades_mode = _normalize_upgrades_mode(_config.get('upgradesMode', _UPGRADES_MODE_ON))
     return {
         'enabled': bool(_config.get('enabled', True)),
         'showResearchReminder': bool(_config.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
             _config.get('showAcceleratedCrewTrainingReminder', True)
         ),
-        'showTechTree': bool(_config.get('showTechTree', True)),
-        'showUpgrades': bool(_config.get('showUpgrades', True)),
+        'showResearchMode': _RESEARCH_MODE_INDEX_BY_VALUE.get(research_mode, 0),
+        'showUpgradesMode': _UPGRADES_MODE_INDEX_BY_VALUE.get(upgrades_mode, 0),
         'showFieldModsProgress': _FIELD_MODS_MODE_INDEX_BY_VALUE.get(
             _normalize_field_mods_mode(_config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)),
             0,
@@ -306,7 +388,6 @@ def _build_mod_settings_template():
     settings = _build_mod_settings_state()
     return _mods_settings_native({
         'modDisplayName': _loc('MOD_NAME', "Zanju's Research Progress Bar"),
-        'settingsVersion': _MODS_SETTINGS_TEMPLATE_VERSION,
         'enabled': settings['enabled'],
         'column1': [
             {
@@ -334,28 +415,37 @@ def _build_mod_settings_template():
                 'varName': 'showAcceleratedCrewTrainingReminder',
             },
             {
-                'type': 'CheckBox',
+                'type': 'RadioButtonGroup',
                 'text': _loc('SETTING_RESEARCH', 'Research'),
                 'tooltip': _loc_tooltip(
-                    'TOOLTIP_RESEARCH_HEADER',
+                    'SETTING_RESEARCH',
                     'TOOLTIP_RESEARCH_BODY',
                     'Research',
                     'Show XP progress toward the next researchable module or vehicle.',
                 ),
-                'value': settings['showTechTree'],
-                'varName': 'showTechTree',
+                'options': [
+                    {'label': _loc('SETTING_HYPOTHETICAL_TIER11_IN_RESEARCH', 'Show hypothetical tier 11 in research')},
+                    {'label': _loc('SETTING_RESEARCH_OPTION_REAL_ONLY', 'Show only real research items')},
+                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                ],
+                'value': settings['showResearchMode'],
+                'varName': 'showResearchMode',
             },
             {
-                'type': 'CheckBox',
+                'type': 'RadioButtonGroup',
                 'text': _loc('SETTING_UPGRADES', 'Upgrades'),
                 'tooltip': _loc_tooltip(
-                    'TOOLTIP_UPGRADES_HEADER',
+                    'SETTING_UPGRADES',
                     'TOOLTIP_UPGRADES_BODY',
                     'Upgrades',
                     'Show tier XI upgrade tree progress.',
                 ),
-                'value': settings['showUpgrades'],
-                'varName': 'showUpgrades',
+                'options': [
+                    {'label': _loc('SETTING_OPTION_ON', 'On')},
+                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                ],
+                'value': settings['showUpgradesMode'],
+                'varName': 'showUpgradesMode',
             },
             {
                 'type': 'RadioButtonGroup',
@@ -372,7 +462,7 @@ def _build_mod_settings_template():
                 'options': [
                     {'label': _loc('SETTING_FIELD_MODS_OPTION_ALWAYS', 'Always show')},
                     {'label': _loc('SETTING_FIELD_MODS_OPTION_UNTIL_COMPLETE', 'Until complete')},
-                    {'label': _loc('SETTING_FIELD_MODS_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
                 ],
                 'value': settings['showFieldModsProgress'],
                 'varName': 'showFieldModsProgress',
@@ -389,9 +479,9 @@ def _build_mod_settings_template():
                     '<b>Off</b>: Hide elite progress entirely.',
                 ),
                 'options': [
-                    {'label': _loc('SETTING_ELITE_OPTION_ON', 'On')},
+                    {'label': _loc('SETTING_OPTION_ON', 'On')},
                     {'label': _loc('SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY', 'Customization only')},
-                    {'label': _loc('SETTING_ELITE_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
                 ],
                 'value': settings['showEliteProgress'],
                 'varName': 'showEliteProgress',
@@ -430,6 +520,12 @@ def _register_mod_settings(mod_id, on_config_changed=None):
             elif key == 'showFieldModsProgress':
                 config_key = 'fieldModsMode'
                 new_value = _normalize_field_mods_mode(new_settings.get(key))
+            elif key == 'showResearchMode':
+                config_key = 'researchMode'
+                new_value = _normalize_research_mode(new_settings.get(key))
+            elif key == 'showUpgradesMode':
+                config_key = 'upgradesMode'
+                new_value = _normalize_upgrades_mode(new_settings.get(key))
             else:
                 new_value = bool(new_settings.get(key))
             if _config.get(config_key) != new_value:
