@@ -16,7 +16,7 @@ from skeletons.gui.shared import IItemsCache
 _logger = logging.getLogger('zanju.crewpostprogression')
 
 MOD_ID = 'zanju.crewpostprogression'
-MOD_VERSION = '0.1.0.0'
+MOD_VERSION = '0.1.0'
 
 _config = {
     'enabled': True,

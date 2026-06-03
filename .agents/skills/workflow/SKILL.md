@@ -73,7 +73,7 @@ Review the smallest relevant set of these:
 - `docs/installing-mods.md`, `docs/building-from-source.md`, and `docs/developing-mods.md`
 - `docs/reference/` pages for new technical discoveries or changed behavior
 - `docs/resources.md` when a new external reference matters
-- `tools/build.py` release-bundle `README.txt` template when install or package layout changes
+- `tools/build.py` release-bundle output shape when install or package layout changes
 
 Apply these repo-specific rules:
 

@@ -71,13 +71,13 @@ wot_mods_fetch_companion_artifacts
 
 ## Output
 
-Successful builds are written to `dist/` as release-bundle directories with install-ready files.
+Successful builds are written to `dist/` as bundle directories. For end users, the main installation artifact is the generated zip file inside each bundle directory.
 
 Each built mod bundle includes:
 
+- `<mod-id>_<version>.zip` containing the same install-ready `mods/` tree as the bundle folder
 - `mods/<wot_client_version>/<mod-id>_<version>.wotmod`
 - `mods/configs/<mod-name>/...` for config and optional i18n files
-- `README.txt` with copy/install notes
 
 ## Deploy To A Local WoT Install
 

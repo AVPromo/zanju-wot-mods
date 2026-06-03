@@ -32,7 +32,7 @@
 
 ## Install And Use
 
-If you already have a prepared release bundle, follow the general install path in [Installing Mods](../../docs/installing-mods.md).
+If you already have the prepared mod zip file, follow the general install path in [Installing Mods](../../docs/installing-mods.md).
 
 ## Build From Source
 

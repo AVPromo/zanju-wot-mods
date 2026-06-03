@@ -22,7 +22,7 @@ Internal .wotmod layout:
     res/...                                 (from mods/<name>/res/ plus generated ui/build/res/)
 
 Additional release output:
-    dist/<mod-id>_<version>/README.txt
+    dist/<mod-id>_<version>/<mod-id>_<version>.zip
     dist/<mod-id>_<version>/mods/<target_wot_version>/<mod-id>_<version>.wotmod
     dist/<mod-id>_<version>/mods/configs/<mod-folder-name>/...
 
@@ -191,40 +191,19 @@ def copy_i18n_source(mod_dir, dst_i18n_dir):
     return i18n_dir
 
 
-def write_release_readme(readme_path, archive_name, mod_name, wot_client_version, companion_artifacts=None):
-    companion_artifacts = companion_artifacts or []
-    lines = [
-        "World of Tanks mod release bundle",
-        "",
-        "Contents:",
-        "  - mods/{0}/{1}".format(wot_client_version, archive_name),
-    ]
+def write_release_zip(bundle_root, bundle_name):
+    mods_dir = os.path.join(bundle_root, "mods")
+    zip_path = os.path.join(bundle_root, "{}.zip".format(bundle_name))
 
-    for item in companion_artifacts:
-        lines.append("  - mods/{0}/{1}".format(wot_client_version, item["artifact"]["filename"]))
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as zf:
+        for dirpath, dirnames, filenames in os.walk(mods_dir):
+            dirnames[:] = sorted(dirnames)
+            for filename in sorted(filenames):
+                abs_path = os.path.join(dirpath, filename)
+                archive_path = os.path.relpath(abs_path, bundle_root).replace(os.sep, "/")
+                zf.write(abs_path, archive_path)
 
-    lines.extend(
-        [
-            "  - mods/configs/{0}/".format(mod_name),
-            "",
-            "Installation:",
-            "  1. Close World of Tanks.",
-            "  2. Copy the included mods/ folder into your World of Tanks game directory.",
-            "  3. Merge/overwrite files when prompted.",
-            "  4. Launch the game and verify the mod in python.log if needed.",
-            "",
-            "Notes:",
-            "  - The .wotmod packages belong under mods/{0}/.".format(wot_client_version),
-            "  - The config folder belongs under mods/configs/{0}/.".format(mod_name),
-            "  - Optional language files live under mods/configs/{0}/i18n/ with English fallback.".format(mod_name),
-        ]
-    )
-
-    if companion_artifacts:
-        lines.append("  - Standalone configurator companions are included; copy the whole mods/ tree together.")
-
-    with open(readme_path, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(lines) + "\n")
+    return zip_path
 
 
 def create_release_bundle(mod_dir, mod_name, target_wot_version, output_path, include_companion_bundle=False):
@@ -246,13 +225,7 @@ def create_release_bundle(mod_dir, mod_name, target_wot_version, output_path, in
     copy_config_source(mod_dir, bundle_config_dir)
     copy_i18n_source(mod_dir, os.path.join(bundle_config_dir, "i18n"))
 
-    write_release_readme(
-        os.path.join(bundle_root, "README.txt"),
-        archive_name,
-        mod_name,
-        target_wot_version,
-        companion_artifacts,
-    )
+    write_release_zip(bundle_root, bundle_name)
     return bundle_root, companion_artifacts
 
 
