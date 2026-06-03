@@ -4,8 +4,8 @@ Development/test cleanup helper for WoT mods.
 What it does:
 1. Reads WOT_GAME_DIR from .env in repo root.
 2. Resolves the pinned WoT client version and verifies it matches <WOT_GAME_DIR>/version.xml.
-3. Resolves mod package names from mods/<name>/meta.xml.
-4. Removes deployed .wotmod files from <WOT_GAME_DIR>/mods/<version>/.
+3. Resolves mod ids from mods/<name>/meta.xml.
+4. Removes deployed .wotmod files for each mod id from <WOT_GAME_DIR>/mods/<version>/.
 5. Removes deployed config directories from <WOT_GAME_DIR>/mods/configs/<mod-name>/.
 
 Usage:
@@ -111,10 +111,24 @@ def remove_path(path, dry_run, verbose=False):
         return False
 
 
+def _iter_deployed_package_paths(game_dir, target_wot_version, mod_id):
+    packages_dir = os.path.join(game_dir, "mods", target_wot_version)
+    if not os.path.isdir(packages_dir):
+        return []
+
+    package_prefix = "{}_".format(mod_id)
+    package_suffix = ".wotmod"
+    paths = []
+    for entry in os.listdir(packages_dir):
+        if not entry.startswith(package_prefix) or not entry.endswith(package_suffix):
+            continue
+        paths.append(os.path.join(packages_dir, entry))
+    return sorted(paths)
+
+
 def cleanup_mod(game_dir, mod_name, dry_run, target_wot_version, verbose=False):
     meta = read_meta(mod_name)
     mod_id = meta["id"]
-    version = meta["version"]
 
     if not mod_id:
         raise RuntimeError("meta.xml for {} is missing id".format(mod_name))
@@ -127,12 +141,12 @@ def cleanup_mod(game_dir, mod_name, dry_run, target_wot_version, verbose=False):
             )
         )
 
-    package_name = "{}_{}.wotmod".format(mod_id, version)
-    package_path = os.path.join(game_dir, "mods", target_wot_version, package_name)
+    package_paths = _iter_deployed_package_paths(game_dir, target_wot_version, mod_id)
     config_dir = os.path.join(game_dir, "mods", "configs", mod_name)
 
     removed_any = False
-    removed_any |= remove_path(package_path, dry_run, verbose=verbose)
+    for package_path in package_paths:
+        removed_any |= remove_path(package_path, dry_run, verbose=verbose)
     removed_any |= remove_path(config_dir, dry_run, verbose=verbose)
 
     if removed_any:
