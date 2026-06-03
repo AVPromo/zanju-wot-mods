@@ -16,7 +16,6 @@ from skeletons.gui.shared import IItemsCache
 _logger = logging.getLogger('zanju.crewpostprogression')
 
 MOD_ID = 'zanju.crewpostprogression'
-MOD_VERSION = '0.1.0'
 
 _config = {
     'enabled': True,
@@ -78,7 +77,7 @@ _mod = None
 
 def init():
     global _mod
-    _logger.info('%s v%s initializing', MOD_ID, MOD_VERSION)
+    _logger.info('%s initializing', MOD_ID)
     try:
         _load_config()
         _mod = CrewPostProgressionTemplate()

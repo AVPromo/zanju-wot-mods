@@ -6,7 +6,6 @@ from gui.Scaleform.daapi.settings.views import VIEW_ALIAS
 
 MOD_ID = 'zanju.researchprogressbar'
 MOD_CONFIG_DIR_NAME = 'research-progress-bar'
-MOD_VERSION = '0.1.0'
 SCALEFORM_VIEW_ALIAS = 'ResearchProgressBarLobby'
 SCALEFORM_FILE_NAME = 'research-progress-bar-lobby.swf'
 _VISIBILITY_PROBE_DELAY = 0.25

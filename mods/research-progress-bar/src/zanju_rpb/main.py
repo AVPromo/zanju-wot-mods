@@ -23,7 +23,6 @@ from . import runtime_updates as _runtime_updates_api
 from . import t11_action_metadata as _t11_action_metadata_api
 from .constants import (
     MOD_ID,
-    MOD_VERSION,
 )
 from . import config as _config_api
 from skeletons.gui.shared import IItemsCache
@@ -288,7 +287,6 @@ def init():
         _mod,
         ResearchProgressBar,
         MOD_ID,
-        MOD_VERSION,
         _on_registered_mod_settings_changed,
         _logger,
     )

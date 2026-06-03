@@ -31,11 +31,10 @@ def _initialize_runtime(
     mod,
     mod_factory,
     mod_id,
-    mod_version,
     on_registered_mod_settings_changed,
     logger,
 ):
-    logger.info('%s v%s initializing', mod_id, mod_version)
+    logger.info('%s initializing', mod_id)
     try:
         _load_config()
         mod = mod_factory()
