@@ -24,8 +24,6 @@ If you only have the repository source tree, use [Building From Source](building
 3. Copy the mod's config files into `mods/configs/<mod-name>/`.
 4. Restart the game.
 
-If the bundle includes companion API packages, do not mix multiple versions of the same shared API unless the release notes explicitly say that combination was tested.
-
 ## Update A Mod
 
 1. Close the game.
