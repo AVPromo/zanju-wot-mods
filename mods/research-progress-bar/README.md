@@ -15,8 +15,9 @@
   - See how close you are to unlocking next upgrade _without entering any menu_.
   - Still helpful to see overall progress, even though a flat progress bar cannot display the complex upgrade tree.
 - **Elite level progress**
-  - See how close you are to reaching next elite badge style.
-  - _Optionally_ the bar can display cosmetic elements tied to elite level available for Tier 11 vehicles.
+  - See how close you are to reaching next elite level.
+  - Shows progress towards cosmetic elements tied to elite level available for Tier 11 vehicles.
+  - _Optionally_ the bar can display progress towards elite level badges.
 
 ### Other features of the mod:
 
