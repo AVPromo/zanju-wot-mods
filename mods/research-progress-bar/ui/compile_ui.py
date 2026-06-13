@@ -113,6 +113,7 @@ def main(argv=None):
         "-output",
         os.path.abspath(args.api_swc),
         "-source-path={}".format(os.path.abspath(args.api_source_dir)),
+        "-target-player={}".format(args.target_player),
         "-include-sources={}".format(os.path.abspath(args.api_source_dir)),
     ]
     if args.quiet:

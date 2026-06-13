@@ -3,6 +3,9 @@ FROM python:3.11-bullseye
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG FLEX_SDK_VERSION=4.16.1
+ARG PLAYERGLOBAL_FILENAME=playerglobal32_0.swc
+ARG PLAYERGLOBAL_MAJOR=32
+ARG PLAYERGLOBAL_VERSION=32.0
 ARG PYTHON2_VERSION=2.7.18
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -46,10 +49,15 @@ RUN curl -fsSL "https://archive.apache.org/dist/flex/${FLEX_SDK_VERSION}/binarie
     && mv "/opt/apache-flex-sdk-${FLEX_SDK_VERSION}-bin" "${FLEX_HOME}" \
     && rm -f /tmp/flex-sdk.tar.gz
 
+RUN mkdir -p "${FLEX_HOME}/frameworks/libs/player/${PLAYERGLOBAL_VERSION}" \
+    && curl -fsSL "https://fpdownload.macromedia.com/get/flashplayer/updaters/${PLAYERGLOBAL_MAJOR}/${PLAYERGLOBAL_FILENAME}" \
+        -o "${FLEX_HOME}/frameworks/libs/player/${PLAYERGLOBAL_VERSION}/playerglobal.swc"
+
 ENV PATH="${FLEX_HOME}/bin:${PATH}:${PYTHON2_PREFIX}/bin"
 
 RUN python --version \
     && python2.7 --version \
+    && test -f "${FLEX_HOME}/frameworks/libs/player/${PLAYERGLOBAL_VERSION}/playerglobal.swc" \
     && mxmlc -version \
     && compc -version
 
