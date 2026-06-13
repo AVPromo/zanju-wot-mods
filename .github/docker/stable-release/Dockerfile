@@ -12,6 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     FLEX_HOME=/opt/apache-flex-sdk \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
+    PLAYERGLOBAL_HOME=/opt/apache-flex-sdk/frameworks/libs/player \
     PYTHON2_PREFIX=/opt/python2.7
 
 RUN apt-get update \
@@ -52,6 +53,8 @@ RUN curl -fsSL "https://archive.apache.org/dist/flex/${FLEX_SDK_VERSION}/binarie
 RUN mkdir -p "${FLEX_HOME}/frameworks/libs/player/${PLAYERGLOBAL_VERSION}" \
     && curl -fsSL "https://fpdownload.macromedia.com/get/flashplayer/updaters/${PLAYERGLOBAL_MAJOR}/${PLAYERGLOBAL_FILENAME}" \
         -o "${FLEX_HOME}/frameworks/libs/player/${PLAYERGLOBAL_VERSION}/playerglobal.swc"
+
+RUN printf 'env.PLAYERGLOBAL_HOME=%s\n' "${PLAYERGLOBAL_HOME}" > "${FLEX_HOME}/env.properties"
 
 ENV PATH="${FLEX_HOME}/bin:${PATH}:${PYTHON2_PREFIX}/bin"
 
