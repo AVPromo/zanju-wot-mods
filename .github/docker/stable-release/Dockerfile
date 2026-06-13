@@ -46,7 +46,7 @@ RUN curl -fsSL "https://archive.apache.org/dist/flex/${FLEX_SDK_VERSION}/binarie
     && mv "/opt/apache-flex-sdk-${FLEX_SDK_VERSION}-bin" "${FLEX_HOME}" \
     && rm -f /tmp/flex-sdk.tar.gz
 
-ENV PATH="${FLEX_HOME}/bin:${PYTHON2_PREFIX}/bin:${PATH}"
+ENV PATH="${FLEX_HOME}/bin:${PATH}:${PYTHON2_PREFIX}/bin"
 
 RUN python --version \
     && python2.7 --version \

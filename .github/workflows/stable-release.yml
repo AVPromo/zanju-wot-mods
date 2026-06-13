@@ -47,7 +47,7 @@ jobs:
           -v "${GITHUB_WORKSPACE}:/workspace" \
           -w /workspace \
           zanju-wot-mods-stable-release \
-          bash -c 'python -m tools.fetch_companion_artifacts && python -m tools.build --all'
+          bash -c 'python3 -m tools.fetch_companion_artifacts && python3 -m tools.build --all'
 
     - name: Generate stable release notes
       run: python .github/scripts/generate_stable_release_notes.py --output .tmp/stable-release-notes.md
