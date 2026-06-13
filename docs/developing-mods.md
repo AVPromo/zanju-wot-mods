@@ -68,6 +68,8 @@ wot_mods_deploy research-progress-bar
 wot_mods_cycle research-progress-bar
 ```
 
+Mods intended for the repository's rolling `Stable build` GitHub release should include `mods/<name>/CHANGELOG.md`, because the generated release notes link each published mod to that file.
+
 ## Python Format and Lint Workflow
 
 The repo-level entry point is:

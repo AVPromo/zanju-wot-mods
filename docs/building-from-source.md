@@ -69,6 +69,14 @@ wot_mods_update_companion_manifest
 wot_mods_fetch_companion_artifacts
 ```
 
+## CI Stable Build
+
+Pushes to `master` publish the current repository bundles to the rolling GitHub release titled `Stable build`, backed by the fixed tag `stable`.
+
+That release is generated from a clean CI build of the current `mods/` tree, not from whatever stale directories may already exist under `dist/`.
+
+The release notes include one changelog link per published mod, so mods intended for that rolling release should include `mods/<name>/CHANGELOG.md`.
+
 ## Output
 
 Successful builds are written to `dist/` as bundle directories. For end users, the main installation artifact is the generated zip file inside each bundle directory.
