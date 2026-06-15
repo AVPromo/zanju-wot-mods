@@ -10,6 +10,10 @@ Follow-up backlog after the initial Python format-and-lint tooling rollout.
 
 - Broad runtime splitting for `research-progress-bar` is mostly complete; only reopen it if `mods/research-progress-bar/src/zanju_rpb/main.py` or `mods/research-progress-bar/src/zanju_rpb/scaleform/modes.py` grow enough to justify another targeted slice.
 
+## CI / Toolchain Backlog
+
+- Publish the Docker toolchain image to GHCR so the release workflow pulls a pre-built image instead of running `docker build` on every push. Currently the build step (Python 2.7 compilation, Apache Flex SDK download, optional font JARs) costs ~7 minutes on every master push even when only mod code changed. Split into two workflows: one that rebuilds and pushes `ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain:latest` only when the Dockerfile changes, and one that pulls that image and runs the mod build + release publish. Do this once the toolchain is stable; adding a second workflow while the Dockerfile is still being iterated adds more friction than it saves.
+
 ## Release And Distribution Backlog
 
 - Add a `research-progress-bar` release checklist for wgmods.net and modpack submission: standalone companion bundle contents, config/i18n copy requirements, no-optional-UI-API smoke test, and re-test expectations for each WoT version even when no code change is planned.
