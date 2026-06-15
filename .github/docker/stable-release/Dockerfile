@@ -10,6 +10,7 @@ ARG PYTHON2_VERSION=2.7.18
 
 ENV DEBIAN_FRONTEND=noninteractive \
     FLEX_HOME=/opt/apache-flex-sdk \
+    JAVA_TOOL_OPTIONS=-Djava.awt.headless=true \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PLAYERGLOBAL_HOME=/opt/apache-flex-sdk/frameworks/libs/player \
@@ -53,6 +54,17 @@ RUN curl -fsSL "https://archive.apache.org/dist/flex/${FLEX_SDK_VERSION}/binarie
 RUN mkdir -p "${FLEX_HOME}/frameworks/libs/player/${PLAYERGLOBAL_VERSION}" \
     && curl -fsSL "https://fpdownload.macromedia.com/get/flashplayer/updaters/${PLAYERGLOBAL_MAJOR}/${PLAYERGLOBAL_FILENAME}" \
         -o "${FLEX_HOME}/frameworks/libs/player/${PLAYERGLOBAL_VERSION}/playerglobal.swc"
+
+RUN FLEX_SF="https://sourceforge.net/adobe/flexsdk/code/HEAD/tree/trunk/lib" \
+    && mkdir -p "${FLEX_HOME}/lib/external/optional" \
+    && curl -fsSL "${FLEX_SF}/afe.jar?format=raw"          -o "${FLEX_HOME}/lib/external/optional/afe.jar" \
+    && curl -fsSL "${FLEX_SF}/aglj40.jar?format=raw"       -o "${FLEX_HOME}/lib/external/optional/aglj40.jar" \
+    && curl -fsSL "${FLEX_SF}/flex-fontkit.jar?format=raw" -o "${FLEX_HOME}/lib/external/optional/flex-fontkit.jar" \
+    && curl -fsSL "${FLEX_SF}/rideau.jar?format=raw"       -o "${FLEX_HOME}/lib/external/optional/rideau.jar" \
+    && echo "d1469e163c4fd4c1ef8be82dd6d0f1ee  ${FLEX_HOME}/lib/external/optional/afe.jar" | md5sum -c \
+    && echo "b9b6b825787489796d9b6bf607a64824  ${FLEX_HOME}/lib/external/optional/aglj40.jar" | md5sum -c \
+    && echo "2abb9f580fa40ad6ef80864f94b6e938  ${FLEX_HOME}/lib/external/optional/flex-fontkit.jar" | md5sum -c \
+    && echo "3b3329c1b3de665dc116121b772c5369  ${FLEX_HOME}/lib/external/optional/rideau.jar" | md5sum -c
 
 RUN printf 'env.PLAYERGLOBAL_HOME=%s\n' "${PLAYERGLOBAL_HOME}" > "${FLEX_HOME}/env.properties"
 
