@@ -763,7 +763,7 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
         else:
             detail_tooltip_html = pending_tooltip_html
             detail_tooltip_text = pending_tooltip_text
-        tooltip_subtitle = (
+        raw_tooltip_subtitle = (
             _build_field_mod_tooltip_subtitle(level_detail)
             if marker_state != 'completed'
             else None
@@ -776,7 +776,7 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             'isAvailable': True,
             'name': _build_level_tooltip_title(roman_level),
             'tooltipTitle': _build_level_tooltip_title(roman_level),
-            'tooltipSubtitle': tooltip_subtitle,
+            'tooltipSubtitle': _escape_html(raw_tooltip_subtitle) if raw_tooltip_subtitle else None,
             'label': roman_level,
             'showBarLabel': True,
             'hideTooltipIcon': True,
@@ -1277,13 +1277,38 @@ def _localize_field_mod_mod_name(mod_name):
 
 
 def _escape_html(value):
-    text = u'{0}'.format(value or '')
-    return (
-        text.replace('&', '&amp;')
-        .replace('<', '&lt;')
-        .replace('>', '&gt;')
-        .replace('"', '&quot;')
-    )
+    # Escapes HTML metacharacters and encodes non-ASCII code points as HTML numeric
+    # entities (&#xXXXX;). Entities are pure ASCII, so they cross the Python->Scaleform
+    # bridge unchanged and Flash's HTML parser decodes them back to the original code
+    # points. Output is for htmlText fields only (a plain TextField shows entities
+    # literally). Glyph coverage for the decoded code points is handled separately by
+    # the fallback font (see FALLBACK_FONT_NAME in ResearchProgressBarFonts.as).
+    if value is None:
+        return ''
+    if isinstance(value, bytes):
+        try:
+            text = value.decode('utf-8')
+        except Exception:
+            text = value.decode('latin-1')
+    else:
+        text = u'{0}'.format(value)
+
+    result = []
+    for c in text:
+        code = ord(c)
+        if c == '&':
+            result.append('&amp;')
+        elif c == '<':
+            result.append('&lt;')
+        elif c == '>':
+            result.append('&gt;')
+        elif c == '"':
+            result.append('&quot;')
+        elif code > 127:
+            result.append('&#x{0:X};'.format(code))
+        else:
+            result.append(c)
+    return ''.join(result)
 
 
 def _localize_field_mod_category(category):

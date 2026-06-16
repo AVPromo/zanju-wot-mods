@@ -468,7 +468,7 @@ package {
                 nextText = String(_context.separateStatusText);
             }
 
-            separateStatusLabel.text = nextText;
+            ResearchProgressBarFonts.setText(separateStatusLabel, nextText);
             separateStatusLabel.visible = nextText.length > 0;
             if (!separateStatusLabel.visible) {
                 return;

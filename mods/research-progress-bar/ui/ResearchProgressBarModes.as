@@ -219,7 +219,7 @@ package {
         private static function measureModeButtonWidth(label:String):Number {
             var field:TextField = makeTextField(MODE_BUTTON_TEXT_COLOR, 12, true);
 
-            field.text = label;
+            ResearchProgressBarFonts.setText(field, label);
             return Math.ceil(field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
         }
 
@@ -233,7 +233,7 @@ package {
             );
             var buttonWidth:Number;
 
-            field.text = label;
+            ResearchProgressBarFonts.setText(field, label);
             buttonWidth = Math.ceil(field.textWidth + MODE_BUTTON_PADDING_X * 2 + 6);
             drawModeButtonBackground(background, buttonWidth, MODE_BUTTON_HEIGHT + MODE_BUTTON_BOTTOM_PADDING, isSelected);
             button.addChild(background);

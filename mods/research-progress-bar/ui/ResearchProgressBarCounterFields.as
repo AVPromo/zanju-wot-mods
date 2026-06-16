@@ -44,11 +44,11 @@ package {
             var sideCounterText:String = resolveModeText(activeMode, "sideCounterText", "");
             var sideCounterCaptionText:String = resolveModeText(activeMode, "sideCounterCaption", "");
 
-            combatPercentLabel.text = leftCounterText;
-            totalPercentLabel.text = rightCounterText;
-            totalPercentCaption.text = rightCounterCaption;
-            sideCounterLabel.text = sideCounterText;
-            sideCounterCaption.text = sideCounterCaptionText;
+            ResearchProgressBarFonts.setText(combatPercentLabel, leftCounterText);
+            ResearchProgressBarFonts.setText(totalPercentLabel, rightCounterText);
+            ResearchProgressBarFonts.setText(totalPercentCaption, rightCounterCaption);
+            ResearchProgressBarFonts.setText(sideCounterLabel, sideCounterText);
+            ResearchProgressBarFonts.setText(sideCounterCaption, sideCounterCaptionText);
 
             alignTextField(totalPercentLabel, TextFormatAlign.RIGHT);
             alignTextField(totalPercentCaption, TextFormatAlign.RIGHT);
@@ -64,10 +64,10 @@ package {
                 alignTextField(combatPercentCaption, TextFormatAlign.LEFT);
                 combatPercentLabel.width = ResearchProgressBarCounterLayout.ELITE_STATUS_WIDTH;
                 combatPercentCaption.width = ResearchProgressBarCounterLayout.ELITE_STATUS_WIDTH;
-                combatPercentCaption.htmlText = ResearchProgressBarTooltipContent.buildEliteStatusCounterHtml(leftCounterCaption);
+                ResearchProgressBarFonts.setHtmlText(combatPercentCaption, ResearchProgressBarTooltipContent.buildEliteStatusCounterHtml(leftCounterCaption));
             }
             else {
-                combatPercentCaption.text = leftCounterCaption;
+                ResearchProgressBarFonts.setText(combatPercentCaption, leftCounterCaption);
                 alignTextField(combatPercentLabel, TextFormatAlign.RIGHT);
                 alignTextField(combatPercentCaption, TextFormatAlign.RIGHT);
                 combatPercentLabel.width = ResearchProgressBarCounterLayout.COUNTER_VALUE_WIDTH;

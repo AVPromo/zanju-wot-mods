@@ -19,6 +19,19 @@ Follow-up backlog after the initial Python format-and-lint tooling rollout.
 - Add a `research-progress-bar` release checklist for wgmods.net and modpack submission: standalone companion bundle contents, config/i18n copy requirements, no-optional-UI-API smoke test, and re-test expectations for each WoT version even when no code change is planned.
 - Decide and document whether `meta.xml` should stay in public releases when it is only informational and not a real dependency declaration mechanism.
 
+## Localization / Font Coverage
+
+- Current state: text outside the embedded Roboto Mono range (Korean, Greek, Cyrillic, etc.) falls back to the `Malgun Gothic` device font. This is wired centrally through `ResearchProgressBarFonts.setText` / `setHtmlText`, so every text field — tooltips, mode buttons, counters, markers, status line — picks it up. Fixes issue #3 (Korean) and covers European scripts.
+- Gap: Malgun Gothic does not cover Japanese (kana/kanji), Chinese (Han), Thai, Arabic, or Hebrew, which still render as boxes. WoT ships clients in several of those languages, but no single guaranteed-present Windows font covers all of CJK.
+- Universal fix to investigate: instead of hardcoding an OS font, point the fallback at one of WoT's own registered Scaleform fonts (GFx `$`-prefixed, e.g. `$FieldFont`), whose per-locale glyph fallback Wargaming already configures. GFx would then resolve whatever the active client language needs, covering every WoT-supported language at once — the genuinely universal solution.
+- Why it is not a quick swap: the code change is one line (`FALLBACK_FONT_NAME` in `ResearchProgressBarFonts.as`, now centralized), but the validation is the real work:
+  - Confirm the exact WoT font name in-game; it may differ between client versions.
+  - Verify a mod-loaded SWF can resolve WoT's `$`-named GFx fonts from its own context.
+  - `embedFonts` semantics differ for GFx font-lib fonts (likely `embedFonts = true` with the `$` name, not the `embedFonts = false` device-font path used for Malgun Gothic).
+  - Add a graceful chain (WoT font -> Malgun Gothic -> `_sans`) so a wrong/missing name degrades instead of showing boxes.
+  - Needs an in-game test cycle per target language.
+- Keep the Malgun Gothic fallback as the shipped baseline until the WoT-font approach is validated.
+
 ## Research Progress Bar Guardrails
 
 - Fix the garage layering / z-index issue between the mod UI and the filters window; some mod tooltips still render below foreground elements.
