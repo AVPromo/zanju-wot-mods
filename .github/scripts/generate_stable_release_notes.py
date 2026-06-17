@@ -16,6 +16,19 @@ DIST_DIR = os.path.join(REPO_ROOT, "dist")
 WOT_VERSION_MANIFEST_PATH = os.path.join(REPO_ROOT, "tools", "wot_version_manifest.json")
 
 
+def _default_built_at():
+    # Human-readable UTC stamp (e.g. "17 June 2026 21:48 UTC"), matching the
+    # day-month-year style used in the mod changelogs. Built without %-d/%#d so it
+    # stays portable across the Linux CI runner and local Windows runs.
+    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    return "{day} {month} {year} {time} UTC".format(
+        day=now.day,
+        month=now.strftime("%B"),
+        year=now.year,
+        time=now.strftime("%H:%M"),
+    )
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -35,7 +48,7 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--built-at",
-        default=dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        default=_default_built_at(),
         help="UTC timestamp to include in the notes.",
     )
     return parser.parse_args(argv)
