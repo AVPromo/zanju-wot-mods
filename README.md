@@ -14,7 +14,7 @@ WIP or experimental mods are intentionally not listed here as public entry point
 Use this path if you want to install a prepared mod package and keep it updated.
 
 - [Installing Mods](docs/installing-mods.md)
-- Pushes to `master` publish the repository's rolling GitHub release titled `Stable build`, backed by the fixed tag `stable`.
+- Pushes to `master` publish the repository's rolling GitHub release titled `Stable build`, backed by the fixed tag `stable-build`.
 
 ## Build From Source
 

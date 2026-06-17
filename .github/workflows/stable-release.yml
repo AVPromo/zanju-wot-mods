@@ -57,6 +57,6 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: >-
         python .github/scripts/sync_stable_release.py
-        --tag stable
+        --tag stable-build
         --title "Stable build"
         --notes-file .tmp/stable-release-notes.md

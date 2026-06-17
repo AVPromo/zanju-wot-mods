@@ -71,7 +71,7 @@ wot_mods_fetch_companion_artifacts
 
 ## CI Stable Build
 
-Pushes to `master` publish the current repository bundles to the rolling GitHub release titled `Stable build`, backed by the fixed tag `stable`.
+Pushes to `master` publish the current repository bundles to the rolling GitHub release titled `Stable build`, backed by the fixed tag `stable-build`.
 
 That release is generated from a clean CI build of the current `mods/` tree, not from whatever stale directories may already exist under `dist/`.
 

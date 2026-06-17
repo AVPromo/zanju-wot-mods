@@ -13,7 +13,7 @@ from generate_stable_release_notes import iter_release_mods
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag", default="stable", help="Git tag backing the rolling release.")
+    parser.add_argument("--tag", default="stable-build", help="Git tag backing the rolling release.")
     parser.add_argument("--title", default="Stable build", help="GitHub release title.")
     parser.add_argument(
         "--notes-file",
