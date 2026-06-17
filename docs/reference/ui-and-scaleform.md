@@ -38,3 +38,19 @@ When that happens, hiding the SWF is not enough; the view must be disposed and r
 
 When native UI geometry is unstable across resolution changes, use measured resolution buckets instead of parsing display-tree bounds every frame.
 That tradeoff is acceptable when the target anchor is effectively static for a given width bucket.
+
+## Interface Scale (Stage Scaling)
+
+WoT's interface scale (Settings → General) is applied by scaling the whole GFx stage, not by resizing it.
+At x2 the stage reports `stage.scaleX == stage.scaleY == 2`, while `stage.stageWidth` / `stage.stageHeight` keep reporting the **full client pixels** (engine logs this as `Main view setAppScale: 2.00` / `Main view resized: <client/scale>`).
+
+Consequences for a custom view:
+
+- A view that lays out against raw `stage.stageWidth` is built at full pixel width and then rendered at the stage scale, so at x2 it ends up roughly double width and overflows the screen.
+- Lay out against the **logical** size instead: derive the factor from the view's own `transform.concatenatedMatrix.a` (1 at x1, 2 at x2) and divide stage dimensions by it. At x1 this is a no-op. See `ResearchProgressBarLobby.resolveEffectiveScale` and `ResearchProgressBarStageSupport.resolveBarLayout`.
+- Re-layout on scale change as well as resize. `stageWidth` / `stageHeight` stay constant when only the scale changes, so a size-only change check misses it — track the effective scale explicitly (`_lastEffectiveScale`).
+- For mouse hit-testing and tooltip placement, never compare `getBounds(stage)` (stage-local) against `event.stageX/Y` (global pixels). Convert the global point with `globalToLocal` and work entirely in the view's local space, so it is scale-agnostic (`ResearchProgressBarTooltipView`).
+
+Reading the factor from Python: `ServicesLocator.settingsCore.interfaceScale` is an `InterfaceScaleManager` whose resolved factor lives in its mangled `__scaleValue`; `getSetting(GRAPHICS.INTERFACE_SCALE) == 0.0` means "auto", not the factor. Avoid calling its getters (`getScaleOptions()`, `getIndex()`) at volatile moments — they re-validate the active scale against the current resolution and can reset an unsupported scale back to x1.
+
+Repro note: x2 is only offered when the logical canvas stays at least 1024x768 (render height of roughly 1536 or more). At shorter resolutions WoT lists only `['auto', 'x1']` and silently clamps x2 back to x1 on any UI rebuild, so reproducing the x2 layout locally needs a tall (e.g. DSR) resolution.

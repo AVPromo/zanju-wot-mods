@@ -4,6 +4,7 @@ package {
     import flash.display.Sprite;
     import flash.events.Event;
     import flash.events.MouseEvent;
+    import flash.geom.Matrix;
     import flash.text.TextField;
     import flash.utils.Dictionary;
     import net.wg.infrastructure.base.AbstractView;
@@ -59,6 +60,7 @@ package {
         private var _activeCounterLayout:String = "";
         private var _lastStageWidth:Number = -1;
         private var _lastStageHeight:Number = -1;
+        private var _lastEffectiveScale:Number = -1;
 
         public function ResearchProgressBarLobby() {
             super();
@@ -108,23 +110,29 @@ package {
             stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
             _lastStageWidth = Number(stageState.stageWidth);
             _lastStageHeight = Number(stageState.stageHeight);
+            _lastEffectiveScale = resolveEffectiveScale();
             updateBarFromContext(false);
         }
 
         private function onEnterFrame(event:Event):void {
             var stageState:Object;
+            var scale:Number;
 
             if (!_isReady || stage == null) {
                 return;
             }
 
             stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
-            if (!Boolean(stageState.changed)) {
+            scale = resolveEffectiveScale();
+            // Interface-scale changes (e.g. x1 -> x2) keep stageWidth/stageHeight
+            // constant and only change the inherited scale, so track it explicitly.
+            if (!Boolean(stageState.changed) && scale == _lastEffectiveScale) {
                 return;
             }
 
             _lastStageWidth = Number(stageState.stageWidth);
             _lastStageHeight = Number(stageState.stageHeight);
+            _lastEffectiveScale = scale;
             layoutFromStage();
             updateBarFromContext(false);
         }
@@ -222,6 +230,7 @@ package {
             stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
             _lastStageWidth = Number(stageState.stageWidth);
             _lastStageHeight = Number(stageState.stageHeight);
+            _lastEffectiveScale = resolveEffectiveScale();
             updateBarFromContext(false);
         }
 
@@ -430,13 +439,28 @@ package {
         }
 
         private function layoutFromStage():void {
-            var layout:Object = ResearchProgressBarStageSupport.resolveBarLayout(stage);
+            var layout:Object = ResearchProgressBarStageSupport.resolveBarLayout(stage, resolveEffectiveScale());
 
             x = 0;
             y = 0;
             _barX = Number(layout.barX);
             _barY = Number(layout.barY);
             _barWidth = Number(layout.barWidth);
+        }
+
+        // At interface scale x2 the GFx stage is scaled x2 (stage.scaleX == 2) while
+        // stage.stageWidth still reports full client pixels, so laying out against the
+        // raw stage size doubled the bar's on-screen width and pushed it off both
+        // edges. We size against the logical (pre-scale) space instead, derived from
+        // this view's own concatenated scale so any scale factor is handled.
+        private function resolveEffectiveScale():Number {
+            var concat:Matrix = transform.concatenatedMatrix;
+            var scale:Number = concat.a;
+
+            if (isNaN(scale) || scale <= 0) {
+                return 1;
+            }
+            return scale;
         }
 
         private function positionLabels():void {
