@@ -1,8 +1,8 @@
 package {
-    import flash.display.DisplayObject;
     import flash.display.Shape;
     import flash.display.Sprite;
     import flash.display.Stage;
+    import flash.geom.Point;
     import flash.geom.Rectangle;
     import flash.utils.Dictionary;
 
@@ -82,18 +82,25 @@ package {
             stageY:Number
         ):void {
             var tooltipEntries:Array;
+            var localPoint:Point;
+            var localExtent:Point;
 
             if (!hostVisible || markersContainer == null) {
                 hideTooltip(tooltipContainer);
                 return;
             }
 
-            tooltipEntries = resolveEntriesAtStagePoint(
+            // The mouse point arrives in global stage pixels, but markers and the
+            // tooltip live in this view's local space, which the GFx stage scales by
+            // the interface scale (x2 etc.). globalToLocal inverts that whole chain,
+            // so we hit-test and position entirely in local coordinates.
+            localPoint = markersContainer.globalToLocal(new Point(stageX, stageY));
+
+            tooltipEntries = resolveEntriesAtLocalPoint(
                 markersContainer,
                 tooltipDataByDisplay,
-                stageSpace,
-                stageX,
-                stageY
+                localPoint.x,
+                localPoint.y
             );
 
             if (tooltipEntries.length == 0) {
@@ -101,24 +108,27 @@ package {
                 return;
             }
 
+            localExtent = stageSpace != null
+                ? markersContainer.globalToLocal(new Point(stageSpace.stageWidth, stageSpace.stageHeight))
+                : new Point(NaN, NaN);
+
             showEntries(
                 tooltipContainer,
                 tooltipBackground,
                 tooltipContent,
                 tooltipEntries,
-                stageX,
-                stageY,
-                stageSpace != null ? stageSpace.stageWidth : NaN,
-                stageSpace != null ? stageSpace.stageHeight : NaN
+                localPoint.x,
+                localPoint.y,
+                localExtent.x,
+                localExtent.y
             );
         }
 
-        public static function resolveEntriesAtStagePoint(
+        public static function resolveEntriesAtLocalPoint(
             markersContainer:Sprite,
             tooltipDataByDisplay:Dictionary,
-            stageSpace:DisplayObject,
-            stageX:Number,
-            stageY:Number
+            localX:Number,
+            localY:Number
         ):Array {
             var entries:Array = [];
             var candidate:Sprite;
@@ -126,7 +136,7 @@ package {
             var candidateData:Object;
             var idx:int;
 
-            if (markersContainer == null || tooltipDataByDisplay == null || stageSpace == null) {
+            if (markersContainer == null || tooltipDataByDisplay == null) {
                 return entries;
             }
 
@@ -136,8 +146,8 @@ package {
                     continue;
                 }
 
-                candidateBounds = candidate.getBounds(stageSpace);
-                if (candidateBounds == null || !candidateBounds.contains(stageX, stageY)) {
+                candidateBounds = candidate.getBounds(markersContainer);
+                if (candidateBounds == null || !candidateBounds.contains(localX, localY)) {
                     continue;
                 }
 

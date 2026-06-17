@@ -587,11 +587,17 @@ def _resolve_post_progression_kpi_sign(display_value, force_positive=False):
     return ''
 
 
+# \u2212 is the Unicode MINUS SIGN, which some WoT value formatters emit for negatives
+# instead of the ASCII hyphen. The \u escape keeps this source file ASCII-only.
+_LEADING_SIGN_STRIP_RE = re.compile(u'^\\s*[+\\-\u2212]\\s*')
+_LEADING_SIGN_MATCH_RE = re.compile(u'^\\s*[+\\-\u2212]')
+
+
 def _strip_post_progression_kpi_sign(text):
     cleaned = _clean_post_progression_text(text)
     if cleaned is None:
         return None
-    cleaned = re.sub(r'^\s*[+\-−]\s*', '', cleaned)
+    cleaned = _LEADING_SIGN_STRIP_RE.sub('', cleaned)
     return cleaned or None
 
 
@@ -599,7 +605,7 @@ def _has_post_progression_kpi_sign(text):
     cleaned = _clean_post_progression_text(text)
     if cleaned is None:
         return False
-    return re.match(r'^\s*[+\-−]', cleaned) is not None
+    return _LEADING_SIGN_MATCH_RE.match(cleaned) is not None
 
 
 def _replace_post_progression_fmt_in_text(text, original_fmt, adjusted_fmt):

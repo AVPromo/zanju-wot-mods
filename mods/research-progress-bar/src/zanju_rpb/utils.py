@@ -10,8 +10,14 @@ except NameError:
 
 
 def _safe_text(value, max_len=180):
+    # In Python 2, str() on a unicode object encodes it as UTF-8 bytes (when default
+    # encoding is utf-8, as in WoT). Use unicode-safe conversion so non-ASCII text
+    # (e.g. Korean mod names) stays as unicode rather than becoming garbled bytes.
     try:
-        text = str(value)
+        if isinstance(value, bytes):
+            text = value.decode('utf-8')
+        else:
+            text = u'{0}'.format(value)
     except Exception:
         return '<unprintable>'
     if len(text) > max_len:

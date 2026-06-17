@@ -144,7 +144,7 @@ package {
             alignTextField(field, TextFormatAlign.LEFT);
             field.width = ResearchProgressBarCounterLayout.COUNTER_CAPTION_WIDTH;
             field.height = resolveCounterFieldHeight(size, fieldHeight);
-            field.text = text;
+            ResearchProgressBarFonts.setText(field, text);
             return field;
         }
 

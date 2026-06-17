@@ -65,12 +65,15 @@ package {
             };
         }
 
-        public static function resolveBarLayout(stageSpace:Stage):Object {
+        public static function resolveBarLayout(stageSpace:Stage, viewScale:Number):Object {
+            var scale:Number;
+
             if (stageSpace == null) {
                 return ResearchProgressBarLayout.defaultLayout();
             }
 
-            return ResearchProgressBarLayout.calculate(stageSpace.stageWidth, stageSpace.stageHeight);
+            scale = (!isNaN(viewScale) && viewScale > 0) ? viewScale : 1;
+            return ResearchProgressBarLayout.calculate(stageSpace.stageWidth / scale, stageSpace.stageHeight / scale);
         }
     }
 }

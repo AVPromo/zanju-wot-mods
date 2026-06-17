@@ -267,7 +267,7 @@ package {
             var titleField:TextField = makeTooltipRowField(resolveMarkerTooltipTitle(marker), TOOLTIP_TITLE_SIZE, TOOLTIP_TEXT_COLOR, true);
             var subtitleText:String = resolveMarkerTooltipSubtitle(marker);
             var subtitleField:TextField = subtitleText.length > 0
-                ? makeTooltipRowField(subtitleText, TOOLTIP_SUBTITLE_SIZE, TOOLTIP_TEXT_COLOR, false)
+                ? makeTooltipHtmlRowField(subtitleText, TOOLTIP_SUBTITLE_SIZE, TOOLTIP_TEXT_COLOR, false)
                 : null;
             var costField:TextField = makeTooltipHtmlRowField(
                 buildTooltipHighlightedHtml("", formatExactXpValue(costXp), " XP", true),
@@ -432,7 +432,7 @@ package {
 
         private static function makeTooltipRowField(text:String, size:int, color:uint, bold:Boolean):TextField {
             var field:TextField = makeTextField(color, size, bold);
-            field.text = text;
+            ResearchProgressBarFonts.setText(field, text);
             field.width = field.textWidth + 6;
             field.height = field.textHeight + TOOLTIP_TEXT_FIELD_PADDING;
             return field;
@@ -442,7 +442,7 @@ package {
             var field:TextField = makeTextField(color, size, bold);
             field.multiline = true;
             field.wordWrap = false;
-            field.htmlText = html;
+            ResearchProgressBarFonts.setHtmlText(field, html);
             field.width = field.textWidth + 6;
             field.height = field.textHeight + TOOLTIP_TEXT_FIELD_PADDING;
             return field;

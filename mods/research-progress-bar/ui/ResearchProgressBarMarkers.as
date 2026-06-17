@@ -243,11 +243,11 @@ package {
 
             if (labelHtml.length > 0) {
                 field = makeTextField(LABEL_COLOR, 16, false);
-                field.htmlText = labelHtml;
+                ResearchProgressBarFonts.setHtmlText(field, labelHtml);
             }
             else {
                 field = makeTextField(LABEL_COLOR, 16, true);
-                field.text = labelText;
+                ResearchProgressBarFonts.setText(field, labelText);
             }
 
             alignTextField(field, TextFormatAlign.CENTER);
