@@ -13,10 +13,12 @@ Common runtime locations:
 
 A `.wotmod` commonly contains:
 
-- `meta.xml`
-- `res/scripts/client/gui/mods/*.pyc`
-- optional `res/gui/flash/*.swf`
-- optional `res/mods/<namespace>/text/*.yml`
+- `res/` — the only required element; everything below lives under it
+- compiled Python scripts under `res/scripts/client/gui/mods/*.pyc`
+- optional UI assets such as SWFs under `res/gui/flash/*.swf`
+- optional localisation assets under `res/mods/<namespace>/text/*.yml`
+- optional `meta.xml` manifest at the archive root (`<id>`, `<version>`, `<name>`, `<description>`)
+- optional root `LICENSE.md`
 
 ## Repository Build Rules
 
@@ -24,7 +26,7 @@ In this repository:
 
 - authored Python sources live under `mods/<mod-name>/src/`
 - `wot_mods_build` compiles them into the runtime package shape
-- authored `config.json` is staged into `mods/configs/<mod-name>/config.json`
+- authored `config.template.json` is staged into `mods/configs/<mod-name>/config.json`
 - authored `i18n/*.yml` files are staged into both packaged text resources and deployable config folders
 - `ui/compile_ui.py` is auto-run by `wot_mods_build` when present
 

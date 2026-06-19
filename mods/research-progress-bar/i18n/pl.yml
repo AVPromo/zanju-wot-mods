@@ -1,6 +1,3 @@
-MOD_NAME: "Pasek postępu badań Zanju"
-MOD_DESCRIPTION: "Pokazuje postęp PD badań, ulepszeń XI poziomu, ulepszeń polowych i etapów elity dla wybranego pojazdu."
-
 # Mode labels
 MODE_RESEARCH: "Badania"
 MODE_FIELD_MODS: "Ulepszenia polowe"

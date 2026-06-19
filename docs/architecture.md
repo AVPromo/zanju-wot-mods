@@ -4,12 +4,12 @@ This page explains how mods in this repository are structured, packaged, and loa
 
 ## Packaging Model
 
-A distributable mod is usually a `.wotmod` archive containing:
-
-- `meta.xml`
-- compiled Python scripts under `res/scripts/client/gui/mods/`
-- optional UI assets such as SWFs under `res/gui/flash/`
-- optional localisation assets under `res/mods/<namespace>/text/`
+A distributable mod is a `.wotmod` archive (a no-compression zip) whose only
+required element is `res/`. An optional root `meta.xml` manifest carries
+`<id>`/`<version>`/`<name>`/`<description>` (the `<id>`/`<version>` drive load
+order and version de-dup; the loader falls back to the filename when it is
+absent). See [Runtime Layout And Packaging](reference/runtime-layout-and-packaging.md#package-shape)
+for the full package contents.
 
 ## Repository Layout
 
@@ -24,7 +24,7 @@ mods/<mod-name>/
       __init__.py
       main.py
       ...
-  config.json
+  config.template.json
   i18n/
   ui/
 ```

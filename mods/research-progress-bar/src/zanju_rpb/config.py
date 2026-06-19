@@ -8,7 +8,7 @@ import os
 from collections import OrderedDict
 from numbers import Integral
 
-from .constants import MOD_CONFIG_DIR_NAME
+from .constants import MOD_CONFIG_DIR_NAME, MOD_NAME
 from .localization import get_text as _loc
 from .localization import make_tooltip as _loc_tooltip
 from .localization import set_language_override as _set_language_override
@@ -52,7 +52,9 @@ _CONFIG_SAVE_KEY_ORDER = (
     'language',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
+    '_researchMode_comment',
     'researchMode',
+    '_upgradesMode_comment',
     'upgradesMode',
     '_fieldModsMode_comment',
     'fieldModsMode',
@@ -387,7 +389,7 @@ def _mods_settings_native_key(value):
 def _build_mod_settings_template():
     settings = _build_mod_settings_state()
     return _mods_settings_native({
-        'modDisplayName': _loc('MOD_NAME', "Zanju's Research Progress Bar"),
+        'modDisplayName': MOD_NAME,
         'enabled': settings['enabled'],
         'column1': [
             {

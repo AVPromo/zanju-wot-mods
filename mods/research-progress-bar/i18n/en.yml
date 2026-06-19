@@ -1,6 +1,3 @@
-MOD_NAME: "Zanju's Research Progress Bar"
-MOD_DESCRIPTION: "Shows XP progress toward research, tier XI upgrades, field modifications, and elite milestones for the selected vehicle."
-
 # Mode labels
 MODE_RESEARCH: "Research"
 MODE_FIELD_MODS: "Field Mods"

@@ -25,9 +25,9 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-import xml.etree.ElementTree as ET
 
 from .console import detail, section, success, warning
+from .mod_meta import read_meta
 from .paths import ENV_PATH, MODS_DIR
 from .wot_process import ensure_wot_not_running
 from .wot_version import resolve_target_wot_version
@@ -46,17 +46,6 @@ def load_env(path):
             key, value = line.split("=", 1)
             env[key.strip()] = value.strip().strip('"').strip("'")
     return env
-
-
-def read_meta(mod_name):
-    meta_path = os.path.join(MODS_DIR, mod_name, "meta.xml")
-    tree = ET.parse(meta_path)
-    root = tree.getroot()
-    return {
-        "id": root.findtext("id", "").strip(),
-        "version": root.findtext("version", "0.0.0.0").strip(),
-        "wot_client_version": root.findtext("wot_client_version", "").strip(),
-    }
 
 
 def discover_mods():
@@ -132,14 +121,6 @@ def cleanup_mod(game_dir, mod_name, dry_run, target_wot_version, verbose=False):
 
     if not mod_id:
         raise RuntimeError("meta.xml for {} is missing id".format(mod_name))
-    if meta.get("wot_client_version") != target_wot_version:
-        raise RuntimeError(
-            "meta.xml version mismatch for {}: meta.xml has {}, expected {} from WoT version pins".format(
-                mod_name,
-                meta.get("wot_client_version"),
-                target_wot_version,
-            )
-        )
 
     package_paths = _iter_deployed_package_paths(game_dir, target_wot_version, mod_id)
     config_dir = os.path.join(game_dir, "mods", "configs", mod_name)

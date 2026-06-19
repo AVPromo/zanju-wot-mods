@@ -17,7 +17,7 @@ Follow-up backlog after the initial Python format-and-lint tooling rollout.
 ## Release And Distribution Backlog
 
 - Add a `research-progress-bar` release checklist for wgmods.net and modpack submission: standalone companion bundle contents, config/i18n copy requirements, no-optional-UI-API smoke test, and re-test expectations for each WoT version even when no code change is planned.
-- Decide and document whether `meta.xml` should stay in public releases when it is only informational and not a real dependency declaration mechanism.
+- Resolved: `meta.xml` stays in releases, trimmed to the spec fields `id`/`version`/`name`/`description`. The Wargaming *Mod Packages* spec marks it optional (only `res/` is required) but `id`/`version` give clean load-order and same-id version de-dup, so keeping it is worthwhile. It is now the single source of truth for those values (build generates the runtime `_mod_meta` and all scripts read it via `tools/mod_meta.py`).
 
 ## Localization / Font Coverage
 

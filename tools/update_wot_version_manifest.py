@@ -1,13 +1,11 @@
-"""Refresh the tracked WoT client version manifest and sync authored mod meta.xml files."""
+"""Refresh the tracked WoT client version manifest (the single source of the version pin)."""
 
 from __future__ import annotations
 
 import argparse
-import os
-import xml.etree.ElementTree as ET
 
 from .console import detail, section, success
-from .paths import ENV_PATH, MODS_DIR
+from .paths import ENV_PATH
 from .wot_version import (
     WotVersionError,
     load_wot_version_manifest,
@@ -44,7 +42,7 @@ def parse_args(argv):
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would change without writing the manifest or mod metadata files.",
+        help="Show what would change without writing the manifest.",
     )
     parser.add_argument(
         "--verbose",
@@ -70,47 +68,6 @@ def _resolve_target_version(args):
     return parse_version_xml(game_dir), game_dir
 
 
-def _iter_mod_meta_paths():
-    if not os.path.isdir(MODS_DIR):
-        return []
-
-    meta_paths = []
-    for mod_name in sorted(os.listdir(MODS_DIR)):
-        meta_path = os.path.join(MODS_DIR, mod_name, "meta.xml")
-        if os.path.isfile(meta_path):
-            meta_paths.append(meta_path)
-    return meta_paths
-
-
-def _find_meta_updates(target_version):
-    updates = []
-    for meta_path in _iter_mod_meta_paths():
-        root = ET.parse(meta_path).getroot()
-        current_version = (root.findtext("wot_client_version", "") or "").strip()
-        if current_version == target_version:
-            continue
-        updates.append(
-            {
-                "path": meta_path,
-                "current_version": current_version,
-            }
-        )
-    return updates
-
-
-def _write_meta_updates(meta_updates, target_version):
-    for item in meta_updates:
-        meta_path = item["path"]
-        tree = ET.parse(meta_path)
-        root = tree.getroot()
-        version_node = root.find("wot_client_version")
-        if version_node is None:
-            version_node = ET.SubElement(root, "wot_client_version")
-        version_node.text = target_version
-        ET.indent(tree, space="    ")
-        tree.write(meta_path, encoding="utf-8", xml_declaration=True)
-
-
 def _main(argv=None):
     args = parse_args(argv)
     section("Update WoT version manifest")
@@ -118,45 +75,19 @@ def _main(argv=None):
     current_version = load_wot_version_manifest()["wotClientVersion"]
     target_version, source = _resolve_target_version(args)
     manifest_needs_update = target_version != current_version
-    meta_updates = _find_meta_updates(target_version)
 
-    if not manifest_needs_update and not meta_updates:
+    if not manifest_needs_update:
         success("No version changes detected")
         detail("Pinned version: {}".format(current_version), verbose=args.verbose)
         return
 
     if args.dry_run:
-        if manifest_needs_update:
-            success("Dry-run: manifest would change {} -> {}".format(current_version, target_version))
-        else:
-            success("Dry-run: manifest already pinned to {}".format(target_version))
-        if meta_updates:
-            success("Dry-run: {} mod meta.xml file(s) would be updated".format(len(meta_updates)))
-            for item in meta_updates:
-                detail(
-                    "{}: {} -> {}".format(item["path"], item["current_version"] or "<missing>", target_version),
-                    verbose=args.verbose,
-                )
+        success("Dry-run: manifest would change {} -> {}".format(current_version, target_version))
         detail("Source: {}".format(source), verbose=args.verbose)
         return
 
-    if manifest_needs_update:
-        save_wot_version_manifest(target_version)
-        success("WoT version manifest updated: {} -> {}".format(current_version, target_version))
-    else:
-        success("WoT version manifest already pinned to {}".format(target_version))
-
-    if meta_updates:
-        _write_meta_updates(meta_updates, target_version)
-        success("Updated mod meta.xml files: {}".format(len(meta_updates)))
-        for item in meta_updates:
-            detail(
-                "{}: {} -> {}".format(item["path"], item["current_version"] or "<missing>", target_version),
-                verbose=args.verbose,
-            )
-    else:
-        success("All mod meta.xml files already pinned to {}".format(target_version))
-
+    save_wot_version_manifest(target_version)
+    success("WoT version manifest updated: {} -> {}".format(current_version, target_version))
     detail("Source: {}".format(source), verbose=args.verbose)
 
 

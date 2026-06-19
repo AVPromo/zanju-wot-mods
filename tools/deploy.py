@@ -25,11 +25,11 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-import xml.etree.ElementTree as ET
 
 from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
 from .companion_artifacts import load_manifest as load_companion_manifest
 from .console import detail, section, success, warning
+from .mod_meta import read_meta
 from .paths import DIST_DIR, ENV_PATH, MODS_DIR
 from .wot_process import ensure_wot_not_running
 from .wot_version import resolve_target_wot_version
@@ -48,17 +48,6 @@ def load_env(path):
             key, value = line.split("=", 1)
             env[key.strip()] = value.strip().strip('"').strip("'")
     return env
-
-
-def read_meta(mod_name):
-    meta_path = os.path.join(MODS_DIR, mod_name, "meta.xml")
-    tree = ET.parse(meta_path)
-    root = tree.getroot()
-    return {
-        "id": root.findtext("id", "").strip(),
-        "version": root.findtext("version", "0.0.0.0").strip(),
-        "wot_client_version": root.findtext("wot_client_version", "").strip(),
-    }
 
 
 def discover_mods():
@@ -90,7 +79,7 @@ def directory_has_entries(path):
 
 
 def resolve_config_source(mod_dir):
-    flat_config_path = os.path.join(mod_dir, "config.json")
+    flat_config_path = os.path.join(mod_dir, "config.template.json")
     legacy_config_dir = os.path.join(mod_dir, "config")
 
     has_flat_config = os.path.isfile(flat_config_path)
@@ -98,7 +87,9 @@ def resolve_config_source(mod_dir):
 
     if has_flat_config and has_legacy_config_dir:
         raise RuntimeError(
-            "{} defines both config.json and config/; keep exactly one config source.".format(os.path.basename(mod_dir))
+            "{} defines both config.template.json and config/; keep exactly one config source.".format(
+                os.path.basename(mod_dir)
+            )
         )
     if has_flat_config:
         return "file", flat_config_path
@@ -118,22 +109,13 @@ def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=
     meta = read_meta(mod_name)
     mod_id = meta["id"]
     version = meta["version"]
-    built_wot_version = meta.get("wot_client_version")
 
     if not mod_id:
         raise RuntimeError("meta.xml for {} is missing id".format(mod_name))
-    if built_wot_version != target_wot_version:
-        raise RuntimeError(
-            "meta.xml version mismatch for {}: meta.xml has {}, expected {} from WoT version pins".format(
-                mod_name,
-                built_wot_version,
-                target_wot_version,
-            )
-        )
 
     archive_name = "{}_{}.wotmod".format(mod_id, version)
     bundle_name = "{}_{}".format(mod_id, version)
-    src_archive = os.path.join(DIST_DIR, bundle_name, "mods", built_wot_version, archive_name)
+    src_archive = os.path.join(DIST_DIR, bundle_name, "mods", target_wot_version, archive_name)
     if not os.path.isfile(src_archive):
         raise RuntimeError("Built archive not found: {}".format(src_archive))
 

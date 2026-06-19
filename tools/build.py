@@ -17,8 +17,10 @@ Optional prebuild hooks:
 - The build tool stages both mods/<name>/res/ and generated ui/build/res/ into the final archive.
 
 Internal .wotmod layout:
-    meta.xml
+    meta.xml                                (authored manifest: id/version/name/description)
+    LICENSE.md                              (repo-root license, when present)
     res/scripts/client/gui/mods/<file>.pyc  (compiled from mods/<name>/src/)
+    res/scripts/client/gui/mods/<pkg>/_mod_meta.pyc  (generated from meta.xml: MOD_ID/MOD_NAME)
     res/...                                 (from mods/<name>/res/ plus generated ui/build/res/)
 
 Additional release output:
@@ -30,23 +32,24 @@ Config files are NOT bundled.
 Ship them separately to: <WoT install>/mods/configs/<mod-folder-name>/
 
 Optional authored source layout:
-    mods/<name>/config.json                →  mods/configs/<mod-folder-name>/config.json
+    mods/<name>/config.template.json       →  mods/configs/<mod-folder-name>/config.json
     mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml
                                             and mods/configs/<mod-folder-name>/i18n/*.yml
 """
 
+import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 import zipfile
 
 from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
 from .companion_artifacts import load_manifest as load_companion_manifest
 from .console import detail, section, success, warning
-from .paths import DIST_DIR, ENV_PATH, MODS_DIR
+from .mod_meta import read_meta
+from .paths import DIST_DIR, ENV_PATH, LICENSE_PATH, MODS_DIR
 from .wot_version import resolve_target_wot_version
 
 
@@ -89,17 +92,6 @@ def run_optional_prebuild(mod_dir, verbose=False):
     subprocess.check_call(cmd)
 
 
-def read_meta(mod_dir):
-    meta_path = os.path.join(mod_dir, "meta.xml")
-    tree = ET.parse(meta_path)
-    root = tree.getroot()
-    return {
-        "id": root.findtext("id", "").strip(),
-        "version": root.findtext("version", "0.0.0.0").strip(),
-        "wot_client_version": root.findtext("wot_client_version", "").strip(),
-    }
-
-
 def copy_tree_contents(src_dir, dst_dir):
     if not os.path.isdir(src_dir):
         return
@@ -129,7 +121,7 @@ def directory_has_entries(path):
 
 
 def resolve_config_source(mod_dir):
-    flat_config_path = os.path.join(mod_dir, "config.json")
+    flat_config_path = os.path.join(mod_dir, "config.template.json")
     legacy_config_dir = os.path.join(mod_dir, "config")
 
     has_flat_config = os.path.isfile(flat_config_path)
@@ -137,7 +129,9 @@ def resolve_config_source(mod_dir):
 
     if has_flat_config and has_legacy_config_dir:
         raise RuntimeError(
-            "{} defines both config.json and config/; keep exactly one config source.".format(os.path.basename(mod_dir))
+            "{} defines both config.template.json and config/; keep exactly one config source.".format(
+                os.path.basename(mod_dir)
+            )
         )
     if has_flat_config:
         return "file", flat_config_path
@@ -255,6 +249,45 @@ def iter_python_source_files(src_dir):
             yield abs_path, rel_path
 
 
+def iter_internal_packages(src_dir):
+    """Yield immediate sub-package dirs of src/ (those holding an __init__.py)."""
+    if not os.path.isdir(src_dir):
+        return
+    for name in sorted(os.listdir(src_dir)):
+        pkg_dir = os.path.join(src_dir, name)
+        if os.path.isfile(os.path.join(pkg_dir, "__init__.py")):
+            yield name
+
+
+def render_mod_meta_module(meta):
+    return (
+        "# -*- coding: utf-8 -*-\n"
+        '"""Generated at build time from meta.xml. Do not edit; not committed."""\n'
+        "from __future__ import unicode_literals\n"
+        "\n"
+        "MOD_ID = {id}\n"
+        "MOD_NAME = {name}\n"
+    ).format(id=json.dumps(meta["id"]), name=json.dumps(meta["name"]))
+
+
+def bundle_generated_mod_meta(src_dir, meta, temp_dir, py2_exe, zf):
+    """Compile a meta-derived _mod_meta module into each internal package.
+
+    Keeps meta.xml the single authored source of MOD_ID/MOD_NAME: the runtime
+    imports these from the generated module instead of hardcoding them.
+    """
+    source = render_mod_meta_module(meta)
+    for package in iter_internal_packages(src_dir):
+        py_path = os.path.join(temp_dir, "gen", package, "_mod_meta.py")
+        os.makedirs(os.path.dirname(py_path), exist_ok=True)
+        with open(py_path, "w", encoding="utf-8") as fh:
+            fh.write(source)
+        pyc_path = "{}c".format(py_path)
+        compile_py2_to_pyc(py2_exe, py_path, pyc_path)
+        archive_path = "res/scripts/client/gui/mods/{}/_mod_meta.pyc".format(package)
+        zf.write(pyc_path, archive_path)
+
+
 def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=None, verbose=False):
     mod_dir = os.path.join(MODS_DIR, mod_name)
     if not os.path.isdir(mod_dir):
@@ -264,19 +297,9 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
 
     run_optional_prebuild(mod_dir, verbose=verbose)
 
-    meta = read_meta(mod_dir)
+    meta = read_meta(mod_name)
     mod_id = meta["id"]
     version = meta["version"]
-    meta_wot_client_version = meta.get("wot_client_version")
-
-    if meta_wot_client_version != target_wot_version:
-        raise RuntimeError(
-            "meta.xml version mismatch for {}: meta.xml has {}, expected {} from WoT version pins".format(
-                mod_name,
-                meta_wot_client_version,
-                target_wot_version,
-            )
-        )
 
     if not mod_id or "yourname" in mod_id:
         warning("WARNING: {} - mod id looks like a placeholder: {}".format(mod_name, mod_id))
@@ -298,8 +321,10 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
     ):
         # WoT's package loader rejects compressed entries in some client versions.
         # Use store-only zip members for maximum compatibility.
-        # meta.xml at archive root
+        # meta.xml and LICENSE at archive root (spec: optional utility files).
         zf.write(os.path.join(mod_dir, "meta.xml"), "meta.xml")
+        if os.path.isfile(LICENSE_PATH):
+            zf.write(LICENSE_PATH, os.path.basename(LICENSE_PATH))
 
         # src/**/*.py  →  res/scripts/client/gui/mods/<relative-path>.pyc
         src_dir = os.path.join(mod_dir, "src")
@@ -313,6 +338,7 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
                 compile_py2_to_pyc(py2_exe, abs_path, compiled_path)
                 archive_path = "res/scripts/client/gui/mods/{}".format(compiled_rel_path.replace(os.sep, "/"))
                 zf.write(compiled_path, archive_path)
+            bundle_generated_mod_meta(src_dir, meta, temp_dir, py2_exe, zf)
 
         # Stage packaged resources from committed source plus generated build output.
         staged_res_dir = os.path.join(temp_dir, "staged_res")
