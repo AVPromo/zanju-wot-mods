@@ -1,0 +1,59 @@
+name: Lint
+
+# Reusable lint definition (single source of truth for "what linting means").
+# Called by python-style.yml (every push / PR) and stable-release.yml (release gate).
+on:
+  workflow_call: {}
+
+jobs:
+  python3-hosted-checks:
+    # Host interpreter: Python 3.
+    # Targets checked here:
+    # - Python 3 repo tooling via Black and Ruff
+    # - Python 2.7 runtime source formatting via autopep8 running from Python 3
+    name: Python 3 Host - Python 3 Format and Lint, Python 2.7 Format
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3 tooling host
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: pip
+        cache-dependency-path: requirements-dev.txt
+
+    - name: Install Python 3 tooling and repo commands
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements-dev.txt
+        python -m pip install -e .
+
+    - name: Check Python 3 formatting and lint
+      run: wot_mods_lint py3-check
+
+    - name: Check Python 2.7 formatting via Python 3 autopep8
+      run: wot_mods_lint py27-format-check
+
+  python27-hosted-lint:
+    # Host interpreter: Python 2.7.
+    # Target checked here: Python 2.7 runtime source linting via Flake8 3.9.x.
+    # This stays separate because the lint tool itself must execute in a Python 2.7 environment.
+    name: Python 2.7 Host - Python 2.7 Lint
+    runs-on: ubuntu-latest
+    container:
+      image: python:2.7
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Python 2.7 lint tooling
+      run: |
+        python -m pip install --upgrade 'pip<21'
+        python -m pip install -r requirements-lint-py27.txt
+
+    - name: Lint Python 2.7 runtime code via Python 2.7 Flake8
+      run: python -m tools.lint py27-lint --py27-python python

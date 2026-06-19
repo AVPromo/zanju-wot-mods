@@ -11,8 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint
+    uses: ./.github/workflows/lint.yml
+
   stable-release:
     name: Build and Publish Stable Build
+    needs: lint
     runs-on: ubuntu-latest
     permissions:
       contents: write
