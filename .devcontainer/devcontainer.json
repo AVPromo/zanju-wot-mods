@@ -3,9 +3,21 @@
   "dockerComposeFile": "../docker-compose.yml",
   "service": "dev",
   "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": { "username": "vscode" },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "remoteUser": "vscode",
+  "mounts": [
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+  ],
+  "postCreateCommand": "sudo chown vscode:vscode /home/vscode/.claude",
   "customizations": {
     "vscode": {
-      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+      "extensions": ["ms-python.python", "charliermarsh.ruff"],
+      "settings": {
+        "remote.autoForwardPorts": false
+      }
     }
   }
 }
