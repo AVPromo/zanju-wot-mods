@@ -24,6 +24,7 @@ A `.wotmod` commonly contains:
 
 In this repository:
 
+- build and lint run inside the toolchain image (`tools/Dockerfile` → `ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain`); Docker is the only local prerequisite
 - authored Python sources live under `mods/<mod-name>/src/`
 - `wot_mods_build` compiles them into the runtime package shape
 - authored `config.template.json` is staged into `mods/configs/<mod-name>/config.json`

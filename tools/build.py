@@ -48,24 +48,13 @@ import zipfile
 from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
 from .companion_artifacts import load_manifest as load_companion_manifest
 from .console import detail, section, success, warning
+from .env import load_env
 from .mod_meta import read_meta
-from .paths import DIST_DIR, ENV_PATH, LICENSE_PATH, MODS_DIR
+from .paths import DIST_DIR, LICENSE_PATH, MODS_DIR
 from .wot_version import resolve_target_wot_version
 
-
-def load_env(path):
-    env = {}
-    if not os.path.isfile(path):
-        return env
-
-    with open(path, "r", encoding="utf-8") as fh:
-        for raw in fh:
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            env[key.strip()] = value.strip().strip('"').strip("'")
-    return env
+# The build runs inside the toolchain image; Python 2.7 lives at this path there.
+DEFAULT_PY2_EXE = "/opt/python2.7/bin/python2.7"
 
 
 def compile_py2_to_pyc(py2_exe, src_path, out_pyc_path):
@@ -418,12 +407,13 @@ def _print_targeting_help(available_mods):
 
 
 def _main():
-    env = load_env(ENV_PATH)
-    py2_exe = env.get("WOT_PYTHON2_EXE", "").strip()
-    if not py2_exe:
-        raise RuntimeError("WOT_PYTHON2_EXE is required in .env for this repository.")
+    env = load_env()
+    py2_exe = env.get("WOT_PYTHON2_EXE", "").strip() or DEFAULT_PY2_EXE
     if not os.path.isfile(py2_exe):
-        raise RuntimeError("WOT_PYTHON2_EXE does not exist: {}".format(py2_exe))
+        raise RuntimeError(
+            "Python 2.7 not found at {}. Builds run inside the toolchain image "
+            "(see docs/building-from-source.md).".format(py2_exe)
+        )
     target_wot_version = resolve_target_wot_version(env, require_game_dir=False)
     include_companion_bundle, run_all, verbose, targets = parse_args(sys.argv[1:])
     if run_all and targets:

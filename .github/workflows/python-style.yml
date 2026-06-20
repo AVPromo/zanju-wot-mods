@@ -3,8 +3,10 @@ name: Python Format and Lint Checks
 on:
   pull_request: {}
   push:
-    branches:
-    - '**'
+    # master is excluded: the Stable Release workflow already runs this same lint
+    # as its release gate, so linting it here too would double the master runs.
+    branches-ignore:
+    - master
   workflow_dispatch: {}
 
 jobs:

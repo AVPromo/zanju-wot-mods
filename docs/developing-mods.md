@@ -4,71 +4,55 @@ This page is for contributors working on the code in this repository.
 
 ## Toolchain
 
-Core runtime and build requirements:
+The entire toolchain ships inside one Docker image
+(`ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain`, public), so **Docker Desktop is
+the only thing you install**. The image carries:
 
-- Python 3 for repo tools such as `wot_mods_build`, `wot_mods_cycle`, and `wot_mods_deploy`.
-- Python 2.7 to compile WoT-compatible `.pyc` files.
-- A local World of Tanks install for runtime validation.
+- Python 3 with the repo commands (`wot_mods_*`) and Black / Ruff / autopep8.
+- Python 2.7 with Flake8 3.9.x, to compile and lint WoT-compatible `.pyc` files.
+- Java + Apache Flex SDK (`mxmlc`) for ActionScript UI.
 
-Contributor format and lint tools:
+A local World of Tanks install is still needed for runtime validation (deploy/cycle).
 
-- Black and Ruff in the Python 3 environment.
-- Flake8 3.9.x in the Python 2.7 environment.
-- autopep8 in the Python 3 environment for conservative Python 2.7 formatting.
+## Local Setup (Dev Container)
 
-UI work adds:
+1. Install **Docker Desktop** and the VS Code **Dev Containers** extension.
+2. Copy `.env.example` to `.env` and set `WOT_GAME_DIR` to your WoT install path
+   (e.g. `c:\Games\World_of_Tanks_EU`). Docker Compose reads it to bind-mount your
+   install at `/game`; inside the container the tools see `WOT_GAME_DIR=/game`.
+3. Open the repo in VS Code → **Reopen in Container**.
 
-- Java
-- Apache Flex SDK (`mxmlc`)
-- FFDec for SWF inspection
+You stay in VS Code — same editor, terminal, and Source Control. Only the backend
+(interpreter, terminal, tooling) runs inside the image. The first open pulls the
+image; later opens reuse the container. `postCreateCommand` runs `pip install -e .`
+so the `wot_mods_*` console scripts resolve in the container terminal:
 
-## Local Setup
-
-Copy `.env.example` to `.env` in the repository root and fill in:
-
-```text
-WOT_GAME_DIR=
-WOT_PYTHON2_EXE=
-```
-
-Install the format and lint tooling with the interpreters you already use for the repo:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
-python -m pip install -e .
-C:\Python27\python.exe -m pip install -r requirements-lint-py27.txt
-```
-
-Use the same Python 2.7 executable in the second command that you point `WOT_PYTHON2_EXE` at in `.env`.
-
-If you do not want to activate the environment in that shell, use `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt` and `.\.venv\Scripts\python.exe -m pip install -e .` instead.
-
-The editable install adds `wot_mods_build`, `wot_mods_cleanup`, `wot_mods_cycle`, `wot_mods_deploy`, `wot_mods_fetch_companion_artifacts`, `wot_mods_help`, `wot_mods_update_companion_manifest`, `wot_mods_update_wot_version_manifest`, and `wot_mods_lint` to the active Python 3 environment. Activate that environment before expecting the commands to resolve on `PATH`.
-
-If `pyproject.toml` changes add a new repo command, rerun `python -m pip install -e .` in that environment so the console-script stubs are regenerated.
-
-For a quick environment check plus the available repo-command summary, run `wot_mods_help`.
-
-The module form stays available when you want it:
-
-```powershell
-python -m tools.help
-python -m tools.build research-progress-bar
-python -m tools.lint check
-```
-
-For mod-targeting commands, pass one or more mod names explicitly. Use `--all` only when you really want every mod in the workspace.
-`wot_mods_deploy` expects current build output in `dist/`, and `wot_mods_cleanup`, `wot_mods_deploy`, and `wot_mods_cycle` require WoT to be closed:
-
-```powershell
+```bash
 wot_mods_build research-progress-bar
 wot_mods_build --all
 wot_mods_deploy research-progress-bar
 wot_mods_cycle research-progress-bar
+wot_mods_help          # environment check + command summary
 ```
 
-Mods intended for the repository's rolling `Stable build` GitHub release should include `mods/<name>/CHANGELOG.md`, because the generated release notes link each published mod to that file.
+The module form is equivalent and needs no install:
+
+```bash
+python3 -m tools.build research-progress-bar
+python3 -m tools.lint check
+```
+
+Without VS Code, run any command via plain `docker run` — see the standalone
+reference in [Building From Source](building-from-source.md#standalone-docker-run-no-vs-code).
+
+For mod-targeting commands, pass one or more mod names explicitly; use `--all` only
+when you really want every mod. `wot_mods_deploy` expects current build output in
+`dist/`. **Close WoT before `wot_mods_cleanup`, `wot_mods_deploy`, and `wot_mods_cycle`** —
+there is no automatic running-process check (the container can't see the Windows host);
+in-use files are simply skipped.
+
+Mods intended for the repository's rolling `Stable build` GitHub release should include
+`mods/<name>/CHANGELOG.md`, because the generated release notes link each published mod to that file.
 
 ## Python Format and Lint Workflow
 
@@ -88,7 +72,7 @@ That command is the current default gate locally and in CI for:
 
 The Python 2.7 Flake8 gate also enforces a McCabe complexity limit so new changes do not keep pushing large runtime functions upward unchecked.
 
-CI is split by host interpreter, not only by target source tree. `wot_mods_lint py27-format-check` runs from the Python 3 tooling environment because autopep8 and the installed repo commands live there, but it checks the Python 2.7 runtime source under `mods/*/src`. The Python 2.7 lint job is separate because Flake8 3.9.x is intentionally executed inside a Python 2.7 environment against that same runtime code.
+CI runs the same `wot_mods_lint` steps inside the toolchain image, so the Python 3 (Black/Ruff/autopep8) and Python 2.7 (Flake8 3.9.x against `mods/*/src`) surfaces use the exact interpreters you get locally — no environment drift. Every push to a non-`master` branch and every PR runs lint; on `master` the Stable Release workflow runs lint as a gate before building and publishing.
 
 Useful variants:
 

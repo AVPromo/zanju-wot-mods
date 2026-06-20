@@ -5,28 +5,13 @@ from __future__ import annotations
 import argparse
 
 from .console import detail, section, success
-from .paths import ENV_PATH
+from .env import load_env
 from .wot_version import (
     WotVersionError,
     load_wot_version_manifest,
     parse_version_xml,
     save_wot_version_manifest,
 )
-
-
-def load_env(path):
-    env = {}
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            for raw in fh:
-                line = raw.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                env[key.strip()] = value.strip().strip('"').strip("'")
-    except OSError:
-        return env
-    return env
 
 
 def parse_args(argv):
@@ -61,7 +46,7 @@ def _resolve_target_version(args):
 
     game_dir = "{}".format(args.wot_game_dir or "").strip()
     if not game_dir:
-        game_dir = load_env(ENV_PATH).get("WOT_GAME_DIR", "").strip()
+        game_dir = load_env().get("WOT_GAME_DIR", "").strip()
     if not game_dir:
         raise WotVersionError("Set WOT_GAME_DIR in .env or pass --wot-game-dir")
 

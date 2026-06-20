@@ -17,7 +17,7 @@ Behavior:
 - With mod args: cycles only selected mods
 - With --dry-run: runs cleanup in dry-run mode and skips build + deploy
 - With --fresh-log: truncates python.log before cycle (no archive, opt-in)
-- The cycle requires WoT to be closed; it exits before cleanup if the client is running
+- Close WoT before cycling (no automatic running-process check; in-use files are skipped)
 - The cycle updates files on disk only; WoT must be restarted to load changed
     Python/UI/package assets.
 """
@@ -29,35 +29,17 @@ import subprocess
 import sys
 
 from .console import detail, section, success, warning
-from .paths import ENV_PATH, MODS_DIR
-from .wot_process import ensure_wot_not_running, is_wot_running
-
-
-def load_env(path):
-    env = {}
-    if not os.path.isfile(path):
-        return env
-
-    with open(path, "r", encoding="utf-8") as fh:
-        for raw in fh:
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            env[key.strip()] = value.strip().strip('"').strip("'")
-    return env
+from .env import load_env
+from .paths import MODS_DIR
 
 
 def fresh_log(dry_run):
-    env = load_env(ENV_PATH)
+    env = load_env()
     game_dir = env.get("WOT_GAME_DIR", "")
     if not game_dir:
-        raise RuntimeError("WOT_GAME_DIR is not set in .env (required for --fresh-log).")
+        raise RuntimeError("WOT_GAME_DIR is not set (required for --fresh-log).")
 
     log_path = os.path.join(game_dir, "python.log")
-
-    if is_wot_running():
-        raise RuntimeError("WoT process appears to be running; close the game before using --fresh-log.")
 
     if dry_run:
         success("Dry-run: fresh log would be created")
@@ -128,8 +110,6 @@ def _main():
     if not mod_names:
         warning("No mods found under mods/")
         return
-
-    ensure_wot_not_running("wot_mods_cycle")
 
     if fresh_log_flag:
         fresh_log(dry_run)

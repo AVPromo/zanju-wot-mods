@@ -1,129 +1,109 @@
 # Building From Source
 
-This page is for users who want to build the mods in this repository without adopting the full development workflow.
+This page is for users who want to build the mods in this repository. The whole
+toolchain (Python 3 tooling, Python 2.7 for `.pyc` output, Java + Apache Flex
+SDK for UI, and the lint tools) ships inside one Docker image, so **the only
+thing you need to install is Docker**.
 
-## Minimal Prerequisites
+## Prerequisites
 
-- Python 3 for the repository scripts.
-- Python 2.7 for WoT-compatible `.pyc` output.
-- A `.env` file copied from `.env.example`, with `WOT_PYTHON2_EXE` configured.
-- The pinned WoT client version in `tools/wot_version_manifest.json`.
-- `WOT_GAME_DIR` is optional for build-only CI, but required for deploy/cleanup/cycle and for local version.xml validation.
-- Java and Apache Flex SDK only if you build a mod with ActionScript UI assets.
+- **Docker Desktop** (the engine — it just runs in the background).
+- Optional, recommended: **VS Code** + the **Dev Containers** extension for the in-editor workflow.
 
-Install the repo commands into your active Python 3 environment once:
+No local Python 2.7/3, Java, or Flex SDK is required.
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e .
-```
+The published image is `ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain` (public). It
+carries Python 3 (ruff/black/autopep8 + the `wot_mods_*` commands), Python 2.7
+(flake8 3.9.x), and the Apache Flex SDK (`mxmlc`). CI builds and publishes it;
+locally you just pull it.
 
-The `wot_mods_*` commands below resolve while that Python 3 environment is active.
+## Dev Container (recommended)
 
-If a newly added repo command is missing after you update the workspace, rerun `python -m pip install -e .` to regenerate the console-script stubs. The module form also stays available, for example `python -m tools.fetch_companion_artifacts`.
+Open the repo in VS Code → **Reopen in Container**. You stay in VS Code; the
+integrated terminal, interpreter, and `wot_mods_*` commands all run inside the
+image. See [Developing Mods](developing-mods.md) for the full loop.
 
-For a full workstation setup, see [Developing Mods](developing-mods.md).
+## Standalone `docker run` (no VS Code)
 
-## Build Commands
-
-Build everything:
-
-```powershell
-wot_mods_build --all
-```
-
-Build one mod:
+Run any repo command in the image with the repo bind-mounted. PowerShell:
 
 ```powershell
-wot_mods_build crew-post-progression
+# Build one mod (output lands in dist/ on your checkout)
+docker run --rm -v "${PWD}:/workspace" -w /workspace `
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.build research-progress-bar
+
+# Build everything
+docker run --rm -v "${PWD}:/workspace" -w /workspace `
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.build --all
+
+# Lint (Python 3 + Python 2.7)
+docker run --rm -v "${PWD}:/workspace" -w /workspace `
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.lint
 ```
 
-If you omit both mod names and `--all`, the command will stop and list the available mods.
+The `wot_mods_*` console scripts are equivalent to `python3 -m tools.<command>`;
+the module form needs no install and is what these examples use.
 
-For `research-progress-bar`, the default build now includes the standalone configurator companion chain when the manifest defines it. Fetch the pinned companion artifacts first:
+For `research-progress-bar`, the default build includes the standalone configurator
+companion chain when the manifest defines it. Fetch the pinned companion artifacts first:
 
 ```powershell
-wot_mods_fetch_companion_artifacts
-wot_mods_build research-progress-bar
+docker run --rm -v "${PWD}:/workspace" -w /workspace `
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain `
+  bash -c 'python3 -m tools.fetch_companion_artifacts && python3 -m tools.build research-progress-bar'
 ```
 
-If you intentionally want only the main mod package without the companion `.wotmod` files, opt out explicitly:
+To build only the main package without the companion `.wotmod` files, add `--no-companion-bundle`.
 
-```powershell
-wot_mods_build --no-companion-bundle research-progress-bar
-```
+The tracked companion manifest lives at `tools/companion_artifacts_manifest.json`. Downloaded
+companion `.wotmod` files are cached under the ignored `.cache/companion-wotmods/`.
 
-The tracked companion manifest lives at `tools/companion_artifacts_manifest.json`. Downloaded companion `.wotmod` files are stored in the ignored local cache under `.cache/companion-wotmods/` and are not committed.
-
-The pinned WoT target version lives at `tools/wot_version_manifest.json`.
-If your local game updates, refresh that manifest before build/deploy:
-
-```powershell
-wot_mods_update_wot_version_manifest
-```
-
-When you intentionally want to refresh the pinned companion versions, run the separate manifest-update command first. It queries upstream release APIs, verifies the candidate artifacts, and rewrites the tracked manifest. Then run the normal fetch command again to repopulate the local cache from the new pins.
-
-```powershell
-wot_mods_update_companion_manifest
-wot_mods_fetch_companion_artifacts
-```
+The pinned WoT target version lives at `tools/wot_version_manifest.json`. If your local game
+updates, refresh it before build/deploy (run inside the image as above):
+`python3 -m tools.update_wot_version_manifest`.
 
 ## CI Stable Build
 
-Pushes to `master` publish the current repository bundles to the rolling GitHub release titled `Stable build`, backed by the fixed tag `stable-build`.
+Pushes to `master` publish the current bundles to the rolling GitHub release titled
+`Stable build` (tag `stable-build`). CI runs the same image: it lints, builds all mods
+inside the image, and publishes. The toolchain image itself is rebuilt and pushed to GHCR
+only when `tools/Dockerfile` or the `requirements-*.txt` files change.
 
-That release is generated from a clean CI build of the current `mods/` tree, not from whatever stale directories may already exist under `dist/`.
-
-The release notes include one changelog link per published mod, so mods intended for that rolling release should include `mods/<name>/CHANGELOG.md`.
+The release notes include one changelog link per published mod, so mods intended for that
+rolling release should include `mods/<name>/CHANGELOG.md`.
 
 ## Output
 
-Successful builds are written to `dist/` as bundle directories. For end users, the main installation artifact is the generated zip file inside each bundle directory.
+Successful builds are written to `dist/` as bundle directories. For end users, the main
+installation artifact is the generated zip inside each bundle directory.
 
 Each built mod bundle includes:
 
-- `<mod-id>_<version>.zip` containing the same install-ready `mods/` tree as the bundle folder
+- `<mod-id>_<version>.zip` containing the install-ready `mods/` tree
 - `mods/<wot_client_version>/<mod-id>_<version>.wotmod`
 - `mods/configs/<mod-name>/...` for config and optional i18n files
 
 ## Deploy To A Local WoT Install
 
-`wot_mods_deploy` copies pre-built artifacts from `dist/`, so run `wot_mods_build` first if you have not just built.
-Close WoT before running `wot_mods_cleanup`, `wot_mods_deploy`, or `wot_mods_cycle`; those commands now fail fast while the client is running.
-
-Deploy all mods:
-
-```powershell
-wot_mods_deploy --all
-```
-
-Deploy one mod:
+`wot_mods_deploy` copies pre-built artifacts from `dist/`, so build first. Deploy needs your
+WoT install mounted at `/game`; the Dev Container does this from `WOT_GAME_DIR` in `.env`
+(see [Developing Mods](developing-mods.md)). Standalone:
 
 ```powershell
-wot_mods_deploy crew-post-progression
+docker run --rm -v "${PWD}:/workspace" -v "C:\Games\World_of_Tanks_EU:/game" `
+  -e WOT_GAME_DIR=/game -w /workspace `
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.deploy research-progress-bar
 ```
 
-For `research-progress-bar`, deployment also includes the configured companion chain by default after those artifacts have been fetched into the local cache.
-
-Deploy only the main mod package when you explicitly want to skip the companion `.wotmod` files:
-
-```powershell
-wot_mods_deploy --no-companion-bundle research-progress-bar
-```
-
-Full cleanup, rebuild, and redeploy loop:
-
-```powershell
-wot_mods_cycle research-progress-bar
-```
+**Close WoT before deploy/cleanup/cycle.** There is no automatic running-process check
+(it can't see the Windows host from the container); in-use files are simply skipped.
 
 ## Important Runtime Note
 
-WoT does not hot-reload Python, SWF, or packaged mod changes from disk.
-After deployment, restart the game before treating the new package as active.
+WoT does not hot-reload Python, SWF, or packaged mod changes from disk. After deployment,
+restart the game before treating the new package as active.
 
 ## Next Steps
 
 - For packaging/runtime conventions, see [Architecture](architecture.md).
-- For a full edit-test-debug loop, see [Developing Mods](developing-mods.md).
+- For the full edit-test-debug loop, see [Developing Mods](developing-mods.md).

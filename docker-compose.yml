@@ -1,0 +1,17 @@
+# Dev Container backing service. Lives at the repo root so Docker Compose reads
+# the repo-root .env for ${WOT_GAME_DIR} interpolation (no global/Windows env var).
+# Used by .devcontainer/devcontainer.json; not a production compose file.
+services:
+  dev:
+    image: ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain:latest
+    working_dir: /workspace
+    command: sleep infinity
+    volumes:
+      - .:/workspace
+      # Host WoT install -> /game (from repo .env). Harmless self-mount when unset;
+      # deploy/cleanup/cycle then simply have no real game dir.
+      - ${WOT_GAME_DIR:-.}:/game
+    environment:
+      # Authoritative for the tools inside the container (overrides .env via os.environ).
+      WOT_GAME_DIR: /game
+      WOT_PYTHON2_EXE: /opt/python2.7/bin/python2.7

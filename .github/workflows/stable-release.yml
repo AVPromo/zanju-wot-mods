@@ -10,17 +10,59 @@ concurrency:
   group: stable-release
   cancel-in-progress: true
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   lint:
     name: Lint
     uses: ./.github/workflows/lint.yml
 
+  detect:
+    name: Detect image input changes
+    runs-on: ubuntu-latest
+    outputs:
+      image_changed: ${{ steps.filter.outputs.changed }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Diff image inputs
+      id: filter
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ github.event_name }}" != "push" ]; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+        fi
+        before="${{ github.event.before }}"
+        if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0
+        fi
+        if git diff --name-only "$before" "${{ github.sha }}" \
+            | grep -Eq '^(tools/Dockerfile|requirements-dev\.txt|requirements-lint-py27\.txt)$'; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        fi
+
+  image:
+    name: Toolchain image
+    needs: detect
+    if: needs.detect.outputs.image_changed == 'true'
+    uses: ./.github/workflows/toolchain-image.yml
+
   stable-release:
     name: Build and Publish Stable Build
-    needs: lint
+    needs: [lint, detect, image]
+    if: >-
+      always()
+      && needs.lint.result == 'success'
+      && needs.detect.result == 'success'
+      && (needs.image.result == 'success' || needs.image.result == 'skipped')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
     - name: Checkout
@@ -33,25 +75,29 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Build stable release toolchain image
-      run: docker build --tag zanju-wot-mods-stable-release --file .github/docker/stable-release/Dockerfile .
+    - name: Resolve toolchain image
+      id: img
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ needs.detect.outputs.image_changed }}" = "true" ]; then
+          echo "ref=ghcr.io/${{ github.repository }}/toolchain:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "ref=ghcr.io/${{ github.repository }}/toolchain:latest" >> "$GITHUB_OUTPUT"
+        fi
 
-    - name: Build all mods inside release container
+    - name: Build all mods inside the toolchain image
       shell: bash
       run: |
         set -euo pipefail
         rm -rf dist
         mkdir -p .tmp
-        trap 'rm -f .env' EXIT
-        cat > .env <<'EOF'
-        WOT_PYTHON2_EXE=/opt/python2.7/bin/python2.7
-        EOF
         docker run --rm \
           --user "$(id -u):$(id -g)" \
           -e HOME=/tmp \
           -v "${GITHUB_WORKSPACE}:/workspace" \
           -w /workspace \
-          zanju-wot-mods-stable-release \
+          "${{ steps.img.outputs.ref }}" \
           bash -c 'python3 -m tools.fetch_companion_artifacts && python3 -m tools.build --all'
 
     - name: Generate stable release notes

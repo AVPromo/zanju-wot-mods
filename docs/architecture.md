@@ -52,6 +52,7 @@ Common WoT runtime locations are:
 
 ## Build And Staging Rules
 
+- Build and lint run inside the toolchain image (`ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain`, built from `tools/Dockerfile`); Docker is the only local prerequisite. See [Building From Source](building-from-source.md).
 - `wot_mods_build` compiles Python sources into WoT-ready output.
 - `wot_mods_build` also stages authored config and localisation files into runtime-shaped release output.
 - Mods with UI sources can provide `ui/compile_ui.py`; `wot_mods_build` runs it automatically before packaging.

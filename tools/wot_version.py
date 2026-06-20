@@ -71,12 +71,16 @@ def parse_version_xml(game_dir):
 
 def resolve_target_wot_version(env, require_game_dir):
     expected_version = load_wot_version_manifest()["wotClientVersion"]
-    game_dir = "{}".format((env or {}).get("WOT_GAME_DIR", "")).strip()
-
-    if not game_dir:
-        if require_game_dir:
-            raise WotVersionError("WOT_GAME_DIR is required in .env for this command")
+    if not require_game_dir:
+        # Build is environment-agnostic: the pinned manifest version is authoritative
+        # and no local game install is needed (CI, the toolchain container, etc.). Do
+        # not touch WOT_GAME_DIR here — it may be a host path that is not visible in
+        # the container, or unset.
         return expected_version
+
+    game_dir = "{}".format((env or {}).get("WOT_GAME_DIR", "")).strip()
+    if not game_dir:
+        raise WotVersionError("WOT_GAME_DIR is required for this command")
 
     if not os.path.isdir(game_dir):
         raise WotVersionError("WOT_GAME_DIR does not exist: {}".format(game_dir))

@@ -91,13 +91,13 @@ def _print_environment_section():
     else:
         warning(".env file: missing")
 
-    section("PowerShell setup")
-    success(r".\.venv\Scripts\Activate.ps1")
-    success("python -m pip install -e .")
-    success(r".\.venv\Scripts\python.exe -m tools.help")
-    warning("If a new wot_mods_* command does not resolve after pulling repo changes,")
-    warning("rerun python -m pip install -e . inside the repo venv to regenerate")
-    warning("the console-script stubs.")
+    section("Setup")
+    success("Develop in the toolchain image via the VS Code Dev Container (Reopen in Container),")
+    success("or run any command standalone, for example:")
+    success('  docker run --rm -v "${PWD}:/workspace" -w /workspace \\')
+    success("    ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.build --all")
+    warning("Inside the container the wot_mods_* commands come from the Dev Container's")
+    warning("postCreateCommand (pip install -e .); rerun it after pyproject.toml changes.")
 
 
 def _print_commands_section():

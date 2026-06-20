@@ -8,7 +8,8 @@ import subprocess
 import sys
 
 from .console import detail, section, success, warning
-from .paths import ENV_PATH, REPO_ROOT
+from .env import load_env
+from .paths import REPO_ROOT
 
 try:
     from shutil import which as find_executable
@@ -16,6 +17,8 @@ except ImportError:
     from distutils.spawn import find_executable  # type: ignore
 
 
+# Python 2.7 inside the toolchain image; used when no override / env var is given.
+DEFAULT_PY2_EXE = "/opt/python2.7/bin/python2.7"
 SAFE_AUTOPEP8_SELECT = "E1,E2,E3,W291,W292,W293,W391"
 COMMAND_CHOICES = (
     "check",
@@ -34,21 +37,6 @@ ALIAS_COMMANDS = {
     "py27-format-check": ("py27-format", {"check": True}),
 }
 _CI_ENV_VARS = ("CI", "GITHUB_ACTIONS", "GITLAB_CI", "TF_BUILD", "BUILD_BUILDID")
-
-
-def load_env(path):
-    env = {}
-    if not os.path.isfile(path):
-        return env
-
-    with io.open(path, "r", encoding="utf-8") as fh:
-        for raw in fh:
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            env[key.strip()] = value.strip().strip('"').strip("'")
-    return env
 
 
 def quote_arg(value):
@@ -167,10 +155,8 @@ def resolve_py27_python(override):
     if override:
         return resolve_command_path(override, "Python 2.7 executable override")
 
-    env = load_env(ENV_PATH)
-    py27_python = env.get("WOT_PYTHON2_EXE", "").strip()
-    if not py27_python:
-        raise RuntimeError("WOT_PYTHON2_EXE is required in .env for Python 2.7 lint commands.")
+    env = load_env()
+    py27_python = env.get("WOT_PYTHON2_EXE", "").strip() or DEFAULT_PY2_EXE
     return resolve_command_path(py27_python, "WOT_PYTHON2_EXE")
 
 

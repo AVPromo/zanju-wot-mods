@@ -17,7 +17,7 @@ Usage:
 
 Note:
     Deployment copies pre-built artifacts from dist/ — run wot_mods_build first.
-    Deployment requires WoT to be closed. The command exits if the client is running.
+    Close WoT before deploying (no automatic running-process check; in-use files are skipped).
 """
 
 from __future__ import annotations
@@ -29,25 +29,10 @@ import sys
 from .companion_artifacts import CompanionArtifactError, manifest_defines_bundle, resolve_cached_bundle_artifacts
 from .companion_artifacts import load_manifest as load_companion_manifest
 from .console import detail, section, success, warning
+from .env import load_env
 from .mod_meta import read_meta
-from .paths import DIST_DIR, ENV_PATH, MODS_DIR
-from .wot_process import ensure_wot_not_running
+from .paths import DIST_DIR, MODS_DIR
 from .wot_version import resolve_target_wot_version
-
-
-def load_env(path):
-    env = {}
-    if not os.path.isfile(path):
-        return env
-
-    with open(path, "r", encoding="utf-8") as fh:
-        for raw in fh:
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            env[key.strip()] = value.strip().strip('"').strip("'")
-    return env
 
 
 def discover_mods():
@@ -231,9 +216,7 @@ def _main():
         warning("No mods found under mods/")
         return
 
-    ensure_wot_not_running("wot_mods_deploy")
-
-    env = load_env(ENV_PATH)
+    env = load_env()
     game_dir = env.get("WOT_GAME_DIR", "")
 
     if not game_dir:
