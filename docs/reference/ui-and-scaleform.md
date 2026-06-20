@@ -13,7 +13,7 @@ A plain `Sprite` root is not enough for this load path.
 
 ## Build Hook
 
-If a mod has `ui/compile_ui.py`, `wot_mods_build` runs it automatically before packaging.
+If a mod has `ui/compile_ui.py`, `zwm build` runs it automatically before packaging.
 Generated SWF output belongs in ignored build folders under `ui/build/`.
 
 ## Window Lifetime

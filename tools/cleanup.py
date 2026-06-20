@@ -9,11 +9,11 @@ What it does:
 5. Removes deployed config directories from <WOT_GAME_DIR>/mods/configs/<mod-name>/.
 
 Usage:
-    wot_mods_cleanup --all
-    wot_mods_cleanup --dry-run
-    wot_mods_cleanup research-progress-bar
-    wot_mods_cleanup mod-a mod-b
-    wot_mods_cleanup --verbose research-progress-bar
+    zwm cleanup --all
+    zwm cleanup --dry-run
+    zwm cleanup research-progress-bar
+    zwm cleanup mod-a mod-b
+    zwm cleanup --verbose research-progress-bar
     python -m tools.cleanup research-progress-bar
 
 Note:

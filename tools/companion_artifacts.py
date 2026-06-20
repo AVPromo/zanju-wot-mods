@@ -177,7 +177,7 @@ def resolve_cached_bundle_artifacts(bundle_name, manifest=None, cache_dir=COMPAN
         path = get_cached_artifact_path(cache_dir, artifact)
         if not os.path.isfile(path):
             raise CompanionArtifactError(
-                "Missing companion artifact '{}'; run wot_mods_fetch_companion_artifacts first".format(
+                "Missing companion artifact '{}'; run zwm fetch-companion-artifacts first".format(
                     artifact.get("filename")
                 )
             )

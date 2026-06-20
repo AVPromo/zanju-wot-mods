@@ -71,6 +71,18 @@ RUN printf 'env.PLAYERGLOBAL_HOME=%s\n' "${PLAYERGLOBAL_HOME}" > "${FLEX_HOME}/e
 
 ENV PATH="${FLEX_HOME}/bin:${PATH}:${PYTHON2_PREFIX}/bin"
 
+# Login shells (e.g. the VS Code dev-container terminal) re-run /etc/profile and
+# drop the ENV PATH above, which would hide mxmlc/python2.7 from compile_ui's
+# shutil.which(). Re-add the toolchain dirs for login shells too.
+RUN printf 'export PATH="%s/bin:%s/bin:$PATH"\n' "${FLEX_HOME}" "${PYTHON2_PREFIX}" \
+        > /etc/profile.d/10-wot-toolchain.sh
+
+# `zwm` — the single dev entrypoint (zwm build | lint | cycle | deploy | cleanup | help).
+# Repo is mounted at /workspace in every flow (WORKDIR, CI, dev container).
+RUN printf '#!/bin/sh\nexport PYTHONPATH="/workspace${PYTHONPATH:+:$PYTHONPATH}"\nexec python3 -m tools.cli "$@"\n' \
+        > /usr/local/bin/zwm \
+    && chmod +x /usr/local/bin/zwm
+
 # Lint/format toolchains baked in so one image serves build + lint (CI and local parity).
 # Python 3: ruff/black/autopep8. Python 2.7: flake8 3.9.x (needs pip<21 / setuptools<45).
 COPY requirements-dev.txt requirements-lint-py27.txt /tmp/

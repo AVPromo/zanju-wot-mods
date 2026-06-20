@@ -96,7 +96,7 @@ def iter_release_mods():
 
         if not os.path.isfile(zip_path):
             raise RuntimeError(
-                "Expected built release zip for {} at {}. Run wot_mods_build before generating release notes.".format(
+                "Expected built release zip for {} at {}. Run zwm build before generating release notes.".format(
                     mod_name,
                     zip_path,
                 )

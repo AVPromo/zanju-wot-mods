@@ -27,8 +27,8 @@ Generated output path:
 
 ## Packaging Notes
 
-- The live in-game garage widget still loads `res/gui/flash/research-progress-bar-lobby.swf` inside the final `.wotmod`; `wot_mods_build` stages the generated SWF into that archive path during packaging.
-- `wot_mods_build research-progress-bar` and `wot_mods_cycle research-progress-bar` invoke `ui/compile_ui.py` automatically before packaging, so manual UI builds are mainly useful for faster SWF-only iteration.
+- The live in-game garage widget still loads `res/gui/flash/research-progress-bar-lobby.swf` inside the final `.wotmod`; `zwm build` stages the generated SWF into that archive path during packaging.
+- `zwm build research-progress-bar` and `zwm cycle research-progress-bar` invoke `ui/compile_ui.py` automatically before packaging, so manual UI builds are mainly useful for faster SWF-only iteration.
 - Files under `ui/build/` are generated artifacts and should not be committed.
 - The local compile path builds a tiny external WoT API mirror SWC for `AbstractView` so `mxmlc` can compile without bundled WG source/SWCs.
 

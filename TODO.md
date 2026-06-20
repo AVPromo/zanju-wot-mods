@@ -4,7 +4,7 @@ Follow-up backlog after the initial Python format-and-lint tooling rollout.
 
 ## Format-And-Lint Follow-Up
 
-- Rerun `wot_mods_lint check` after the `research-progress-bar` cleanup and reassess whether `max-complexity = 25` should stay as-is or be tightened further.
+- Rerun `zwm lint check` after the `research-progress-bar` cleanup and reassess whether `max-complexity = 25` should stay as-is or be tightened further.
 
 ## General Refactor Backlog
 

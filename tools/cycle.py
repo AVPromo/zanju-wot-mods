@@ -4,12 +4,12 @@ Development/test quick cycle helper for WoT mods.
 Runs cleanup + build + deploy in one command.
 
 Usage:
-    wot_mods_cycle --all
-    wot_mods_cycle research-progress-bar
-    wot_mods_cycle mod-a mod-b
-    wot_mods_cycle --dry-run
-    wot_mods_cycle --fresh-log
-    wot_mods_cycle --verbose research-progress-bar
+    zwm cycle --all
+    zwm cycle research-progress-bar
+    zwm cycle mod-a mod-b
+    zwm cycle --dry-run
+    zwm cycle --fresh-log
+    zwm cycle --verbose research-progress-bar
     python -m tools.cycle research-progress-bar
 
 Behavior:

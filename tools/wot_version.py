@@ -89,7 +89,7 @@ def resolve_target_wot_version(env, require_game_dir):
     if installed_version != expected_version:
         raise WotVersionError(
             "WoT version mismatch: manifest={}, installed={}. "
-            "Run wot_mods_update_wot_version_manifest to refresh the manifest pins.".format(
+            "Run zwm update-wot-version-manifest to refresh the manifest pins.".format(
                 expected_version,
                 installed_version,
             )

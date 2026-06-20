@@ -8,15 +8,15 @@ What it does:
 4. Deploys config files and optional i18n files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
 
 Usage:
-    wot_mods_deploy --all
-    wot_mods_deploy research-progress-bar
-    wot_mods_deploy mod-a mod-b
-    wot_mods_deploy --no-companion-bundle research-progress-bar
-    wot_mods_deploy --verbose research-progress-bar
+    zwm deploy --all
+    zwm deploy research-progress-bar
+    zwm deploy mod-a mod-b
+    zwm deploy --no-companion-bundle research-progress-bar
+    zwm deploy --verbose research-progress-bar
     python -m tools.deploy research-progress-bar
 
 Note:
-    Deployment copies pre-built artifacts from dist/ — run wot_mods_build first.
+    Deployment copies pre-built artifacts from dist/ — run zwm build first.
     Close WoT before deploying (no automatic running-process check; in-use files are skipped).
 """
 

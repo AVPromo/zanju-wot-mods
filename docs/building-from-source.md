@@ -13,36 +13,34 @@ thing you need to install is Docker**.
 No local Python 2.7/3, Java, or Flex SDK is required.
 
 The published image is `ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain` (public). It
-carries Python 3 (ruff/black/autopep8 + the `wot_mods_*` commands), Python 2.7
-(flake8 3.9.x), and the Apache Flex SDK (`mxmlc`). CI builds and publishes it;
-locally you just pull it.
+carries Python 3 (ruff/black/autopep8), Python 2.7 (flake8 3.9.x), the Apache Flex
+SDK (`mxmlc`), and the `zwm` command. CI builds and publishes it; locally you just pull it.
 
 ## Dev Container (recommended)
 
 Open the repo in VS Code → **Reopen in Container**. You stay in VS Code; the
-integrated terminal, interpreter, and `wot_mods_*` commands all run inside the
-image. See [Developing Mods](developing-mods.md) for the full loop.
+integrated terminal, interpreter, and the `zwm` command run inside the image.
+See [Developing Mods](developing-mods.md) for the full loop.
 
 ## Standalone `docker run` (no VS Code)
 
-Run any repo command in the image with the repo bind-mounted. PowerShell:
+`zwm` is baked into the image. Run any command with the repo bind-mounted. PowerShell:
 
 ```powershell
 # Build one mod (output lands in dist/ on your checkout)
 docker run --rm -v "${PWD}:/workspace" -w /workspace `
-  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.build research-progress-bar
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain zwm build research-progress-bar
 
 # Build everything
 docker run --rm -v "${PWD}:/workspace" -w /workspace `
-  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.build --all
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain zwm build --all
 
 # Lint (Python 3 + Python 2.7)
 docker run --rm -v "${PWD}:/workspace" -w /workspace `
-  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.lint
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain zwm lint
 ```
 
-The `wot_mods_*` console scripts are equivalent to `python3 -m tools.<command>`;
-the module form needs no install and is what these examples use.
+`zwm <command>` is the alias for `python3 -m tools.<module>`; either works.
 
 For `research-progress-bar`, the default build includes the standalone configurator
 companion chain when the manifest defines it. Fetch the pinned companion artifacts first:
@@ -50,7 +48,7 @@ companion chain when the manifest defines it. Fetch the pinned companion artifac
 ```powershell
 docker run --rm -v "${PWD}:/workspace" -w /workspace `
   ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain `
-  bash -c 'python3 -m tools.fetch_companion_artifacts && python3 -m tools.build research-progress-bar'
+  bash -c 'zwm fetch-companion-artifacts && zwm build research-progress-bar'
 ```
 
 To build only the main package without the companion `.wotmod` files, add `--no-companion-bundle`.
@@ -60,7 +58,7 @@ companion `.wotmod` files are cached under the ignored `.cache/companion-wotmods
 
 The pinned WoT target version lives at `tools/wot_version_manifest.json`. If your local game
 updates, refresh it before build/deploy (run inside the image as above):
-`python3 -m tools.update_wot_version_manifest`.
+`zwm update-wot-version-manifest`.
 
 ## CI Stable Build
 
@@ -85,14 +83,14 @@ Each built mod bundle includes:
 
 ## Deploy To A Local WoT Install
 
-`wot_mods_deploy` copies pre-built artifacts from `dist/`, so build first. Deploy needs your
+`zwm deploy` copies pre-built artifacts from `dist/`, so build first. Deploy needs your
 WoT install mounted at `/game`; the Dev Container does this from `WOT_GAME_DIR` in `.env`
 (see [Developing Mods](developing-mods.md)). Standalone:
 
 ```powershell
 docker run --rm -v "${PWD}:/workspace" -v "C:\Games\World_of_Tanks_EU:/game" `
   -e WOT_GAME_DIR=/game -w /workspace `
-  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain python3 -m tools.deploy research-progress-bar
+  ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain zwm deploy research-progress-bar
 ```
 
 **Close WoT before deploy/cleanup/cycle.** There is no automatic running-process check

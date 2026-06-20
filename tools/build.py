@@ -2,11 +2,11 @@
 Package mods under mods/<name>/ into .wotmod archives.
 
 Usage:
-    wot_mods_build --all                  # build all mods under mods/
-    wot_mods_build research-progress-bar  # build one specific mod
-    wot_mods_build mod-a mod-b            # build selected mods
-    wot_mods_build --no-companion-bundle research-progress-bar
-    wot_mods_build --verbose research-progress-bar
+    zwm build --all                  # build all mods under mods/
+    zwm build research-progress-bar  # build one specific mod
+    zwm build mod-a mod-b            # build selected mods
+    zwm build --no-companion-bundle research-progress-bar
+    zwm build --verbose research-progress-bar
     python -m tools.build research-progress-bar
 
 Output: dist/<mod-id>_<version>/mods/<target_wot_version>/<mod-id>_<version>.wotmod

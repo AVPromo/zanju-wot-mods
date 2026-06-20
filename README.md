@@ -32,10 +32,10 @@ Use this path if you want to build `.wotmod` packages yourself without changing 
 Use this path if you want to change code, add features, or create new mods in this workspace.
 
 - Prerequisites: **Docker Desktop** + the VS Code **Dev Containers** extension; a local WoT install; `.env` copied from `.env.example` with `WOT_GAME_DIR` set
-- Open the repo in VS Code → **Reopen in Container**; the `wot_mods_*` commands are ready in the container terminal
+- Open the repo in VS Code → **Reopen in Container**; the `zwm` command is ready in the container terminal
 - FFDec (SWF inspection) is a separate optional tool for reverse-engineering work
-- Run `wot_mods_help` for an environment check plus the current custom-command list
-- Run `wot_mods_lint check` before build or deploy
+- Run `zwm help` to list the available commands
+- Run `zwm lint check` before build or deploy
 
 - [Developing Mods](docs/developing-mods.md)
 - [Architecture](docs/architecture.md)

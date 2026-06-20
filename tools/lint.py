@@ -266,11 +266,11 @@ def run_py27_format(check, verbose=False):
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
-        prog="wot_mods_lint",
+        prog="zwm lint",
         description="Run the repository Python format and lint workflow.",
         epilog=(
             "Defaults:\n"
-            "  wot_mods_lint                  Run the default 'check' workflow.\n"
+            "  zwm lint                  Run the default 'check' workflow.\n"
             "\n"
             "Commands:\n"
             "  check                         Python 3 format-check + lint, then Python 2.7 lint + format-check.\n"
@@ -284,10 +284,10 @@ def parse_args(argv):
             "  py27-format-check            Alias for: py27-format --check\n"
             "\n"
             "Examples:\n"
-            "  wot_mods_lint\n"
-            "  wot_mods_lint --verbose\n"
-            "  wot_mods_lint fix --py3-only\n"
-            "  wot_mods_lint py3-format --check"
+            "  zwm lint\n"
+            "  zwm lint --verbose\n"
+            "  zwm lint fix --py3-only\n"
+            "  zwm lint py3-format --check"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -358,7 +358,7 @@ def validate_args(args):
     if args.check and args.command not in ("py3-format", "py27-format"):
         if args.command == "check":
             raise RuntimeError(
-                "The default command already runs checks. Use 'wot_mods_lint', 'py3-format --check', "
+                "The default command already runs checks. Use 'zwm lint', 'py3-format --check', "
                 "or 'py27-format --check'."
             )
         raise RuntimeError("--check is only valid with py3-format or py27-format.")
@@ -388,7 +388,7 @@ def run_fix(args):
         run_py27_lint(resolve_py27_python(args.py27_python), verbose=args.verbose)
         warning(
             "Note: Python 2.7 autoformatting stays explicit for now. "
-            'Use "wot_mods_lint py27-format-check" or "python -m tools.lint py27-format-check" '
+            'Use "zwm lint py27-format-check" or "python -m tools.lint py27-format-check" '
             "to review that diff first."
         )
 
