@@ -1,0 +1,9 @@
+# Keep the image build context small. The Dockerfile only needs the two
+# requirements files; everything else is bind-mounted at runtime.
+.venv
+dist
+.git
+.cache
+.tmp
+**/__pycache__
+mods/*/ui/build
