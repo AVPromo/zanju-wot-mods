@@ -8,6 +8,9 @@
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
   "remoteUser": "vscode",
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
   "mounts": [
     "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
   ],
