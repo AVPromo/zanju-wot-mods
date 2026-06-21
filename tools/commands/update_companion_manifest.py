@@ -8,7 +8,7 @@ import sys
 import tempfile
 from urllib.parse import quote
 
-from .companion_artifacts import (
+from ..core.companion_artifacts import (
     COMPANION_ARTIFACT_SCHEMA_VERSION,
     RESEARCH_PROGRESS_BAR_BUNDLE,
     CompanionArtifactError,
@@ -19,7 +19,7 @@ from .companion_artifacts import (
     save_manifest,
     utc_now_iso,
 )
-from .console import detail, section, success
+from ..core.console import detail, section, success
 
 _GITHUB_MODSSETTINGSAPI_RELEASE_URL = "https://api.github.com/repos/izeberg/modssettingsapi/releases/latest"
 _GITLAB_MODS_LIST_RELEASE_URL = (

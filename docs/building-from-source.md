@@ -40,7 +40,7 @@ docker run --rm -v "${PWD}:/workspace" -w /workspace `
   ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain zwm lint
 ```
 
-`zwm <command>` is the alias for `python3 -m tools.<module>`; either works.
+`zwm <command>` is the alias for `python3 -m tools.commands.<module>`; either works.
 
 For `research-progress-bar`, the default build includes the standalone configurator
 companion chain when the manifest defines it. Fetch the pinned companion artifacts first:

@@ -2,14 +2,14 @@
 
     zwm <command> [args...]
 
-Each command maps to a `tools.<module>` whose `main()` reads `sys.argv`; this is
-the human-facing alias for `python3 -m tools.<module>`. Run `zwm help` for the list.
+Each command maps to a `tools.commands.<module>` whose `main()` reads `sys.argv`; this is
+the human-facing alias for `python3 -m tools.commands.<module>`. Run `zwm help` for the list.
 """
 
 import importlib
 import sys
 
-# subcommand -> tools submodule that exposes main()
+# subcommand -> tools.commands submodule that exposes main()
 _COMMANDS = {
     "build": "build",
     "lint": "lint",
@@ -44,7 +44,7 @@ def main(argv=None):
         _print_help()
         return 2
 
-    module = importlib.import_module("tools.{}".format(module_name))
+    module = importlib.import_module("tools.commands.{}".format(module_name))
     # The target main() reads sys.argv[1:]; drop the `zwm <command>` prefix for it.
     sys.argv = ["zwm {}".format(command), *argv[1:]]
     return module.main()

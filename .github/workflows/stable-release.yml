@@ -98,7 +98,7 @@ jobs:
           -v "${GITHUB_WORKSPACE}:/workspace" \
           -w /workspace \
           "${{ steps.img.outputs.ref }}" \
-          bash -c 'python3 -m tools.fetch_companion_artifacts && python3 -m tools.build --all'
+          bash -c 'python3 -m tools.commands.fetch_companion_artifacts && python3 -m tools.commands.build --all'
 
     - name: Generate stable release notes
       run: python .github/scripts/generate_stable_release_notes.py --output .tmp/stable-release-notes.md

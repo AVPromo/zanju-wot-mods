@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 
-from .console import detail, section, success
-from .env import load_env
-from .wot_version import (
+from ..core.console import detail, section, success
+from ..core.env import load_env
+from ..core.wot_version import (
     WotVersionError,
     load_wot_version_manifest,
     parse_version_xml,

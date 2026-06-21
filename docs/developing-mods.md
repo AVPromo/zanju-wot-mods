@@ -36,7 +36,7 @@ zwm cleanup research-progress-bar
 zwm help                           # list commands
 ```
 
-`zwm <command>` is the human alias for `python3 -m tools.<module>` (which also works).
+`zwm <command>` is the human alias for `python3 -m tools.commands.<module>` (which also works).
 
 Without VS Code, run any command via plain `docker run` — see the standalone
 reference in [Building From Source](building-from-source.md#standalone-docker-run-no-vs-code).

@@ -7,9 +7,9 @@ import os
 import subprocess
 import sys
 
-from .console import detail, section, success, warning
-from .env import load_env
-from .paths import REPO_ROOT
+from ..core.console import detail, section, success, warning
+from ..core.env import load_env
+from ..core.paths import REPO_ROOT
 
 try:
     from shutil import which as find_executable
@@ -388,7 +388,7 @@ def run_fix(args):
         run_py27_lint(resolve_py27_python(args.py27_python), verbose=args.verbose)
         warning(
             "Note: Python 2.7 autoformatting stays explicit for now. "
-            'Use "zwm lint py27-format-check" or "python -m tools.lint py27-format-check" '
+            'Use "zwm lint py27-format-check" or "python -m tools.commands.lint py27-format-check" '
             "to review that diff first."
         )
 

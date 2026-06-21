@@ -14,7 +14,7 @@ Usage:
     zwm cleanup research-progress-bar
     zwm cleanup mod-a mod-b
     zwm cleanup --verbose research-progress-bar
-    python -m tools.cleanup research-progress-bar
+    python -m tools.commands.cleanup research-progress-bar
 
 Note:
     Close WoT before cleanup (no automatic running-process check; in-use files are skipped).
@@ -26,43 +26,22 @@ import os
 import shutil
 import sys
 
-from .console import detail, section, success, warning
-from .env import load_env
-from .mod_meta import read_meta
-from .paths import MODS_DIR
-from .wot_version import resolve_target_wot_version
-
-
-def discover_mods():
-    if not os.path.isdir(MODS_DIR):
-        return []
-    return sorted(d for d in os.listdir(MODS_DIR) if os.path.isdir(os.path.join(MODS_DIR, d)))
+from ..core.console import detail, section, success, warning
+from ..core.env import load_env
+from ..core.mod_meta import read_meta
+from ..core.modcli import (
+    ensure_mod_dirs_exist,
+    require_game_dir,
+    resolve_mod_targets,
+    run_entrypoint,
+    split_targeting_args,
+)
+from ..core.wot_version import resolve_target_wot_version
 
 
 def parse_args(argv):
-    dry_run = False
-    run_all = False
-    verbose = False
-    targets = []
-    for arg in argv:
-        if arg == "--dry-run":
-            dry_run = True
-        elif arg == "--all":
-            run_all = True
-        elif arg == "--verbose":
-            verbose = True
-        else:
-            targets.append(arg)
-    return dry_run, run_all, verbose, targets
-
-
-def _print_targeting_help(available_mods):
-    warning("No mod targets provided")
-    success("Use --all to clean all mods, or pass one or more mod names")
-    if available_mods:
-        success("Available mods: {}".format(", ".join(available_mods)))
-    else:
-        warning("No mods found under mods/")
+    flags, targets = split_targeting_args(argv, {"--dry-run": "dry_run", "--all": "run_all", "--verbose": "verbose"})
+    return flags["dry_run"], flags["run_all"], flags["verbose"], targets
 
 
 def remove_path(path, dry_run, verbose=False):
@@ -125,35 +104,15 @@ def cleanup_mod(game_dir, mod_name, dry_run, target_wot_version, verbose=False):
 
 def _main():
     dry_run, run_all, verbose, requested_mods = parse_args(sys.argv[1:])
-    if run_all and requested_mods:
-        raise RuntimeError("Use either --all or explicit mod names, not both")
-
-    available_mods = discover_mods()
-    if run_all:
-        mod_names = available_mods
-    elif requested_mods:
-        mod_names = requested_mods
-    else:
-        _print_targeting_help(available_mods)
-        return
-
-    if not mod_names:
-        warning("No mods found under mods/")
+    mod_names = resolve_mod_targets(run_all, requested_mods, "clean")
+    if mod_names is None:
         return
 
     env = load_env()
-    game_dir = env.get("WOT_GAME_DIR", "")
-
-    if not game_dir:
-        raise RuntimeError("WOT_GAME_DIR is not set. Create .env from .env.example and set it.")
-    if not os.path.isdir(game_dir):
-        raise RuntimeError("WOT_GAME_DIR does not exist: {}".format(game_dir))
+    game_dir = require_game_dir(env)
     target_wot_version = resolve_target_wot_version(env, require_game_dir=True)
 
-    for mod_name in mod_names:
-        mod_dir = os.path.join(MODS_DIR, mod_name)
-        if not os.path.isdir(mod_dir):
-            raise RuntimeError("Mod directory not found: {}".format(mod_dir))
+    ensure_mod_dirs_exist(mod_names)
 
     section("Cleanup")
     success("Target WoT mods version: {}".format(target_wot_version))
@@ -168,10 +127,7 @@ def _main():
 
 
 def main():
-    try:
-        return _main()
-    except RuntimeError as exc:
-        raise SystemExit(str(exc)) from None
+    return run_entrypoint(_main)
 
 
 if __name__ == "__main__":

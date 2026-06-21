@@ -116,6 +116,22 @@ def manifest_defines_bundle(bundle_name, manifest=None):
     return isinstance(bundles.get(bundle_name), dict)
 
 
+def should_include_companion_bundle(bundle_name, override):
+    """Decide whether to include a companion bundle: explicit override wins,
+    otherwise fall back to whether the manifest defines one for this mod."""
+    if override is not None:
+        return override
+    return manifest_defines_bundle(bundle_name)
+
+
+def resolve_bundle_artifacts_if_defined(bundle_name, manifest=None):
+    """Resolve cached bundle artifacts for a mod, or [] when no bundle is defined."""
+    manifest = manifest or load_manifest()
+    if bundle_name not in (manifest.get("bundles") or {}):
+        return []
+    return resolve_cached_bundle_artifacts(bundle_name, manifest=manifest)
+
+
 def get_artifact_record(manifest, artifact_id):
     artifacts = manifest.get("artifacts") or {}
     artifact = artifacts.get(artifact_id)

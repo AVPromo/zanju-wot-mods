@@ -12,7 +12,7 @@ requires-python = ">=3.9"
 # image (tools/Dockerfile -> /usr/local/bin/zwm -> python3 -m tools.cli).
 
 [tool.setuptools]
-packages = ["tools"]
+packages = ["tools", "tools.core", "tools.commands"]
 
 [tool.black]
 line-length = 120
@@ -43,7 +43,7 @@ select = ["E", "F", "W", "I", "B", "SIM", "C4", "RUF"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tools/lint.py" = ["B904"]
+"tools/commands/lint.py" = ["B904"]
 
 [tool.autopep8]
 max_line_length = 120

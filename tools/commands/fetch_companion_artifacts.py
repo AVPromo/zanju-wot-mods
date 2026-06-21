@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import sys
 
-from .companion_artifacts import CompanionArtifactError, fetch_manifest_artifacts, load_manifest
-from .console import detail, section, success
+from ..core.companion_artifacts import CompanionArtifactError, fetch_manifest_artifacts, load_manifest
+from ..core.console import detail, section, success
 
 
 def parse_args(argv):
