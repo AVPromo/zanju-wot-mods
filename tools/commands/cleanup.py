@@ -28,14 +28,14 @@ import sys
 
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
-from ..core.mod_meta import read_meta
-from ..core.modcli import (
+from ..core.mod_cli import (
     ensure_mod_dirs_exist,
     require_game_dir,
     resolve_mod_targets,
     run_entrypoint,
     split_targeting_args,
 )
+from ..core.mod_meta import read_meta
 from ..core.wot_version import resolve_target_wot_version
 
 

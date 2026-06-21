@@ -30,14 +30,14 @@ from ..core.companion_artifacts import resolve_bundle_artifacts_if_defined, shou
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
 from ..core.mod_assets import stage_config_source, stage_i18n_source
-from ..core.mod_meta import read_meta
-from ..core.modcli import (
+from ..core.mod_cli import (
     ensure_mod_dirs_exist,
     parse_companion_targeting_args,
     require_game_dir,
     resolve_mod_targets,
     run_entrypoint,
 )
+from ..core.mod_meta import read_meta
 from ..core.paths import DIST_DIR, MODS_DIR
 from ..core.wot_version import resolve_target_wot_version
 

@@ -30,7 +30,7 @@ import sys
 
 from ..core.console import detail, section, success
 from ..core.env import load_env
-from ..core.modcli import resolve_mod_targets, run_entrypoint, split_targeting_args
+from ..core.mod_cli import resolve_mod_targets, run_entrypoint, split_targeting_args
 
 
 def fresh_log(dry_run):

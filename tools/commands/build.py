@@ -55,8 +55,8 @@ from ..core.mod_assets import (
     stage_config_source,
     stage_i18n_source,
 )
+from ..core.mod_cli import parse_companion_targeting_args, resolve_mod_targets, run_entrypoint
 from ..core.mod_meta import read_meta
-from ..core.modcli import parse_companion_targeting_args, resolve_mod_targets, run_entrypoint
 from ..core.paths import DIST_DIR, LICENSE_PATH, MODS_DIR
 from ..core.wot_version import resolve_target_wot_version
 
