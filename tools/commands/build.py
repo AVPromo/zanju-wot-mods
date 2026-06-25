@@ -28,11 +28,10 @@ Additional release output:
     dist/<mod-id>_<version>/mods/<target_wot_version>/<mod-id>_<version>.wotmod
     dist/<mod-id>_<version>/mods/configs/<mod-folder-name>/...
 
-Config files are NOT bundled.
-Ship them separately to: <WoT install>/mods/configs/<mod-folder-name>/
+Config files are not shipped: each mod self-creates its config in AppData on first
+run, so settings survive modpack reinstalls.
 
-Optional authored source layout:
-    mods/<name>/config.template.json       →  mods/configs/<mod-folder-name>/config.json
+Authored source layout:
     mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml
                                             and mods/configs/<mod-folder-name>/i18n/*.yml
 """
@@ -51,8 +50,6 @@ from ..core.env import load_env
 from ..core.mod_assets import (
     copy_tree_contents,
     directory_has_entries,
-    resolve_config_source,
-    stage_config_source,
     stage_i18n_source,
 )
 from ..core.mod_cli import parse_companion_targeting_args, resolve_mod_targets, run_entrypoint
@@ -142,7 +139,6 @@ def create_release_bundle(mod_dir, mod_name, target_wot_version, output_path, in
         companion_artifacts = stage_companion_bundle(package_dir, mod_name)
 
     bundle_config_dir = os.path.join(bundle_root, "mods", "configs", mod_name)
-    stage_config_source(mod_dir, bundle_config_dir)
     stage_i18n_source(mod_dir, os.path.join(bundle_config_dir, "i18n"))
 
     write_release_zip(bundle_root, bundle_name)
@@ -286,13 +282,6 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
         success("Companion artifacts staged: {}".format(len(companion_artifacts)))
         for item in companion_artifacts:
             detail("Companion: {}".format(item["artifact"]["filename"]), verbose=verbose)
-
-    config_source = resolve_config_source(mod_dir)
-    if config_source:
-        success("Config staged")
-        _, config_source_path = config_source
-        detail("Source: {}".format(config_source_path), verbose=verbose)
-        detail("Deploy to: <WoT install>/mods/configs/{}/".format(mod_name), verbose=verbose)
 
 
 def _main():

@@ -8,10 +8,11 @@ import os
 from collections import OrderedDict
 from numbers import Integral
 
-from .constants import MOD_CONFIG_DIR_NAME, MOD_NAME
+from .constants import MOD_NAME
 from .localization import get_text as _loc
 from .localization import make_tooltip as _loc_tooltip
 from .localization import set_language_override as _set_language_override
+from .storage import atomic_write_text, resolve_mod_data_dir
 
 _logger = logging.getLogger('zanju.researchprogressbar')
 
@@ -63,6 +64,28 @@ _CONFIG_SAVE_KEY_ORDER = (
     '_scaleformPrototypeEnabled_comment',
     'scaleformPrototypeEnabled',
 )
+
+# Explanatory keys seeded into the self-created config so the AppData file stays readable for
+# anyone who opens it by hand. Only the comment keys present in _CONFIG_SAVE_KEY_ORDER are used.
+_CONFIG_COMMENTS = {
+    '_comment': (
+        'Auto-generated config for zanju.researchprogressbar. Stored in AppData so it survives '
+        'modpack reinstalls; edited in-game via the mod settings menu and recreated with '
+        'defaults if deleted.'
+    ),
+    '_language_comment': (
+        'auto | <language-code>; runtime loads mods/configs/research-progress-bar/i18n/<code>.yml '
+        'with English fallback'
+    ),
+    '_researchMode_comment': 'hypothetical_t11 | real_only | off',
+    '_upgradesMode_comment': 'on | off',
+    '_fieldModsMode_comment': 'always | until_complete | off',
+    '_eliteMode_comment': 'on | customization_only | off',
+    '_scaleformPrototypeEnabled_comment': (
+        'Custom SWF garage bar path. Legacy key name kept for compatibility; keep enabled for the '
+        'active AbstractView-based garage widget.'
+    ),
+}
 
 _FIELD_MODS_MODE_ALWAYS = 'always'
 _FIELD_MODS_MODE_UNTIL_COMPLETE = 'until_complete'
@@ -124,19 +147,33 @@ _mods_settings_sync_in_progress = False
 
 
 def _get_config_path():
-    return os.path.join('mods', 'configs', MOD_CONFIG_DIR_NAME, 'config.json')
+    base_dir = resolve_mod_data_dir()
+    if not base_dir:
+        return None
+    return os.path.join(base_dir, 'config.json')
 
 
 def _load_config():
+    path = _get_config_path()
+    if path is None:
+        _logger.warning('Config disabled: could not resolve AppData path; using defaults')
+        _normalize_display_config()
+        return
+
+    if not os.path.isfile(path):
+        # First run (or the file was deleted/wiped by a modpack reinstall): materialise the
+        # defaults so the config self-heals and the user has a file to hand-edit.
+        _normalize_display_config()
+        _save_config()
+        _logger.info('Config not found; created defaults at %s', path)
+        return
+
     try:
-        path = _get_config_path()
-        if os.path.isfile(path):
-            with io.open(path, 'r', encoding='utf-8') as fh:
-                loaded = json.load(fh)
-            if isinstance(loaded, dict):
-                _config.update(loaded)
-            _normalize_display_config()
-            _logger.info('Config loaded from %s', path)
+        with io.open(path, 'r', encoding='utf-8') as fh:
+            loaded = json.load(fh)
+        if isinstance(loaded, dict):
+            _config.update(loaded)
+        _logger.info('Config loaded from %s', path)
     except Exception:
         _logger.exception('Failed to load config, using defaults')
     _normalize_display_config()
@@ -287,6 +324,9 @@ def _build_mode_preferences():
 
 def _save_config():
     path = _get_config_path()
+    if path is None:
+        return
+
     data = {}
     try:
         if os.path.isfile(path):
@@ -301,39 +341,32 @@ def _save_config():
         )
         data = {}
 
-    try:
-        directory = os.path.dirname(path)
-        if directory and not os.path.isdir(directory):
-            os.makedirs(directory)
+    data['configVersion'] = data.get('configVersion', 1)
+    data.pop('showTechTree', None)
+    data.pop('showHypotheticalTier11InResearch', None)
+    data.pop('showUpgrades', None)
+    data.pop('showFieldMods', None)
+    data.pop('showFieldModsProgress', None)
+    data.pop('showEliteProgress', None)
+    for key in _CONFIG_PERSISTED_KEYS:
+        data[key] = _config.get(key)
+    for key, comment in _CONFIG_COMMENTS.items():
+        data.setdefault(key, comment)
 
-        data['configVersion'] = data.get('configVersion', 1)
-        data.pop('showTechTree', None)
-        data.pop('showHypotheticalTier11InResearch', None)
-        data.pop('showUpgrades', None)
-        data.pop('showFieldMods', None)
-        data.pop('showFieldModsProgress', None)
-        data.pop('showEliteProgress', None)
-        for key in _CONFIG_PERSISTED_KEYS:
-            data[key] = _config.get(key)
+    ordered_data = OrderedDict()
+    for key in _CONFIG_SAVE_KEY_ORDER:
+        if key in data:
+            ordered_data[key] = data[key]
+    for key, value in data.items():
+        if key not in ordered_data:
+            ordered_data[key] = value
 
-        ordered_data = OrderedDict()
-        for key in _CONFIG_SAVE_KEY_ORDER:
-            if key in data:
-                ordered_data[key] = data[key]
-        for key, value in data.items():
-            if key not in ordered_data:
-                ordered_data[key] = value
+    payload = json.dumps(ordered_data, indent=4, sort_keys=False)
+    if not payload.endswith('\n'):
+        payload += '\n'
 
-        payload = json.dumps(ordered_data, indent=4, sort_keys=False)
-        if not payload.endswith('\n'):
-            payload += '\n'
-
-        with io.open(path, 'w', encoding='utf-8') as fh:
-            fh.write(payload)
-
+    if atomic_write_text(path, payload, _logger):
         _logger.info('Config saved to %s', path)
-    except Exception:
-        _logger.exception('Failed to save config to %s', path)
 
 
 def _build_mod_settings_state():

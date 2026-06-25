@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.1.0 (xxx)
+
+- Settings now survive a modpack reinstall instead of being reset to defaults.
+
 ## 1.0.1 (17 June 2026)
 
 - The progress bar now lays out correctly at non-default interface scaling (e.g. x2) instead of stretching off both edges of the screen. [[#2](https://github.com/przemyslaw-zan/zanju-wot-mods/issues/2)]

@@ -5,7 +5,7 @@ What it does:
 1. Reads WOT_GAME_DIR from .env in repo root.
 2. Resolves the pinned WoT client version and verifies it matches <WOT_GAME_DIR>/version.xml.
 3. Deploys each .wotmod from dist/ to <WOT_GAME_DIR>/mods/<version>/.
-4. Deploys config files and optional i18n files to <WOT_GAME_DIR>/mods/configs/<mod-name>/.
+4. Deploys i18n files to <WOT_GAME_DIR>/mods/configs/<mod-name>/i18n/.
 
 Usage:
     zwm deploy --all
@@ -29,7 +29,7 @@ import sys
 from ..core.companion_artifacts import resolve_bundle_artifacts_if_defined, should_include_companion_bundle
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
-from ..core.mod_assets import stage_config_source, stage_i18n_source
+from ..core.mod_assets import stage_i18n_source
 from ..core.mod_cli import (
     ensure_mod_dirs_exist,
     parse_companion_targeting_args,
@@ -82,12 +82,11 @@ def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=
     mod_dir = os.path.join(MODS_DIR, mod_name)
     dst_config_dir = os.path.join(game_dir, "mods", "configs", mod_name)
 
-    config_source = stage_config_source(mod_dir, dst_config_dir)
     i18n_source = stage_i18n_source(mod_dir, os.path.join(dst_config_dir, "i18n"))
 
-    if config_source or i18n_source:
-        success("Config deployed")
-        detail("Path: {}".format(dst_config_dir), verbose=verbose)
+    if i18n_source:
+        success("i18n deployed")
+        detail("Path: {}".format(os.path.join(dst_config_dir, "i18n")), verbose=verbose)
 
 
 def _main():
