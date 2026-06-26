@@ -68,7 +68,7 @@ That command is the current default gate locally and in CI for:
 
 The Python 2.7 Flake8 gate also enforces a McCabe complexity limit so new changes do not keep pushing large runtime functions upward unchecked.
 
-CI runs the same `zwm lint` steps inside the toolchain image, so the Python 3 (Black/Ruff/autopep8) and Python 2.7 (Flake8 3.9.x against `mods/*/src`) surfaces use the exact interpreters you get locally — no environment drift. Every push to a non-`master` branch and every PR runs lint; on `master` the Stable Release workflow runs lint as a gate before building and publishing.
+CI runs the same `zwm lint` steps inside the toolchain image, so the Python 3 (Black/Ruff/autopep8) and Python 2.7 (Flake8 3.9.x against `mods/*/src`) surfaces use the exact interpreters you get locally — no environment drift. Every push to a non-`master` branch and every PR runs lint; on `master` the "Master Workflow" runs lint as a gate before building and publishing.
 
 Useful variants:
 

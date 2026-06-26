@@ -9,7 +9,8 @@
   },
   "remoteUser": "vscode",
   "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
+    "CLAUDE_CODE_EFFORT_LEVEL": "xhigh"
   },
   "mounts": [
     "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"

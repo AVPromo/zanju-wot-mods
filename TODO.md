@@ -12,7 +12,6 @@ Follow-up backlog after the initial Python format-and-lint tooling rollout.
 
 ## CI / Toolchain Backlog
 
-- Resolved: the toolchain image is published to GHCR (`ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain`, public) by `.github/workflows/toolchain-image.yml`, and the Stable Release workflow pulls it instead of running `docker build` per push. The image is rebuilt only when `tools/Dockerfile` or the `requirements-*.txt` change (release `detect` job), and the release pins the freshly built `:<sha>` in that case to avoid a stale-`:latest` race. The same image backs local dev (Dev Container) and all CI lint, so there is no toolchain drift. One image now serves build + lint (Python 3, Python 2.7, Flex).
 - Restore a "WoT is running" guard for deploy/cleanup/cycle. It was removed in the Docker migration because a Linux container can't enumerate Windows host processes (`tasklist`). Viable options: (a) a host **PowerShell** wrapper that runs the `tasklist` check before invoking the container (no install needed — PowerShell is built in); (b) a file-lock probe on a known WoT-held file; (c) a `--force`/`--skip-running-check` opt-out if a host check is reintroduced. Until then, deploy relies on file-lock `PermissionError` handling (in-use files are skipped) — close WoT manually.
 
 ## Release And Distribution Backlog
