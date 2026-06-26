@@ -1,9 +1,10 @@
 Changelog
 =========
 
-## 1.1.0 (xxx)
+## 1.1.0 (26 June 2026)
 
 - Settings now survive a modpack reinstall instead of being reset to defaults.
+- In-game settings now use Aslain's ModsSettings menu, with search, collapsible mods, and a reset-to-defaults button.
 
 ## 1.0.1 (17 June 2026)
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-05-25T18:34:32Z",
+  "updatedAt": "2026-06-26T00:00:00Z",
   "bundles": {
     "research-progress-bar": {
       "description": "Standalone configurator companion chain for Research Progress Bar.",
@@ -13,15 +13,15 @@
   },
   "artifacts": {
     "modssettingsapi": {
-      "displayName": "ModsSettings API",
+      "displayName": "Aslain's ModsSettings API",
       "provider": "github-release-api",
-      "project": "izeberg/modssettingsapi",
-      "releaseTag": "1.7.0",
-      "version": "1.7.0",
-      "filename": "izeberg.modssettingsapi_1.7.0.wotmod",
-      "downloadUrl": "https://github.com/izeberg/modssettingsapi/releases/download/1.7.0/izeberg.modssettingsapi_1.7.0.wotmod",
-      "sha256": "e09b415e28e9129c78d9697eeed42e81c10459ad6982a885f1e59322eb0c2dca",
-      "notes": "Direct in-game settings API used by research-progress-bar."
+      "project": "Aslain/modssettingsapi",
+      "releaseTag": "v1.3.3",
+      "version": "1.3.3",
+      "filename": "aslain.modssettingsapi_1.3.3.wotmod",
+      "downloadUrl": "https://github.com/Aslain/modssettingsapi/releases/download/v1.3.3/aslain.modssettingsapi_1.3.3.wotmod",
+      "sha256": "5b7c5682c3e8b7b445081179828e111ab466423d685f8babdee9da8ea0a03b10",
+      "notes": "Aslain's fork of izeberg's in-game settings API, used by research-progress-bar."
     },
     "modslistapi": {
       "displayName": "ModsList API",

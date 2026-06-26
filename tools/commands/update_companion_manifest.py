@@ -21,7 +21,7 @@ from ..core.companion_artifacts import (
 )
 from ..core.console import detail, section, success
 
-_GITHUB_MODSSETTINGSAPI_RELEASE_URL = "https://api.github.com/repos/izeberg/modssettingsapi/releases/latest"
+_GITHUB_MODSSETTINGSAPI_RELEASE_URL = "https://api.github.com/repos/Aslain/modssettingsapi/releases/latest"
 _GITLAB_MODS_LIST_RELEASE_URL = (
     "https://gitlab.com/api/v4/projects/wot-public-mods%2Fmods-list/releases/permalink/latest"
 )
@@ -128,24 +128,26 @@ def _resolve_modssettingsapi_artifact():
     asset = None
     for item in assets:
         name = item.get("name")
-        if isinstance(name, str) and name.endswith(".wotmod") and name.startswith("izeberg.modssettingsapi_"):
+        if isinstance(name, str) and name.endswith(".wotmod") and name.startswith("aslain.modssettingsapi_"):
             asset = item
             break
     if asset is None:
-        raise CompanionArtifactError("Could not resolve ModsSettingsApi .wotmod asset from the latest GitHub release")
+        raise CompanionArtifactError(
+            "Could not resolve aslain.modssettingsapi .wotmod asset from the latest GitHub release"
+        )
 
     filename = asset["name"]
-    version = _extract_version_from_filename(filename, "izeberg.modssettingsapi_")
+    version = _extract_version_from_filename(filename, "aslain.modssettingsapi_")
     return {
-        "displayName": "ModsSettings API",
+        "displayName": "Aslain's ModsSettings API",
         "provider": "github-release-api",
-        "project": "izeberg/modssettingsapi",
+        "project": "Aslain/modssettingsapi",
         "releaseTag": release_data.get("tag_name") or version,
         "version": version,
         "filename": filename,
         "downloadUrl": asset["browser_download_url"],
         "sha256": "0" * 64,
-        "notes": "Direct in-game settings API used by research-progress-bar.",
+        "notes": "Aslain's fork of izeberg's in-game settings API, used by research-progress-bar.",
     }
 
 

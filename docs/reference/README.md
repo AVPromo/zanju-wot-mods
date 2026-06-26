@@ -9,5 +9,6 @@ Use it when you need import paths, runtime locations, API entry points, or versi
 - [Python Runtime And Data Access](python-runtime-and-data-access.md)
 - [Research, XP, And Post-Progression](research-xp-and-post-progression.md)
 - [Events And Callbacks](events-and-callbacks.md)
+- [In-Game Settings (ModsSettings API)](in-game-settings.md)
 - [UI And Scaleform](ui-and-scaleform.md)
 - [Research Progress Bar UI](research-progress-bar-ui.md)

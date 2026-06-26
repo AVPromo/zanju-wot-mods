@@ -33,6 +33,11 @@ _config = {
     'scaleformPrototypeEnabled': True,
 }
 
+# Frozen copy of the factory defaults, captured before _load_config mutates _config in place.
+# The in-game settings template is built from these so the menu's per-mod Reset restores real
+# defaults rather than the values present when the template was first registered.
+_DEFAULT_CONFIG = dict(_config)
+
 _CONFIG_PERSISTED_KEYS = (
     'enabled',
     'language',
@@ -369,25 +374,26 @@ def _save_config():
         _logger.info('Config saved to %s', path)
 
 
-def _build_mod_settings_state():
+def _build_mod_settings_state(config=None):
+    config = _config if config is None else config
     research_mode = _normalize_research_mode(
-        _config.get('researchMode', _RESEARCH_MODE_HYPOTHETICAL_T11)
+        config.get('researchMode', _RESEARCH_MODE_HYPOTHETICAL_T11)
     )
-    upgrades_mode = _normalize_upgrades_mode(_config.get('upgradesMode', _UPGRADES_MODE_ON))
+    upgrades_mode = _normalize_upgrades_mode(config.get('upgradesMode', _UPGRADES_MODE_ON))
     return {
-        'enabled': bool(_config.get('enabled', True)),
-        'showResearchReminder': bool(_config.get('showResearchReminder', True)),
+        'enabled': bool(config.get('enabled', True)),
+        'showResearchReminder': bool(config.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
-            _config.get('showAcceleratedCrewTrainingReminder', True)
+            config.get('showAcceleratedCrewTrainingReminder', True)
         ),
         'showResearchMode': _RESEARCH_MODE_INDEX_BY_VALUE.get(research_mode, 0),
         'showUpgradesMode': _UPGRADES_MODE_INDEX_BY_VALUE.get(upgrades_mode, 0),
         'showFieldModsProgress': _FIELD_MODS_MODE_INDEX_BY_VALUE.get(
-            _normalize_field_mods_mode(_config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)),
+            _normalize_field_mods_mode(config.get('fieldModsMode', _FIELD_MODS_MODE_ALWAYS)),
             0,
         ),
         'showEliteProgress': _ELITE_MODE_INDEX_BY_VALUE.get(
-            _normalize_elite_mode(_config.get('eliteMode', _ELITE_MODE_ON)),
+            _normalize_elite_mode(config.get('eliteMode', _ELITE_MODE_ON)),
             0,
         ),
     }
@@ -420,7 +426,9 @@ def _mods_settings_native_key(value):
 
 
 def _build_mod_settings_template():
-    settings = _build_mod_settings_state()
+    # Build the template from factory defaults so the menu's per-mod Reset target is the real
+    # defaults; the user's saved values are pushed separately via updateModSettings.
+    settings = _build_mod_settings_state(_DEFAULT_CONFIG)
     return _mods_settings_native({
         'modDisplayName': MOD_NAME,
         'enabled': settings['enabled'],
@@ -527,7 +535,7 @@ def _build_mod_settings_template():
 
 def _get_mods_settings_api():
     try:
-        from gui.modsSettingsApi import g_modsSettingsApi
+        from gui.aslainMenu import g_modsSettingsApi
         return g_modsSettingsApi
     except Exception:
         return None
@@ -581,7 +589,7 @@ def _register_mod_settings(mod_id, on_config_changed=None):
 
     api = _get_mods_settings_api()
     if api is None:
-        _logger.info('ModsSettingsApi not found; in-game settings are unavailable')
+        _logger.info('Aslain ModsSettings menu (gui.aslainMenu) not found; in-game settings are unavailable')
         return False
 
     try:
