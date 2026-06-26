@@ -14,7 +14,8 @@ This repository prefers linking to third-party APIs instead of restating their d
 Use the upstream docs or source when an integration depends on them.
 
 - ModsList API: https://gitlab.com/wot-public-mods/mods-list/
-- ModsSettingsAPI: https://bitbucket.org/IzeBerg/modssettingsapi/
+- ModsSettings API (Aslain's fork — bundled by this repo): https://github.com/Aslain/modssettingsapi
+- ModsSettings API (izeberg original): https://bitbucket.org/IzeBerg/modssettingsapi/
 
 ## Policy And Release Gate
 

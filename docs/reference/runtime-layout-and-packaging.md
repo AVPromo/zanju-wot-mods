@@ -27,7 +27,7 @@ In this repository:
 - build and lint run inside the toolchain image (`tools/Dockerfile` → `ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain`); Docker is the only local prerequisite
 - authored Python sources live under `mods/<mod-name>/src/`
 - `zwm build` compiles them into the runtime package shape
-- authored `config.template.json` is staged into `mods/configs/<mod-name>/config.json`
+- config is not shipped: each mod self-creates its config in AppData on first run, so it survives modpack reinstalls
 - authored `i18n/*.yml` files are staged into both packaged text resources and deployable config folders
 - `ui/compile_ui.py` is auto-run by `zwm build` when present
 

@@ -24,7 +24,6 @@ mods/<mod-name>/
       __init__.py
       main.py
       ...
-  config.template.json
   i18n/
   ui/
 ```
@@ -54,7 +53,8 @@ Common WoT runtime locations are:
 
 - Build and lint run inside the toolchain image (`ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain`, built from `tools/Dockerfile`); Docker is the only local prerequisite. See [Building From Source](building-from-source.md).
 - `zwm build` compiles Python sources into WoT-ready output.
-- `zwm build` also stages authored config and localisation files into runtime-shaped release output.
+- `zwm build` also stages authored localisation files into runtime-shaped release output.
+- Mods do not ship a config file; each self-creates its config in AppData on first run, so settings survive modpack reinstalls.
 - Mods with UI sources can provide `ui/compile_ui.py`; `zwm build` runs it automatically before packaging.
 - Generated SWF output belongs in ignored build folders, not in source control.
 

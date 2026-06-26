@@ -5,7 +5,7 @@ import json
 import os
 from collections import OrderedDict
 
-from .constants import MOD_CONFIG_DIR_NAME
+from .storage import atomic_write_text, resolve_mod_data_dir
 
 try:
     _text_type = unicode
@@ -13,8 +13,7 @@ except NameError:
     _text_type = str
 
 _STATE_SCHEMA_VERSION = 1
-_STATE_ROOT_DIR_NAME = 'zanju_wot_mods_cache'
-_STATE_FILE_NAME = '{0}.json'.format(MOD_CONFIG_DIR_NAME.replace('-', '_'))
+_STATE_FILE_NAME = 'cache.json'
 _MODE_SELECTION_SECTION_KEY = 'modeSelection'
 _MODE_SELECTION_VEHICLES_KEY = 'vehicles'
 
@@ -113,14 +112,6 @@ class ModeSelectionState(object):
         if not self._dirty:
             return True
 
-        try:
-            directory = os.path.dirname(self._path)
-            if directory and not os.path.isdir(directory):
-                os.makedirs(directory)
-        except Exception:
-            logger.exception('Failed to prepare mode selection state directory for %s', self._path)
-            return False
-
         payload = OrderedDict()
         payload['schemaVersion'] = _STATE_SCHEMA_VERSION
         payload[_MODE_SELECTION_SECTION_KEY] = OrderedDict()
@@ -130,14 +121,10 @@ class ModeSelectionState(object):
                 self._vehicles[vehicle_key]
             )
 
-        try:
-            text = json.dumps(payload, indent=4, sort_keys=False)
-            if not text.endswith('\n'):
-                text += '\n'
-            with io.open(self._path, 'w', encoding='utf-8') as fh:
-                fh.write(text)
-        except Exception:
-            logger.exception('Failed to save mode selection state to %s', self._path)
+        text = json.dumps(payload, indent=4, sort_keys=False)
+        if not text.endswith('\n'):
+            text += '\n'
+        if not atomic_write_text(self._path, text, logger):
             return False
 
         self._dirty = False
@@ -146,24 +133,11 @@ class ModeSelectionState(object):
 
 
 def _resolve_state_path():
-    base_dir = _resolve_state_base_dir()
+    base_dir = resolve_mod_data_dir()
     if not base_dir:
         return None
 
-    return os.path.join(base_dir, _STATE_ROOT_DIR_NAME, _STATE_FILE_NAME)
-
-
-def _resolve_state_base_dir():
-    for env_name in ('APPDATA', 'LOCALAPPDATA'):
-        value = _normalize_path(os.environ.get(env_name))
-        if value:
-            return value
-
-    user_profile = _normalize_path(os.environ.get('USERPROFILE'))
-    if not user_profile:
-        return None
-
-    return os.path.join(user_profile, 'AppData', 'Roaming')
+    return os.path.join(base_dir, _STATE_FILE_NAME)
 
 
 def _normalize_vehicle_modes(value):
@@ -198,13 +172,6 @@ def _normalize_vehicle_key(value):
 
 def _normalize_mode_id(value):
     return _normalize_text(value)
-
-
-def _normalize_path(value):
-    text = _normalize_text(value)
-    if text is None:
-        return None
-    return os.path.normpath(text)
 
 
 def _normalize_text(value):
