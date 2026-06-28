@@ -49,8 +49,8 @@ Use this method if you want to look inside the zip before copying anything into 
 ## Removing A Mod
 
 1. Close the game.
-2. Delete the mod's `.wotmod` file from `mods/<current-version>/`.
-3. Delete the matching config directory from `mods/configs/` if you want a full cleanup.
+2. Delete the mod's `.wotmod` file from `mods/<current-version>/`. Translations live inside that package, so removing it also removes them.
+3. The mod's settings are stored in your WoT AppData folder; delete that folder too for a full cleanup.
 
 ## Included Public Mods
 

@@ -65,8 +65,8 @@ ELITE_REWARD_VOLUMETRIC_STYLE: "Styl wolumetryczny"
 ELITE_REWARD_GUN_SLEEVE: "Osłona działa"
 
 # Upgrade labels
-UPGRADE_MINOR: "Drobne ulepszenie"
-UPGRADE_MAJOR: "Główne ulepszenie"
+UPGRADE_MINOR: "Mniejsze ulepszenie"
+UPGRADE_MAJOR: "Większe ulepszenie"
 UPGRADE_FINAL: "Końcowe ulepszenie"
 UPGRADE_ALL_OTHER_NODES: "Wszystkie pozostałe węzły"
 HYPOTHETICAL_T11_VEHICLE_NAME: "Hipotetyczny pojazd XI poziomu"

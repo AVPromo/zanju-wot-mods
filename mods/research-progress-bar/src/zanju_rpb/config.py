@@ -11,7 +11,6 @@ from numbers import Integral
 from .constants import MOD_NAME
 from .localization import get_text as _loc
 from .localization import make_tooltip as _loc_tooltip
-from .localization import set_language_override as _set_language_override
 from .storage import atomic_write_text, resolve_mod_data_dir
 
 _logger = logging.getLogger('zanju.researchprogressbar')
@@ -23,7 +22,6 @@ except NameError:
 
 _config = {
     'enabled': True,
-    'language': 'auto',
     'showResearchReminder': True,
     'showAcceleratedCrewTrainingReminder': True,
     'researchMode': 'hypothetical_t11',
@@ -40,7 +38,6 @@ _DEFAULT_CONFIG = dict(_config)
 
 _CONFIG_PERSISTED_KEYS = (
     'enabled',
-    'language',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     'researchMode',
@@ -54,8 +51,6 @@ _CONFIG_SAVE_KEY_ORDER = (
     '_comment',
     'configVersion',
     'enabled',
-    '_language_comment',
-    'language',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     '_researchMode_comment',
@@ -77,10 +72,6 @@ _CONFIG_COMMENTS = {
         'Auto-generated config for zanju.researchprogressbar. Stored in AppData so it survives '
         'modpack reinstalls; edited in-game via the mod settings menu and recreated with '
         'defaults if deleted.'
-    ),
-    '_language_comment': (
-        'auto | <language-code>; runtime loads mods/configs/research-progress-bar/i18n/<code>.yml '
-        'with English fallback'
     ),
     '_researchMode_comment': 'hypothetical_t11 | real_only | off',
     '_upgradesMode_comment': 'on | off',
@@ -276,13 +267,6 @@ def _normalize_display_config():
     legacy_show_research = bool(_config.get('showTechTree', True))
     legacy_show_hypothetical_t11 = bool(_config.get('showHypotheticalTier11InResearch', True))
     legacy_show_upgrades = bool(_config.get('showUpgrades', True))
-    language = _config.get('language', 'auto')
-    if not isinstance(language, _STRING_TYPES):
-        language = 'auto'
-    language = language.strip().lower().replace('-', '_') or 'auto'
-    if language in ('client', 'default', 'system'):
-        language = 'auto'
-    _config['language'] = language
     for key in (
             'enabled',
             'showResearchReminder',
@@ -305,7 +289,6 @@ def _normalize_display_config():
     _config['eliteMode'] = _normalize_elite_mode(
         _config.get('eliteMode', legacy_elite_value)
     )
-    _set_language_override(_config.get('language', 'auto'))
 
 
 def _build_mode_preferences():
@@ -346,7 +329,9 @@ def _save_config():
         )
         data = {}
 
-    data['configVersion'] = data.get('configVersion', 1)
+    data['configVersion'] = 2
+    data.pop('language', None)
+    data.pop('_language_comment', None)
     data.pop('showTechTree', None)
     data.pop('showHypotheticalTier11InResearch', None)
     data.pop('showUpgrades', None)

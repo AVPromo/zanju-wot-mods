@@ -1,12 +1,11 @@
-"""Shared filesystem and i18n staging helpers for build and deploy.
+"""Shared filesystem helpers for staging mod resource trees during build.
 
-Both the packaging (build) and the dev-deploy (deploy) flows copy the same mod
-source trees and resolve the same `i18n/` layout. These helpers keep that one
-definition.
+The packaging (build) flow copies mod source trees, including the `i18n/` layout,
+into the runtime package shape. These helpers keep that copy logic in one place.
 
-Mods do not ship a config file: each mod self-creates its config in AppData on
-first run (see its `src/.../storage.py`), so settings survive modpack reinstalls.
-Only `i18n/` is staged into `mods/configs/<mod-name>/`.
+Mods ship no loose files alongside the package: each mod self-creates its config
+in AppData on first run (see its `src/.../storage.py`), and `i18n/*.yml` is bundled
+inside the `.wotmod` at `res/mods/<id>/text/` rather than staged into a config folder.
 """
 
 from __future__ import annotations
@@ -35,20 +34,3 @@ def copy_tree_contents(src_dir, dst_dir):
 
 def directory_has_entries(path):
     return os.path.isdir(path) and bool(os.listdir(path))
-
-
-def resolve_i18n_source(mod_dir):
-    i18n_dir = os.path.join(mod_dir, "i18n")
-    if directory_has_entries(i18n_dir):
-        return i18n_dir
-    return None
-
-
-def stage_i18n_source(mod_dir, dst_i18n_dir):
-    """Stage a mod's i18n/ tree into dst_i18n_dir. Returns the source path or None."""
-    i18n_source = resolve_i18n_source(mod_dir)
-    if not i18n_source:
-        return None
-
-    copy_tree_contents(i18n_source, dst_i18n_dir)
-    return i18n_source

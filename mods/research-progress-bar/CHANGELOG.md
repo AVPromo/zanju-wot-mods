@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## Unreleased
+
+- Translations now ship inside the mod package itself, so installing leaves no loose language files in the modpack's `mods/configs` folder.
+
 ## 1.1.0 (26 June 2026)
 
 - Settings now survive a modpack reinstall instead of being reset to defaults.

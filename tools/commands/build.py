@@ -26,14 +26,13 @@ Internal .wotmod layout:
 Additional release output:
     dist/<mod-id>_<version>/<mod-id>_<version>.zip
     dist/<mod-id>_<version>/mods/<target_wot_version>/<mod-id>_<version>.wotmod
-    dist/<mod-id>_<version>/mods/configs/<mod-folder-name>/...
 
-Config files are not shipped: each mod self-creates its config in AppData on first
-run, so settings survive modpack reinstalls.
+Neither config nor localisation ships as loose files. Each mod self-creates its config
+in AppData on first run (so settings survive modpack reinstalls), and translations are
+bundled inside the .wotmod (so end users get no loose files alongside the package).
 
 Authored source layout:
-    mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml
-                                            and mods/configs/<mod-folder-name>/i18n/*.yml
+    mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml (inside the .wotmod)
 """
 
 import json
@@ -50,7 +49,6 @@ from ..core.env import load_env
 from ..core.mod_assets import (
     copy_tree_contents,
     directory_has_entries,
-    stage_i18n_source,
 )
 from ..core.mod_cli import parse_companion_targeting_args, resolve_mod_targets, run_entrypoint
 from ..core.mod_meta import read_meta
@@ -123,7 +121,7 @@ def write_release_zip(bundle_root, bundle_name):
     return zip_path
 
 
-def create_release_bundle(mod_dir, mod_name, target_wot_version, output_path, include_companion_bundle=False):
+def create_release_bundle(mod_name, target_wot_version, output_path, include_companion_bundle=False):
     archive_name = os.path.basename(output_path)
     bundle_name = os.path.splitext(archive_name)[0]
     bundle_root = os.path.join(DIST_DIR, bundle_name)
@@ -137,9 +135,6 @@ def create_release_bundle(mod_dir, mod_name, target_wot_version, output_path, in
     companion_artifacts = []
     if include_companion_bundle:
         companion_artifacts = stage_companion_bundle(package_dir, mod_name)
-
-    bundle_config_dir = os.path.join(bundle_root, "mods", "configs", mod_name)
-    stage_i18n_source(mod_dir, os.path.join(bundle_config_dir, "i18n"))
 
     write_release_zip(bundle_root, bundle_name)
     return bundle_root, companion_artifacts
@@ -269,7 +264,6 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
     detail("Path: {}".format(output_path), verbose=verbose)
 
     release_bundle_dir, companion_artifacts = create_release_bundle(
-        mod_dir,
         mod_name,
         target_wot_version,
         output_path,
