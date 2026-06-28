@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+    <name>Zanju's Premium Time</name>
+    <id>zanju.premiumtime</id>
+    <version>1.0.0</version>
+    <description>Persistent hangar widget showing the remaining time on your Premium Account and WoT Plus / WoT Plus Pro subscription.</description>
+</root>
