@@ -30,6 +30,10 @@ TOOLTIP_UPGRADES_BODY: "Pokaż postęp drzewka ulepszeń XI poziomu."
 TOOLTIP_ELITE_HEADER: "Elita"
 TOOLTIP_ELITE_BODY: "<b>Włączone</b>: Pokaż elitarne odznaki i elementy personalizacji XI poziomu.\n<b>Tylko personalizacja</b>: Pokaż elementy personalizacji XI poziomu i ukryj elitarne odznaki.\n<b>Wyłączone</b>: Ukryj postęp elity."
 
+# Research tooltip
+TOOLTIP_PREREQUISITES: "Wymagania"
+TOOLTIP_COST_WITH_PREREQS: "Koszt z wymaganiami"
+
 # Counter captions
 CAPTION_VEHICLE_XP: "PD pojazdu"
 CAPTION_TOTAL_XP: "Łączne PD"

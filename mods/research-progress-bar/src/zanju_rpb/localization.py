@@ -35,10 +35,10 @@ _TEXT_DOMAIN = 'mods/{0}/text'.format(MOD_ID)
 _bundle_cache = {}
 
 
-def get_text(key, default=None, **format_kwargs):
+def get_text(key, **format_kwargs):
     text = _get_active_bundle().get(key)
     if text is None:
-        text = default if default is not None else key
+        text = key
 
     if format_kwargs:
         try:
@@ -62,12 +62,12 @@ def get_wg_text(resource_key, default=None):
     return resolved
 
 
-def make_tooltip(header_key, body_key, header_default, body_default):
+def make_tooltip(header_key, body_key):
     return (
         '{HEADER}'
-        + get_text(header_key, header_default)
+        + get_text(header_key)
         + '{/HEADER}{BODY}'
-        + get_text(body_key, body_default)
+        + get_text(body_key)
         + '{/BODY}'
     )
 

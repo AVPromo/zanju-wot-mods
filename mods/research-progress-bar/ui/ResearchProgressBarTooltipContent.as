@@ -43,6 +43,11 @@ package {
             var progressReadyText:String = marker != null && marker.progressReadyText !== undefined ? String(marker.progressReadyText) : "ready for research";
             var progressXpLeftFormat:String = marker != null && marker.progressXpLeftFormat !== undefined ? String(marker.progressXpLeftFormat) : "{xp} XP left";
             var singleProgressRow:Boolean = marker != null && marker.singleProgressRow !== undefined && Boolean(marker.singleProgressRow);
+            var costWithPrereqsXp:Number = marker != null && marker.costWithPrereqsXp !== undefined && marker.costWithPrereqsXp != null ? Number(marker.costWithPrereqsXp) : NaN;
+            var costWithPrereqsLabel:String = marker != null && marker.costWithPrereqsLabel !== undefined ? String(marker.costWithPrereqsLabel) : "Cost with prerequisites";
+            var prerequisitesLabel:String = marker != null && marker.prerequisitesLabel !== undefined ? String(marker.prerequisitesLabel) : "Prerequisites";
+            var hasMissingPrereqs:Boolean = marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable) && marker.missingPrereqs is Array && (marker.missingPrereqs as Array).length > 0;
+            var progressTargetXp:Number = hasMissingPrereqs && !isNaN(costWithPrereqsXp) && costWithPrereqsXp > 0 ? costWithPrereqsXp : markerCostXp;
             var preProgressRow:Sprite = createTooltipBodyRow(marker, "preProgressTooltipHtml", "preProgressTooltipText");
             var detailRow:Sprite = createDetailTooltipRow(marker);
 
@@ -51,6 +56,14 @@ package {
             section.addChild(row);
             rowBounds = row.getBounds(row);
             cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+
+            row = createTooltipSubtitleRow(marker);
+            if (row != null) {
+                row.y = cursorY;
+                section.addChild(row);
+                rowBounds = row.getBounds(row);
+                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+            }
 
             row = createBlueprintTooltipRow(marker);
             if (row != null) {
@@ -84,7 +97,7 @@ package {
 
             if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable)) {
                 row = createTooltipTextRow(
-                    "Prerequisites:",
+                    prerequisitesLabel + ":",
                     TOOLTIP_BODY_SIZE,
                     TOOLTIP_MUTED_TEXT_COLOR,
                     false
@@ -119,19 +132,30 @@ package {
                     );
                     row.y = cursorY;
                     section.addChild(row);
+                    return section;
+                }
+
+                if (!isNaN(costWithPrereqsXp) && costWithPrereqsXp > 0) {
+                    cursorY += TOOLTIP_ROW_GAP;
+                    row = createTooltipHtmlTextRow(
+                        buildTooltipHighlightedHtml(costWithPrereqsLabel + ": ", formatExactXpValue(costWithPrereqsXp), " XP", true),
+                        TOOLTIP_BODY_SIZE,
+                        TOOLTIP_MUTED_TEXT_COLOR,
+                        false
+                    );
+                    row.y = cursorY;
+                    section.addChild(row);
                     rowBounds = row.getBounds(row);
                     cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
                 }
-
-                return section;
             }
 
-            var progressRows:Array = [buildTooltipProgressRowData(progressLabel, combatXp, markerCostXp, progressReadyText, progressXpLeftFormat)];
+            var progressRows:Array = [buildTooltipProgressRowData(progressLabel, combatXp, progressTargetXp, progressReadyText, progressXpLeftFormat)];
             var progressColumnWidths:Object;
             var progressRowData:Object;
 
             if (!singleProgressRow) {
-                progressRows.push(buildTooltipProgressRowData(totalProgressLabel, combatXp + freeXp, markerCostXp, progressReadyText, progressXpLeftFormat));
+                progressRows.push(buildTooltipProgressRowData(totalProgressLabel, combatXp + freeXp, progressTargetXp, progressReadyText, progressXpLeftFormat));
             }
 
             progressColumnWidths = resolveTooltipProgressColumnWidths(progressRows);
@@ -217,6 +241,10 @@ package {
                 }
             }
 
+            if (marker != null && marker.completedLabel !== undefined && marker.completedLabel != null && String(marker.completedLabel).length > 0) {
+                return String(marker.completedLabel);
+            }
+
             return "Unlocked";
         }
 
@@ -265,10 +293,6 @@ package {
             var tooltipIconSize:Number = resolveMarkerTooltipIconSize(marker);
             var tooltipIconLayoutWidth:Number = Math.max(TOOLTIP_ICON_LAYOUT_WIDTH, tooltipIconSize);
             var titleField:TextField = makeTooltipRowField(resolveMarkerTooltipTitle(marker), TOOLTIP_TITLE_SIZE, TOOLTIP_TEXT_COLOR, true);
-            var subtitleText:String = resolveMarkerTooltipSubtitle(marker);
-            var subtitleField:TextField = subtitleText.length > 0
-                ? makeTooltipHtmlRowField(subtitleText, TOOLTIP_SUBTITLE_SIZE, TOOLTIP_TEXT_COLOR, false)
-                : null;
             var costField:TextField = makeTooltipHtmlRowField(
                 buildTooltipHighlightedHtml("", formatExactXpValue(costXp), " XP", true),
                 TOOLTIP_BODY_SIZE,
@@ -277,7 +301,6 @@ package {
             );
             var rowHeight:Number;
             var titleX:Number = 0;
-            var titleBlockHeight:Number;
 
             if (!shouldHideTooltipIcon(marker)) {
                 icon = createTooltipMarkerIconForMarker(marker, tooltipIconSize, tooltipIconLayoutWidth);
@@ -294,24 +317,9 @@ package {
             costField.x = titleField.x + titleField.width + TOOLTIP_PROGRESS_GAP;
             row.addChild(costField);
 
-            if (subtitleField != null) {
-                subtitleField.x = titleX;
-                subtitleField.y = titleField.height + TOOLTIP_COMPACT_ROW_GAP;
-                row.addChild(subtitleField);
-
-                titleField.y = 0;
-                costField.y = Math.round((titleField.height - costField.height) / 2);
-                titleBlockHeight = subtitleField.y + subtitleField.height;
-                rowHeight = Math.max(
-                    icon != null ? tooltipIconSize : 0,
-                    Math.max(titleBlockHeight, costField.y + costField.height)
-                );
-                if (icon != null) {
-                    icon.y = Math.round((rowHeight - tooltipIconSize) / 2);
-                }
-                return row;
-            }
-
+            // The title row stays a single line (icon + title + cost) so the icon lines up with the
+            // title alone. The marker subtitle/name is rendered as its own row below (see
+            // createTooltipSubtitleRow), matching how descriptions sit below in the other modes.
             rowHeight = Math.max(icon != null ? tooltipIconSize : 0, Math.max(titleField.height, costField.height));
             if (icon != null) {
                 icon.y = Math.round((rowHeight - tooltipIconSize) / 2);
@@ -320,6 +328,15 @@ package {
             costField.y = Math.round((rowHeight - costField.height) / 2);
 
             return row;
+        }
+
+        private static function createTooltipSubtitleRow(marker:Object):Sprite {
+            var subtitleText:String = resolveMarkerTooltipSubtitle(marker);
+            if (subtitleText.length == 0) {
+                return null;
+            }
+
+            return createTooltipHtmlTextRow(subtitleText, TOOLTIP_SUBTITLE_SIZE, TOOLTIP_TEXT_COLOR, false);
         }
 
         private static function isEliteMarker(marker:Object):Boolean {

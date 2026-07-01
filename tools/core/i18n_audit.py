@@ -1,0 +1,260 @@
+"""Localization checks and coverage reporting for mods under mods/<name>/i18n/.
+
+Two concerns, deliberately weighted differently:
+
+- code-key coverage (hard requirement): every localization key referenced in a mod's Python
+  sources (via get_text / make_tooltip and their import aliases) must exist in en.yml. A missing
+  key is a developer bug -- it renders the raw key in-game -- so it fails lint.
+- translation coverage (informational): non-English <lang>.yml files are maintained by external
+  translators and may lag behind en.yml. That is expected, never a build failure. Instead each
+  mod's README carries an auto-generated coverage table (see write_readme_coverage).
+
+en.yml is the single source of truth for the key set; the runtime merges it as the base layer
+under the client language, so a key present in en.yml is the stable English fallback.
+"""
+
+from __future__ import print_function
+
+import ast
+import io
+import os
+import re
+
+from .paths import MODS_DIR
+
+_KEY_LINE = re.compile(r"^([A-Za-z0-9_]+)\s*:")
+_REFERENCE_LANGUAGE = "en"
+
+# Localization helpers whose leading positional argument(s) are en.yml keys. get_wg_text is
+# deliberately excluded: its argument is a Wargaming resource id, not one of our keys.
+_SINGLE_KEY_FUNC = "get_text"  # get_text(key, **fmt)
+_DOUBLE_KEY_FUNC = "make_tooltip"  # make_tooltip(header_key, body_key)
+
+# Where the "## Translations" section lives in a README is maintainer-owned. The generator
+# rewrites the section body in place -- from the heading to the next markdown heading (or EOF) --
+# and refuses to create the section if the heading is absent.
+_SECTION_HEADING = "## Translations"
+_SECTION = re.compile(r"^" + re.escape(_SECTION_HEADING) + r".*?(?=^#|\Z)", re.MULTILINE | re.DOTALL)
+
+
+def _load_yaml_keys(path):
+    keys = set()
+    with io.open(path, "r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            match = _KEY_LINE.match(line)
+            if match:
+                keys.add(match.group(1))
+    return keys
+
+
+def _is_str(node):
+    return isinstance(node, ast.Constant) and isinstance(node.value, str)
+
+
+def _call_name(node):
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
+def _resolve_localization_aliases(tree):
+    single = {_SINGLE_KEY_FUNC}
+    double = {_DOUBLE_KEY_FUNC}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if not node.module or node.module.rsplit(".", 1)[-1] != "localization":
+            continue
+        for alias in node.names:
+            local = alias.asname or alias.name
+            if alias.name == _SINGLE_KEY_FUNC:
+                single.add(local)
+            elif alias.name == _DOUBLE_KEY_FUNC:
+                double.add(local)
+    return single, double
+
+
+def _collect_referenced_keys(src_dir):
+    keys = set()
+    for dirpath, dirnames, filenames in os.walk(src_dir):
+        dirnames[:] = [name for name in dirnames if name != "__pycache__"]
+        for filename in sorted(filenames):
+            if not filename.endswith(".py"):
+                continue
+            path = os.path.join(dirpath, filename)
+            with io.open(path, "r", encoding="utf-8") as handle:
+                tree = ast.parse(handle.read(), path)
+            single, double = _resolve_localization_aliases(tree)
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                name = _call_name(node)
+                if name in single and node.args and _is_str(node.args[0]):
+                    keys.add(node.args[0].value)
+                elif name in double:
+                    for arg in node.args[:2]:
+                        if _is_str(arg):
+                            keys.add(arg.value)
+    return keys
+
+
+def _iter_mod_i18n_dirs():
+    if not os.path.isdir(MODS_DIR):
+        return
+    for mod_name in sorted(os.listdir(MODS_DIR)):
+        i18n_dir = os.path.join(MODS_DIR, mod_name, "i18n")
+        if os.path.isdir(i18n_dir):
+            yield mod_name, i18n_dir
+
+
+def audit_code_key_coverage():
+    """Hard check: return problem strings for code-referenced keys missing from en.yml."""
+    problems = []
+    for mod_name, i18n_dir in _iter_mod_i18n_dirs():
+        en_path = os.path.join(i18n_dir, "{0}.yml".format(_REFERENCE_LANGUAGE))
+        if not os.path.isfile(en_path):
+            problems.append("{0}: missing reference i18n/{1}.yml".format(mod_name, _REFERENCE_LANGUAGE))
+            continue
+        en_keys = _load_yaml_keys(en_path)
+        src_dir = os.path.join(MODS_DIR, mod_name, "src")
+        if not os.path.isdir(src_dir):
+            continue
+        for key in sorted(_collect_referenced_keys(src_dir) - en_keys):
+            problems.append("{0}: key '{1}' is used in code but missing from i18n/en.yml".format(mod_name, key))
+    return problems
+
+
+def compute_translation_coverage():
+    """Return {mod_name: {'reference_count': N, 'languages': [ {code, present, total, missing, extra} ]}}."""
+    coverage = {}
+    for mod_name, i18n_dir in _iter_mod_i18n_dirs():
+        en_path = os.path.join(i18n_dir, "{0}.yml".format(_REFERENCE_LANGUAGE))
+        if not os.path.isfile(en_path):
+            continue
+        en_keys = _load_yaml_keys(en_path)
+        languages = []
+        for name in sorted(os.listdir(i18n_dir)):
+            if not name.endswith(".yml"):
+                continue
+            code = name[:-4]
+            if code == _REFERENCE_LANGUAGE:
+                continue
+            lang_keys = _load_yaml_keys(os.path.join(i18n_dir, name))
+            languages.append(
+                {
+                    "code": code,
+                    "present": len(lang_keys & en_keys),
+                    "total": len(en_keys),
+                    "missing": sorted(en_keys - lang_keys),
+                    "extra": sorted(lang_keys - en_keys),
+                }
+            )
+        coverage[mod_name] = {"reference_count": len(en_keys), "languages": languages}
+    return coverage
+
+
+def render_coverage_section(mod_coverage):
+    """Render the whole '## Translations' section (heading + table) for one mod."""
+    reference_count = mod_coverage["reference_count"]
+    languages = mod_coverage["languages"]
+    lines = [
+        _SECTION_HEADING,
+        "",
+        "Reference language `{0}` defines {1} strings. Translations are community-maintained and may "
+        "lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate "
+        "this table with `zwm lint i18n`.".format(_REFERENCE_LANGUAGE, reference_count),
+        "",
+        "| Language | Coverage | Missing |",
+        "| --- | --- | --- |",
+    ]
+    if languages:
+        for lang in languages:
+            total = lang["total"] or 1
+            percent = round(100.0 * lang["present"] / total)
+            missing = len(lang["missing"])
+            extra_note = " (+{0} unknown)".format(len(lang["extra"])) if lang["extra"] else ""
+            lines.append(
+                "| `{0}` | {1}% ({2}/{3}) | {4}{5} |".format(
+                    lang["code"], percent, lang["present"], lang["total"], missing, extra_note
+                )
+            )
+    else:
+        lines.append("| _none yet_ | — | — |")
+    return "\n".join(lines)
+
+
+def _readme_path(mod_name):
+    return os.path.join(MODS_DIR, mod_name, "README.md")
+
+
+def _read_text(path):
+    with io.open(path, "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def _has_section(text):
+    return _SECTION.search(text) is not None
+
+
+def _regenerate(readme_text, mod_coverage):
+    section = render_coverage_section(mod_coverage)
+
+    def _replace(match):
+        # Keep one blank line before a following heading; a single trailing newline at EOF.
+        trailing = "\n" if match.end() >= len(readme_text) else "\n\n"
+        return section + trailing
+
+    return _SECTION.sub(_replace, readme_text, count=1)
+
+
+def _missing_section_hint(mod_name):
+    return "{0}: README.md has no '{1}' heading. Add it where you want the table, then run `zwm lint i18n`.".format(
+        mod_name, _SECTION_HEADING
+    )
+
+
+def check_readme_coverage():
+    """Return problem strings for mod READMEs whose translations section is missing or out of date."""
+    problems = []
+    for mod_name, mod_coverage in sorted(compute_translation_coverage().items()):
+        readme_path = _readme_path(mod_name)
+        if not os.path.isfile(readme_path) or not _has_section(_read_text(readme_path)):
+            problems.append(_missing_section_hint(mod_name))
+            continue
+        original = _read_text(readme_path)
+        if _regenerate(original, mod_coverage) != original:
+            problems.append("{0}: README translation coverage is out of date; run `zwm lint i18n`".format(mod_name))
+    return problems
+
+
+def write_readme_coverage():
+    """Rewrite the '## Translations' section body in each mod README.
+
+    The heading must already exist (its placement is maintainer-owned); this never inserts a new
+    section. Raises if any mod that ships translations lacks the heading. Returns updated mods.
+    """
+    updated = []
+    missing = []
+    for mod_name, mod_coverage in sorted(compute_translation_coverage().items()):
+        readme_path = _readme_path(mod_name)
+        if not os.path.isfile(readme_path):
+            missing.append(mod_name)
+            continue
+        original = _read_text(readme_path)
+        if not _has_section(original):
+            missing.append(mod_name)
+            continue
+        rendered = _regenerate(original, mod_coverage)
+        if rendered != original:
+            with io.open(readme_path, "w", encoding="utf-8") as handle:
+                handle.write(rendered)
+            updated.append(mod_name)
+    if missing:
+        raise RuntimeError("\n".join(_missing_section_hint(mod_name) for mod_name in missing))
+    return updated

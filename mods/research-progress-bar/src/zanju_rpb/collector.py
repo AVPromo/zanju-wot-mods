@@ -1469,10 +1469,29 @@ def _collect_visible_unlocks(vehicle, unlocks_set, items=None):
             missing_prereq_intcds=missing_prereqs,
             blueprint_info=research_state.get('blueprint_info'),
         )
+        unlock_marker['missing_prereq_intcds'] = missing_prereqs
         visible.append(unlock_marker)
+
+    _assign_cost_with_prereqs(visible)
 
     visible.sort(key=lambda item: (item['xp_cost'], item['intcd']))
     return visible
+
+
+def _assign_cost_with_prereqs(visible_unlocks):
+    """Sum each unlock's own cost with its (direct, unresearched) prerequisites' costs.
+
+    Missing prerequisites are themselves unresearched tech-tree nodes, so they appear in
+    visible_unlocks with their own (discount-adjusted) xp_cost; we look those up rather than
+    recomputing. Items with no missing prerequisites get a sum equal to their own cost.
+    """
+    cost_by_intcd = dict((marker['intcd'], marker['xp_cost']) for marker in visible_unlocks)
+    for marker in visible_unlocks:
+        prereq_cost = sum(
+            cost_by_intcd.get(prereq_intcd, 0)
+            for prereq_intcd in marker.get('missing_prereq_intcds', ())
+        )
+        marker['cost_with_prereqs_xp'] = marker['xp_cost'] + prereq_cost
 
 
 def _collect_available_unlocks(vehicle, unlocks_set, items=None, visible_unlocks=None):

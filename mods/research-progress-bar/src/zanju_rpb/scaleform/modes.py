@@ -47,17 +47,17 @@ ELITE_LEVEL_XP_SEGMENTS = (
     (250, ELITE_MAX_LEVEL, 4000),
 )
 ELITE_COLOR_MARKERS = (
-    ('metal', 'ELITE_BADGE_METAL', 'Metal Badge', 1),
-    ('bronze', 'ELITE_BADGE_BRONZE', 'Bronze Badge', 20),
-    ('silver', 'ELITE_BADGE_SILVER', 'Silver Badge', 70),
-    ('gold', 'ELITE_BADGE_GOLD', 'Gold Badge', 150),
-    ('red_gold', 'ELITE_BADGE_RED_GOLD', 'Red Gold Badge', 250),
-    ('prestige_elite', 'ELITE_BADGE_PRESTIGE', 'Prestige Elite Badge', ELITE_MAX_LEVEL),
+    ('metal', 'ELITE_BADGE_METAL', 1),
+    ('bronze', 'ELITE_BADGE_BRONZE', 20),
+    ('silver', 'ELITE_BADGE_SILVER', 70),
+    ('gold', 'ELITE_BADGE_GOLD', 150),
+    ('red_gold', 'ELITE_BADGE_RED_GOLD', 250),
+    ('prestige_elite', 'ELITE_BADGE_PRESTIGE', ELITE_MAX_LEVEL),
 )
 ELITE_T11_COSMETIC_MARKERS = (
-    ('stat_tracker', 'ELITE_REWARD_STAT_TRACKER', 'Stat Tracker', 35),
-    ('volumetric_style', 'ELITE_REWARD_VOLUMETRIC_STYLE', 'Volumetric Style', 75),
-    ('gun_sleeve', 'ELITE_REWARD_GUN_SLEEVE', 'Gun Sleeve', 155),
+    ('stat_tracker', 'ELITE_REWARD_STAT_TRACKER', 35),
+    ('volumetric_style', 'ELITE_REWARD_VOLUMETRIC_STYLE', 75),
+    ('gun_sleeve', 'ELITE_REWARD_GUN_SLEEVE', 155),
 )
 
 T11_CATEGORY_SORT_ORDER = {
@@ -160,20 +160,17 @@ def _build_vehicle_label(vehicle, data):
     name = getattr(vehicle, 'userName', str(vehicle.intCD))
     tier = (data.get('vehicle') or {}).get('tier')
     if tier is None:
-        return _loc('VEHICLE_LABEL_TIER_UNKNOWN_FORMAT', '{name} (Tier unknown)', name=name)
-    return _loc('VEHICLE_LABEL_TIER_FORMAT', '{name} (Tier {tier})', name=name, tier=tier)
+        return _loc('VEHICLE_LABEL_TIER_UNKNOWN_FORMAT', name=name)
+    return _loc('VEHICLE_LABEL_TIER_FORMAT', name=name, tier=tier)
 
 
 def _build_separate_status_text(data, selected_mode_id, preferences):
     if preferences.get('showResearchReminder', True) and _should_show_research_now_text(data, selected_mode_id):
-        return _loc('SEPARATE_STATUS_RESEARCH_NOW', 'Research now!')
+        return _loc('SEPARATE_STATUS_RESEARCH_NOW')
 
     if (preferences.get('showAcceleratedCrewTrainingReminder', True)
             and _should_show_accelerate_crew_training_text(data)):
-        return _loc(
-            'SEPARATE_STATUS_ACCELERATE_CREW_TRAINING',
-            'Accelerate Crew Training!',
-        )
+        return _loc('SEPARATE_STATUS_ACCELERATE_CREW_TRAINING')
 
     return ''
 
@@ -319,23 +316,23 @@ def _build_regular_research_mode(data):
     )
 
     if available_unlocks:
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         right_text = _format_percent(vehicle_xp + free_xp, max_requirement_xp)
     elif locked_unlock_count > 0:
-        right_caption = _loc('CAPTION_LOCKED', 'Locked')
+        right_caption = _loc('CAPTION_LOCKED')
         right_text = str(locked_unlock_count)
     else:
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         right_text = _format_percent(vehicle_xp + free_xp, max_requirement_xp)
 
     return _make_mode(
         MODE_REGULAR_RESEARCH,
-        _loc('MODE_RESEARCH', 'Research'),
+        _loc('MODE_RESEARCH'),
         max_requirement_xp,
         vehicle_xp,
         free_xp,
         _format_percent(vehicle_xp, max_requirement_xp),
-        _loc('CAPTION_VEHICLE_XP', 'Vehicle XP'),
+        _loc('CAPTION_VEHICLE_XP'),
         right_text,
         right_caption,
         markers=[_build_research_marker(item) for item in visible_unlocks],
@@ -372,9 +369,9 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
 
     if next_level is None or current_level >= max_level:
         left_text = '100%'
-        left_caption = _loc('CAPTION_VEHICLE_XP', 'Vehicle XP')
+        left_caption = _loc('CAPTION_VEHICLE_XP')
         right_text = '100%'
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         if xp_per_level is not None and xp_per_level > 0 and max_level > 0:
             total_cost = xp_per_level * max_level
             primary_value = 0.0
@@ -403,9 +400,9 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
         secondary_value = min(free_xp, max(0, remaining_total_cost - primary_value))
         completed_value = completed_total_cost
         left_text = _format_percent(completed_total_cost + vehicle_xp, total_cost)
-        left_caption = _loc('CAPTION_VEHICLE_XP', 'Vehicle XP')
+        left_caption = _loc('CAPTION_VEHICLE_XP')
         right_text = _format_percent(completed_total_cost + total_xp, total_cost)
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         bar_max_value = total_cost
         markers = _build_field_mod_markers(
             current_level,
@@ -425,15 +422,15 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
         )
         completed_value = 0.0
         left_text = _format_percent(vehicle_xp, next_level_xp_cost)
-        left_caption = _loc('CAPTION_VEHICLE_XP', 'Vehicle XP')
+        left_caption = _loc('CAPTION_VEHICLE_XP')
         right_text = _format_percent(total_xp, next_level_xp_cost)
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         bar_max_value = max_level
         markers = []
 
     return _make_mode(
         MODE_FIELD_MODS,
-        _loc('MODE_FIELD_MODS', 'Field Mods'),
+        _loc('MODE_FIELD_MODS'),
         bar_max_value,
         primary_value,
         secondary_value,
@@ -474,9 +471,9 @@ def _build_tier11_mode(data):
         secondary_value = min(free_xp, max(0, remaining_cost - primary_value))
         completed_value = display_layout['completed_cost']
         left_text = _format_percent(completed_value + vehicle_xp, total_cost)
-        left_caption = _loc('CAPTION_VEHICLE_XP', 'Vehicle XP')
+        left_caption = _loc('CAPTION_VEHICLE_XP')
         right_text = _format_percent(completed_value + total_xp, total_cost)
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         bar_max_value = total_cost
         markers = _build_t11_markers(
             display_layout,
@@ -493,9 +490,9 @@ def _build_tier11_mode(data):
         )
         completed_value = 0.0
         left_text = _format_percent(vehicle_xp, next_step_xp_cost)
-        left_caption = _loc('CAPTION_VEHICLE_XP', 'Vehicle XP')
+        left_caption = _loc('CAPTION_VEHICLE_XP')
         right_text = _format_percent(total_xp, next_step_xp_cost)
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         bar_max_value = total_steps
         markers = []
     else:
@@ -503,15 +500,15 @@ def _build_tier11_mode(data):
         secondary_value = 0.0
         completed_value = 0.0
         left_text = '0%'
-        left_caption = _loc('CAPTION_VEHICLE_XP', 'Vehicle XP')
+        left_caption = _loc('CAPTION_VEHICLE_XP')
         right_text = _format_percent(unlocked_steps, total_steps)
-        right_caption = _loc('CAPTION_TOTAL_XP', 'Total XP')
+        right_caption = _loc('CAPTION_TOTAL_XP')
         bar_max_value = total_steps
         markers = []
 
     return _make_mode(
         MODE_TIER11_UPGRADES,
-        _loc('MODE_UPGRADES', 'Upgrades'),
+        _loc('MODE_UPGRADES'),
         bar_max_value,
         primary_value,
         secondary_value,
@@ -522,7 +519,7 @@ def _build_tier11_mode(data):
         markers=markers,
         completed_value=completed_value,
         side_counter_text='{0}/{1}'.format(unlocked_steps, total_steps),
-        side_counter_caption=_loc('CAPTION_UNLOCKED', 'Unlocked'),
+        side_counter_caption=_loc('CAPTION_UNLOCKED'),
     )
 
 
@@ -573,14 +570,14 @@ def _build_elite_mode(data, elite_mode=ELITE_MODE_ON):
 
     return _make_mode(
         MODE_ELITE_PROGRESSION,
-        _loc('MODE_ELITE', 'Elite'),
+        _loc('MODE_ELITE'),
         progress_cap,
         0.0,
         0.0,
-        _loc('ELITE_LEVEL_FORMAT', 'Elite Level {level}', level=current_level),
-        _loc('ELITE_BASE_XP_PROGRESS_FORMAT', '{current} / {target} Base XP', current=current_xp, target=next_level_xp),
+        _loc('ELITE_LEVEL_FORMAT', level=current_level),
+        _loc('ELITE_BASE_XP_PROGRESS_FORMAT', current=current_xp, target=next_level_xp),
         _format_percent(total_progress, progress_cap),
-        _loc('CAPTION_BASE_XP', 'Base XP'),
+        _loc('CAPTION_BASE_XP'),
         markers=_build_elite_markers(
             total_progress,
             include_badges=(elite_mode == ELITE_MODE_ON),
@@ -595,13 +592,13 @@ def _build_elite_mode(data, elite_mode=ELITE_MODE_ON):
 def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosmetics=False):
     markers = []
     if include_badges:
-        for marker_key, marker_label_key, marker_default_name, level in ELITE_COLOR_MARKERS:
+        for marker_key, marker_label_key, level in ELITE_COLOR_MARKERS:
             if level <= 1:
                 continue
             position_value = _elite_cumulative_xp_to_level(level)
             if level >= ELITE_MAX_LEVEL:
                 position_value = _elite_total_required_xp()
-            marker_name = _loc(marker_label_key, marker_default_name)
+            marker_name = _loc(marker_label_key)
             markers.append({
                 'id': 'elite_{0}'.format(marker_key),
                 'positionValue': position_value,
@@ -617,16 +614,17 @@ def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosm
                 'hideBarIcon': False,
                 'markerState': 'completed' if position_value <= current_total_xp else 'locked',
                 'singleProgressRow': True,
-                'progressLabel': _loc('CAPTION_BASE_XP', 'Base XP'),
-                'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
-                'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
+                'progressLabel': _loc('CAPTION_BASE_XP'),
+                'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH'),
+                'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
+                'completedLabel': _loc('CAPTION_UNLOCKED'),
                 'isAvailable': True,
             })
 
     if include_t11_cosmetics:
-        for marker_key, marker_label_key, marker_default_name, level in ELITE_T11_COSMETIC_MARKERS:
+        for marker_key, marker_label_key, level in ELITE_T11_COSMETIC_MARKERS:
             position_value = _elite_cumulative_xp_to_level(level)
-            marker_name = _loc(marker_label_key, marker_default_name)
+            marker_name = _loc(marker_label_key)
             markers.append({
                 'id': 'elite_t11_{0}'.format(marker_key),
                 'positionValue': position_value,
@@ -642,9 +640,10 @@ def _build_elite_markers(current_total_xp, include_badges=True, include_t11_cosm
                 'hideBarIcon': False,
                 'markerState': 'completed' if position_value <= current_total_xp else 'locked',
                 'singleProgressRow': True,
-                'progressLabel': _loc('CAPTION_BASE_XP', 'Base XP'),
-                'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
-                'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
+                'progressLabel': _loc('CAPTION_BASE_XP'),
+                'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH'),
+                'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
+                'completedLabel': _loc('CAPTION_UNLOCKED'),
                 'isAvailable': True,
             })
     return markers
@@ -655,7 +654,7 @@ def _elite_total_required_xp():
 
 
 def _elite_customization_total_required_xp():
-    max_marker_level = max([level for _, _, _, level in ELITE_T11_COSMETIC_MARKERS] or [ELITE_MAX_LEVEL])
+    max_marker_level = max([level for _, _, level in ELITE_T11_COSMETIC_MARKERS] or [ELITE_MAX_LEVEL])
     return _elite_cumulative_xp_to_level(max_marker_level)
 
 
@@ -692,21 +691,24 @@ def _build_research_marker(item):
     blueprint_discount_percent = item.get('blueprint_discount_percent')
     marker_name = item.get('name')
     if item.get('is_hypothetical_t11'):
-        marker_name = _loc('HYPOTHETICAL_T11_VEHICLE_NAME', 'Hypothetical tier 11 vehicle')
+        marker_name = _loc('HYPOTHETICAL_T11_VEHICLE_NAME')
 
     return {
         'id': 'unlock_{0}'.format(item['intcd']),
         'positionValue': item['xp_cost'],
         'costXp': item['xp_cost'],
         'itemType': item['item_type'],
-        'progressLabel': _loc('CAPTION_VEHICLE_XP', 'Vehicle XP'),
-        'totalProgressLabel': _loc('CAPTION_TOTAL_XP', 'Total XP'),
-        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
-        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
+        'progressLabel': _loc('CAPTION_VEHICLE_XP'),
+        'totalProgressLabel': _loc('CAPTION_TOTAL_XP'),
+        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH'),
+        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
         'isAvailable': item.get('is_available', True),
         'isHypotheticalT11': bool(item.get('is_hypothetical_t11')),
         'missingPrereqNames': item.get('missing_prereq_names', []),
         'missingPrereqs': item.get('missing_prereqs', []),
+        'prerequisitesLabel': _loc('TOOLTIP_PREREQUISITES'),
+        'costWithPrereqsXp': item.get('cost_with_prereqs_xp'),
+        'costWithPrereqsLabel': _loc('TOOLTIP_COST_WITH_PREREQS'),
         'name': marker_name,
         'blueprintCount': blueprint_count,
         'blueprintTotal': blueprint_total,
@@ -723,13 +725,7 @@ def _build_blueprint_tooltip_text(count, total, discount_percent):
     if count is None or total is None or discount_percent is None:
         return None
 
-    return _loc(
-        'BLUEPRINT_TOOLTIP_FORMAT',
-        '<count>{count}</count>/<total>{total}</total> Blueprints (<discount>{discount}%</discount> discount)',
-        count=count,
-        total=total,
-        discount=discount_percent,
-    )
+    return _loc('BLUEPRINT_TOOLTIP_FORMAT', count=count, total=total, discount=discount_percent)
 
 
 def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp, field_mods=None):
@@ -788,8 +784,10 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             'detailTooltipHtml': detail_tooltip_html,
             'detailTooltipText': detail_tooltip_text,
             'markerState': marker_state,
-            'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
-            'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
+            'progressLabel': _loc('CAPTION_VEHICLE_XP'),
+            'totalProgressLabel': _loc('CAPTION_TOTAL_XP'),
+            'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH'),
+            'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
         }
         marker.update(_build_field_mod_marker_display(level_detail, roman_level))
         markers.append(marker)
@@ -855,7 +853,7 @@ def _build_field_mod_marker_display(level_detail, roman_level):
 
 
 def _build_level_tooltip_title(level):
-    return _loc('TOOLTIP_LEVEL_FORMAT', 'Level {level}', level=level)
+    return _loc('TOOLTIP_LEVEL_FORMAT', level=level)
 
 
 def _build_field_mod_tooltip_subtitle(level_detail):
@@ -868,10 +866,10 @@ def _build_field_mod_tooltip_subtitle(level_detail):
     if kind == 'role_slot':
         return _wg_loc(
             '#veh_post_progression:roleSlotTooltipView/title',
-            _loc('FIELD_MOD_TOOLTIP_SUBTITLE_ROLE_SLOT', 'Second Slot Category'),
+            _loc('FIELD_MOD_TOOLTIP_SUBTITLE_ROLE_SLOT'),
         )
     if kind == 'dual':
-        return _loc('FIELD_MOD_TOOLTIP_SUBTITLE_DUAL', 'Dual Modification')
+        return _loc('FIELD_MOD_TOOLTIP_SUBTITLE_DUAL')
     return None
 
 
@@ -932,14 +930,8 @@ def _build_field_mod_completed_tooltip_text(level_detail):
     kind = level_detail.get('kind')
     if kind == 'feature':
         label = _build_field_mod_feature_label(level_detail.get('action_name'))
-        value = _loc(
-            'FIELD_MOD_STATUS_ACTIVE',
-            'Active',
-        ) if level_detail.get('is_active') else _loc(
-            'FIELD_MOD_STATUS_INACTIVE',
-            'Not active',
-        )
-        return _loc('FIELD_MOD_VALUE_FORMAT', '{label}: {value}', label=label, value=value)
+        value = _loc('FIELD_MOD_STATUS_ACTIVE') if level_detail.get('is_active') else _loc('FIELD_MOD_STATUS_INACTIVE')
+        return _loc('FIELD_MOD_VALUE_FORMAT', label=label, value=value)
 
     if kind == 'role_slot':
         lines = []
@@ -950,7 +942,7 @@ def _build_field_mod_completed_tooltip_text(level_detail):
             )
             value = _localize_field_mod_category(level_detail.get('category'))
             if value:
-                lines.append(_loc('FIELD_MOD_VALUE_FORMAT', '{label}: {value}', label=label, value=value))
+                lines.append(_loc('FIELD_MOD_VALUE_FORMAT', label=label, value=value))
 
         available_categories_text = _build_field_mod_available_categories_text(level_detail)
         if available_categories_text:
@@ -1057,8 +1049,7 @@ def _build_field_mod_available_categories_text(level_detail):
         return None
     return _loc(
         'FIELD_MOD_VALUE_FORMAT',
-        '{label}: {value}',
-        label=_loc('FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES', 'Available categories'),
+        label=_loc('FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES'),
         value=', '.join(categories),
     )
 
@@ -1068,7 +1059,7 @@ def _build_field_mod_available_categories_html(level_detail):
     if not categories:
         return None
     return _build_field_mod_label_value_html(
-        _loc('FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES', 'Available categories'),
+        _loc('FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES'),
         ', '.join(categories),
     )
 
@@ -1082,12 +1073,7 @@ def _build_field_mod_dual_choice_names_text(level_detail):
     section = None
     for section in option_sections:
         lines = [
-            _loc(
-                'FIELD_MOD_VALUE_FORMAT',
-                '{label}: {value}',
-                label=section.get('label'),
-                value=section.get('name'),
-            )
+            _loc('FIELD_MOD_VALUE_FORMAT', label=section.get('label'), value=section.get('name'))
         ]
         stat = None
         for stat in section.get('lines') or []:
@@ -1128,13 +1114,7 @@ def _resolve_field_mod_dual_option_sections(level_detail):
         option_name = _resolve_field_mod_dual_choice_name(level_detail, choice_index)
         if not option_name:
             continue
-        option_label = _loc(
-            'FIELD_MOD_TOOLTIP_OPTION_A',
-            'Option A',
-        ) if choice_index == 1 else _loc(
-            'FIELD_MOD_TOOLTIP_OPTION_B',
-            'Option B',
-        )
+        option_label = _loc('FIELD_MOD_TOOLTIP_OPTION_A') if choice_index == 1 else _loc('FIELD_MOD_TOOLTIP_OPTION_B')
         choice = _resolve_field_mod_dual_choice(level_detail, choice_index) or {}
         option_sections.append({
             'label': option_label,
@@ -1225,7 +1205,7 @@ def _build_field_mod_dual_stat_html(stat_text, is_debuff):
 
 
 def _resolve_t11_completed_tooltip_status_text():
-    return _loc('CAPTION_UNLOCKED', 'Unlocked')
+    return _loc('CAPTION_UNLOCKED')
 
 
 def _resolve_t11_completed_tooltip_status_html():
@@ -1314,7 +1294,7 @@ def _escape_html(value):
 def _localize_field_mod_category(category):
     localization_keys = _iter_field_mod_category_localization_keys(category)
     if not localization_keys:
-        return _loc('FIELD_MOD_STATUS_INACTIVE', 'Not active')
+        return _loc('FIELD_MOD_STATUS_INACTIVE')
 
     localization_key = None
     for localization_key in localization_keys:
@@ -1393,7 +1373,7 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
             marker_id='t11_minor_upgrade',
             position_value=completed_cost + 10000,
             cost_xp=10000,
-            name=_loc('UPGRADE_MINOR', 'Minor Upgrade'),
+            name=_loc('UPGRADE_MINOR'),
             remaining_cost=10000,
             vehicle_xp=vehicle_xp,
             total_xp=total_xp,
@@ -1404,7 +1384,7 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
         minor_marker['iconPaths'] = []
         minor_marker['iconCacheKey'] = 'minor_upgrade'
         minor_marker['hideTooltipIcon'] = False
-        minor_marker['name'] = _loc('UPGRADE_MINOR', 'Minor Upgrade')
+        minor_marker['name'] = _loc('UPGRADE_MINOR')
         markers.append(minor_marker)
 
     if remaining_major_count > 0:
@@ -1412,7 +1392,7 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
             marker_id='t11_major_upgrade',
             position_value=completed_cost + 20000,
             cost_xp=20000,
-            name=_loc('UPGRADE_MAJOR', 'Major Upgrade'),
+            name=_loc('UPGRADE_MAJOR'),
             remaining_cost=20000,
             vehicle_xp=vehicle_xp,
             total_xp=total_xp,
@@ -1423,7 +1403,7 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
         major_marker['iconPaths'] = []
         major_marker['iconCacheKey'] = 'major_upgrade'
         major_marker['hideTooltipIcon'] = False
-        major_marker['name'] = _loc('UPGRADE_MAJOR', 'Major Upgrade')
+        major_marker['name'] = _loc('UPGRADE_MAJOR')
         markers.append(major_marker)
 
     if remaining_final_count > 0:
@@ -1439,14 +1419,18 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
             'costXp': 25000,
             'itemType': 'unknown',
             'isAvailable': final_available,
-            'missingPrereqNames': [_loc('UPGRADE_ALL_OTHER_NODES', 'All Other Nodes')] if not final_available else [],
+            'missingPrereqNames': [_loc('UPGRADE_ALL_OTHER_NODES')] if not final_available else [],
             'missingPrereqs': [],
-            'name': _resolve_t11_action_node_name(final_node, _loc('UPGRADE_FINAL', 'Final Upgrade')),
+            'prerequisitesLabel': _loc('TOOLTIP_PREREQUISITES'),
+            'name': _resolve_t11_action_node_name(final_node, _loc('UPGRADE_FINAL')),
             'label': '',
             'hideTooltipIcon': True,
             'markerState': final_state,
-            'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
-            'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
+            'progressLabel': _loc('CAPTION_VEHICLE_XP'),
+            'totalProgressLabel': _loc('CAPTION_TOTAL_XP'),
+            'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH'),
+            'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
+            'completedLabel': _loc('CAPTION_UNLOCKED'),
         }
         final_marker = _apply_t11_action_metadata(final_marker, final_node)
         final_marker = _apply_t11_action_tooltip_details(final_marker, final_node)
@@ -1466,7 +1450,7 @@ def _build_t11_completed_markers(completed_minor_count, completed_major_count):
             marker_id='t11_completed_minor_{0}'.format(index + 1),
             position_value=(index + 1) * 10000,
             cost_xp=10000,
-            name=_resolve_t11_action_node_name(minor_node, _loc('UPGRADE_MINOR', 'Minor Upgrade')),
+            name=_resolve_t11_action_node_name(minor_node, _loc('UPGRADE_MINOR')),
             action_node=minor_node,
         ))
 
@@ -1477,7 +1461,7 @@ def _build_t11_completed_markers(completed_minor_count, completed_major_count):
             marker_id='t11_completed_major_{0}'.format(index + 1),
             position_value=completed_minor_cost + ((index + 1) * 20000),
             cost_xp=20000,
-            name=_resolve_t11_action_node_name(major_node, _loc('UPGRADE_MAJOR', 'Major Upgrade')),
+            name=_resolve_t11_action_node_name(major_node, _loc('UPGRADE_MAJOR')),
             action_node=major_node,
         ))
 
@@ -1498,12 +1482,12 @@ def _build_t11_display_layout(field_mods):
     completed_minor_nodes = _pad_t11_action_nodes(
         _sort_t11_action_nodes_by_category(_filter_t11_action_nodes(researched_action_nodes, 10000)),
         completed_minor_count,
-        _loc('UPGRADE_MINOR', 'Minor Upgrade')
+        _loc('UPGRADE_MINOR')
     )
     completed_major_nodes = _pad_t11_action_nodes(
         _sort_t11_action_nodes_by_category(_filter_t11_action_nodes(researched_action_nodes, 20000)),
         completed_major_count,
-        _loc('UPGRADE_MAJOR', 'Major Upgrade')
+        _loc('UPGRADE_MAJOR')
     )
     remaining_minor_nodes = _sort_t11_action_nodes_by_category(
         _filter_t11_action_nodes(unresearched_action_nodes, 10000)
@@ -1565,8 +1549,11 @@ def _make_t11_marker(
         'label': '',
         'hideTooltipIcon': True,
         'markerState': _resolve_remaining_cost_marker_state(remaining_cost, vehicle_xp, total_xp),
-        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
-        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
+        'progressLabel': _loc('CAPTION_VEHICLE_XP'),
+        'totalProgressLabel': _loc('CAPTION_TOTAL_XP'),
+        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH'),
+        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
+        'completedLabel': _loc('CAPTION_UNLOCKED'),
     }
     marker = _apply_t11_action_metadata(marker, action_node)
     return _apply_t11_bar_icon(marker, show_bar_icon)
@@ -1583,8 +1570,9 @@ def _make_t11_completed_marker(marker_id, position_value, cost_xp, name, action_
         'label': '',
         'hideTooltipIcon': True,
         'markerState': 'completed',
-        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH', 'ready for research'),
-        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT', '{xp} XP left'),
+        'progressReadyText': _loc('STATUS_READY_FOR_RESEARCH'),
+        'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
+        'completedLabel': _loc('CAPTION_UNLOCKED'),
     }
     marker = _apply_t11_action_metadata(marker, action_node)
     marker = _apply_t11_action_tooltip_details(marker, action_node)
@@ -1772,13 +1760,7 @@ def _build_t11_action_special_info_text(action_node):
 
     kind = action_node.get('kind')
     if kind == 'feature':
-        return _loc(
-            'FIELD_MOD_STATUS_ACTIVE',
-            'Active',
-        ) if action_node.get('is_active') else _loc(
-            'FIELD_MOD_STATUS_INACTIVE',
-            'Not active',
-        )
+        return _loc('FIELD_MOD_STATUS_ACTIVE') if action_node.get('is_active') else _loc('FIELD_MOD_STATUS_INACTIVE')
 
     role_slot_detail = _build_t11_action_role_slot_detail(action_node)
     if role_slot_detail is not None:

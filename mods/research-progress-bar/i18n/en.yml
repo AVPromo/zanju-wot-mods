@@ -30,6 +30,10 @@ TOOLTIP_UPGRADES_BODY: "Show tier XI upgrade tree progress."
 TOOLTIP_ELITE_HEADER: "Elite"
 TOOLTIP_ELITE_BODY: "<b>On</b>: Show elite badges and tier XI customization elements.\n<b>Customization only</b>: Show tier XI customization elements and hide elite badges.\n<b>Off</b>: Hide elite progress entirely."
 
+# Research tooltip
+TOOLTIP_PREREQUISITES: "Prerequisites"
+TOOLTIP_COST_WITH_PREREQS: "Cost with prerequisites"
+
 # Counter captions
 CAPTION_VEHICLE_XP: "Vehicle XP"
 CAPTION_TOTAL_XP: "Total XP"

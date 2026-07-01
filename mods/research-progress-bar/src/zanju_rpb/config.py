@@ -420,96 +420,64 @@ def _build_mod_settings_template():
         'column1': [
             {
                 'type': 'CheckBox',
-                'text': _loc('SETTING_RESEARCH_REMINDER', 'Show research reminder'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_RESEARCH_REMINDER',
-                    'TOOLTIP_RESEARCH_REMINDER_BODY',
-                    'Research reminder',
-                    'Show the separate "Research now!" reminder above the mode buttons.',
-                ),
+                'text': _loc('SETTING_RESEARCH_REMINDER'),
+                'tooltip': _loc_tooltip('SETTING_RESEARCH_REMINDER', 'TOOLTIP_RESEARCH_REMINDER_BODY'),
                 'value': settings['showResearchReminder'],
                 'varName': 'showResearchReminder',
             },
             {
                 'type': 'CheckBox',
-                'text': _loc('SETTING_ACCELERATED_CREW_TRAINING_REMINDER', 'Show accelerated crew training reminder'),
+                'text': _loc('SETTING_ACCELERATED_CREW_TRAINING_REMINDER'),
                 'tooltip': _loc_tooltip(
                     'SETTING_ACCELERATED_CREW_TRAINING_REMINDER',
                     'TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY',
-                    'Accelerated crew training reminder',
-                    'Show the separate accelerated crew training reminder above the mode buttons.',
                 ),
                 'value': settings['showAcceleratedCrewTrainingReminder'],
                 'varName': 'showAcceleratedCrewTrainingReminder',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_RESEARCH', 'Research'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_RESEARCH',
-                    'TOOLTIP_RESEARCH_BODY',
-                    'Research',
-                    'Show XP progress toward the next researchable module or vehicle.',
-                ),
+                'text': _loc('SETTING_RESEARCH'),
+                'tooltip': _loc_tooltip('SETTING_RESEARCH', 'TOOLTIP_RESEARCH_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_HYPOTHETICAL_TIER11_IN_RESEARCH', 'Show hypothetical tier 11 in research')},
-                    {'label': _loc('SETTING_RESEARCH_OPTION_REAL_ONLY', 'Show only real research items')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_HYPOTHETICAL_TIER11_IN_RESEARCH')},
+                    {'label': _loc('SETTING_RESEARCH_OPTION_REAL_ONLY')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showResearchMode'],
                 'varName': 'showResearchMode',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_UPGRADES', 'Upgrades'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_UPGRADES',
-                    'TOOLTIP_UPGRADES_BODY',
-                    'Upgrades',
-                    'Show tier XI upgrade tree progress.',
-                ),
+                'text': _loc('SETTING_UPGRADES'),
+                'tooltip': _loc_tooltip('SETTING_UPGRADES', 'TOOLTIP_UPGRADES_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_OPTION_ON', 'On')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_OPTION_ON')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showUpgradesMode'],
                 'varName': 'showUpgradesMode',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_FIELD_MODS', 'Field Mods'),
-                'tooltip': _loc_tooltip(
-                    'TOOLTIP_FIELD_MODS_HEADER',
-                    'TOOLTIP_FIELD_MODS_BODY',
-                    'Field Mods',
-                    '<b>Always show</b>: Keep the field mods mode available even after '
-                    'all field modifications are complete.\n'
-                    '<b>Until complete</b>: Hide the field mods mode once all field modifications are complete.\n'
-                    '<b>Off</b>: Hide field mods entirely.',
-                ),
+                'text': _loc('SETTING_FIELD_MODS'),
+                'tooltip': _loc_tooltip('TOOLTIP_FIELD_MODS_HEADER', 'TOOLTIP_FIELD_MODS_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_FIELD_MODS_OPTION_ALWAYS', 'Always show')},
-                    {'label': _loc('SETTING_FIELD_MODS_OPTION_UNTIL_COMPLETE', 'Until complete')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_FIELD_MODS_OPTION_ALWAYS')},
+                    {'label': _loc('SETTING_FIELD_MODS_OPTION_UNTIL_COMPLETE')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showFieldModsProgress'],
                 'varName': 'showFieldModsProgress',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_ELITE', 'Elite'),
-                'tooltip': _loc_tooltip(
-                    'TOOLTIP_ELITE_HEADER',
-                    'TOOLTIP_ELITE_BODY',
-                    'Elite',
-                    '<b>On</b>: Show elite badges and tier XI customization elements.\n'
-                    '<b>Customization only</b>: Show tier XI customization elements and hide elite badges.\n'
-                    '<b>Off</b>: Hide elite progress entirely.',
-                ),
+                'text': _loc('SETTING_ELITE'),
+                'tooltip': _loc_tooltip('TOOLTIP_ELITE_HEADER', 'TOOLTIP_ELITE_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_OPTION_ON', 'On')},
-                    {'label': _loc('SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY', 'Customization only')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_OPTION_ON')},
+                    {'label': _loc('SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showEliteProgress'],
                 'varName': 'showEliteProgress',
