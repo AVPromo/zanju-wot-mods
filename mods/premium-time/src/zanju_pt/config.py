@@ -11,7 +11,6 @@ from numbers import Integral
 from .constants import MOD_NAME
 from .localization import get_text as _loc
 from .localization import make_tooltip as _loc_tooltip
-from .localization import set_language_override as _set_language_override
 from .storage import atomic_write_text, resolve_mod_data_dir
 
 _logger = logging.getLogger('zanju.premiumtime')
@@ -23,7 +22,6 @@ except NameError:
 
 _config = {
     'enabled': True,
-    'language': 'auto',
     'showPremiumAccount': True,
     'showWotPlus': True,
     'hideWhenInactive': False,
@@ -37,7 +35,6 @@ _DEFAULT_CONFIG = dict(_config)
 
 _CONFIG_PERSISTED_KEYS = (
     'enabled',
-    'language',
     'showPremiumAccount',
     'showWotPlus',
     'hideWhenInactive',
@@ -48,8 +45,6 @@ _CONFIG_SAVE_KEY_ORDER = (
     '_comment',
     'configVersion',
     'enabled',
-    '_language_comment',
-    'language',
     'showPremiumAccount',
     'showWotPlus',
     'hideWhenInactive',
@@ -64,10 +59,6 @@ _CONFIG_COMMENTS = {
         'Auto-generated config for zanju.premiumtime. Stored in AppData so it survives '
         'modpack reinstalls; edited in-game via the mod settings menu and recreated with '
         'defaults if deleted.'
-    ),
-    '_language_comment': (
-        'auto | <language-code>; runtime loads mods/configs/premium-time/i18n/<code>.yml '
-        'with English fallback'
     ),
     '_corner_comment': 'top_right | top_left | bottom_right | bottom_left',
 }
@@ -144,19 +135,10 @@ def _normalize_corner(value):
 
 
 def _normalize_display_config():
-    language = _config.get('language', 'auto')
-    if not isinstance(language, _STRING_TYPES):
-        language = 'auto'
-    language = language.strip().lower().replace('-', '_') or 'auto'
-    if language in ('client', 'default', 'system'):
-        language = 'auto'
-    _config['language'] = language
-
     for key in ('enabled', 'showPremiumAccount', 'showWotPlus', 'hideWhenInactive'):
         _config[key] = bool(_config.get(key, _DEFAULT_CONFIG[key]))
 
     _config['corner'] = _normalize_corner(_config.get('corner', _CORNER_TOP_RIGHT))
-    _set_language_override(_config.get('language', 'auto'))
 
 
 def _build_display_preferences():
@@ -188,6 +170,8 @@ def _save_config():
         data = {}
 
     data['configVersion'] = data.get('configVersion', 1)
+    data.pop('language', None)
+    data.pop('_language_comment', None)
     for key in _CONFIG_PERSISTED_KEYS:
         data[key] = _config.get(key)
     for key, comment in _CONFIG_COMMENTS.items():
@@ -259,55 +243,34 @@ def _build_mod_settings_template():
         'column1': [
             {
                 'type': 'CheckBox',
-                'text': _loc('SETTING_SHOW_PREMIUM_ACCOUNT', 'Show Premium Account'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_SHOW_PREMIUM_ACCOUNT',
-                    'TOOLTIP_SHOW_PREMIUM_ACCOUNT_BODY',
-                    'Show Premium Account',
-                    'Show the remaining time on your WoT Premium Account.',
-                ),
+                'text': _loc('SETTING_SHOW_PREMIUM_ACCOUNT'),
+                'tooltip': _loc_tooltip('SETTING_SHOW_PREMIUM_ACCOUNT', 'TOOLTIP_SHOW_PREMIUM_ACCOUNT_BODY'),
                 'value': settings['showPremiumAccount'],
                 'varName': 'showPremiumAccount',
             },
             {
                 'type': 'CheckBox',
-                'text': _loc('SETTING_SHOW_WOT_PLUS', 'Show WoT Plus'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_SHOW_WOT_PLUS',
-                    'TOOLTIP_SHOW_WOT_PLUS_BODY',
-                    'Show WoT Plus',
-                    'Show the remaining time on your WoT Plus / WoT Plus Pro subscription.',
-                ),
+                'text': _loc('SETTING_SHOW_WOT_PLUS'),
+                'tooltip': _loc_tooltip('SETTING_SHOW_WOT_PLUS', 'TOOLTIP_SHOW_WOT_PLUS_BODY'),
                 'value': settings['showWotPlus'],
                 'varName': 'showWotPlus',
             },
             {
                 'type': 'CheckBox',
-                'text': _loc('SETTING_HIDE_WHEN_INACTIVE', 'Hide when inactive'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_HIDE_WHEN_INACTIVE',
-                    'TOOLTIP_HIDE_WHEN_INACTIVE_BODY',
-                    'Hide when inactive',
-                    'Hide the widget entirely when no premium subscription is active, '
-                    'instead of showing an "inactive" line.',
-                ),
+                'text': _loc('SETTING_HIDE_WHEN_INACTIVE'),
+                'tooltip': _loc_tooltip('SETTING_HIDE_WHEN_INACTIVE', 'TOOLTIP_HIDE_WHEN_INACTIVE_BODY'),
                 'value': settings['hideWhenInactive'],
                 'varName': 'hideWhenInactive',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_CORNER', 'Screen corner'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_CORNER',
-                    'TOOLTIP_CORNER_BODY',
-                    'Screen corner',
-                    'Choose which corner of the hangar the widget is anchored to.',
-                ),
+                'text': _loc('SETTING_CORNER'),
+                'tooltip': _loc_tooltip('SETTING_CORNER', 'TOOLTIP_CORNER_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_CORNER_TOP_RIGHT', 'Top right')},
-                    {'label': _loc('SETTING_CORNER_TOP_LEFT', 'Top left')},
-                    {'label': _loc('SETTING_CORNER_BOTTOM_RIGHT', 'Bottom right')},
-                    {'label': _loc('SETTING_CORNER_BOTTOM_LEFT', 'Bottom left')},
+                    {'label': _loc('SETTING_CORNER_TOP_RIGHT')},
+                    {'label': _loc('SETTING_CORNER_TOP_LEFT')},
+                    {'label': _loc('SETTING_CORNER_BOTTOM_RIGHT')},
+                    {'label': _loc('SETTING_CORNER_BOTTOM_LEFT')},
                 ],
                 'value': settings['corner'],
                 'varName': 'corner',

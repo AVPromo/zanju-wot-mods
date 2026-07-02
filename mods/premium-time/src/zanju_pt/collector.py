@@ -49,7 +49,6 @@ def collect_premium_status(items_cache, logger, discovery_state=None):
                 {
                     'kind': 'premium_account' | 'wot_plus',
                     'label_key': <localization key>,
-                    'default_label': <english fallback>,
                     'expiry': <int epoch seconds or None>,
                     'remaining': <int seconds or None>,
                     'active': <bool>,
@@ -65,24 +64,17 @@ def collect_premium_status(items_cache, logger, discovery_state=None):
     wot_plus_expiry, wot_plus_is_pro = _read_wot_plus(stats, logger, discovery_state)
 
     entries = [
-        _build_entry(
-            KIND_PREMIUM_ACCOUNT,
-            'LABEL_PREMIUM_ACCOUNT',
-            'Premium Account',
-            premium_expiry,
-            now,
-        ),
+        _build_entry(KIND_PREMIUM_ACCOUNT, 'LABEL_PREMIUM_ACCOUNT', premium_expiry, now),
         _build_wot_plus_entry(wot_plus_expiry, wot_plus_is_pro, now),
     ]
     return {'now': now, 'entries': entries}
 
 
-def _build_entry(kind, label_key, default_label, expiry, now):
+def _build_entry(kind, label_key, expiry, now):
     remaining = None if expiry is None else int(expiry) - now
     return {
         'kind': kind,
         'label_key': label_key,
-        'default_label': default_label,
         'expiry': expiry,
         'remaining': remaining,
         'active': remaining is not None and remaining > 0,
@@ -90,11 +82,8 @@ def _build_entry(kind, label_key, default_label, expiry, now):
 
 
 def _build_wot_plus_entry(expiry, is_pro, now):
-    if is_pro:
-        label_key, default_label = 'LABEL_WOT_PLUS_PRO', 'WoT Plus Pro'
-    else:
-        label_key, default_label = 'LABEL_WOT_PLUS', 'WoT Plus'
-    return _build_entry(KIND_WOT_PLUS, label_key, default_label, expiry, now)
+    label_key = 'LABEL_WOT_PLUS_PRO' if is_pro else 'LABEL_WOT_PLUS'
+    return _build_entry(KIND_WOT_PLUS, label_key, expiry, now)
 
 
 # -- current time -----------------------------------------------------------

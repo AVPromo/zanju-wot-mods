@@ -31,19 +31,19 @@ def build_premium_payload(status, prefs):
         return None
 
     return {
-        'title': _loc('WIDGET_TITLE', 'Premium Time'),
+        'title': _loc('WIDGET_TITLE'),
         'corner': prefs.get('corner', 'top_right'),
         'lines': lines,
     }
 
 
 def _build_line(entry):
-    label = _loc(entry.get('label_key'), entry.get('default_label') or entry.get('label_key'))
+    label = _loc(entry.get('label_key'))
     if entry.get('active'):
         value = format_remaining(entry.get('remaining'))
         severity = remaining_severity(entry.get('remaining'))
     else:
-        value = _loc('VALUE_INACTIVE', 'Inactive')
+        value = _loc('VALUE_INACTIVE')
         severity = 'inactive'
     return {'label': label, 'value': value, 'severity': severity}
 

@@ -25,6 +25,14 @@ Configured in-game through Aslain's ModsSettings menu:
 Settings live in `%APPDATA%/zanju_wot_mods_cache/premium-time/config.json` and survive
 modpack reinstalls.
 
+## Translations
+
+Reference language `en` defines 22 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+
+| Language | Coverage | Missing |
+| --- | --- | --- |
+| `pl` | 100% (22/22) | 0 |
+
 ## Install And Use
 
 If you already have the prepared mod zip file, follow the general install path in

@@ -22,18 +22,18 @@ def format_remaining(seconds):
     try:
         total = int(seconds)
     except (TypeError, ValueError):
-        return _loc('DURATION_UNKNOWN', '--')
+        return _loc('DURATION_UNKNOWN')
 
     if total < _SECONDS_PER_MINUTE:
-        return _loc('DURATION_LESS_THAN_MINUTE', '<1m')
+        return _loc('DURATION_LESS_THAN_MINUTE')
 
     days = total // _SECONDS_PER_DAY
     hours = (total % _SECONDS_PER_DAY) // _SECONDS_PER_HOUR
     minutes = (total % _SECONDS_PER_HOUR) // _SECONDS_PER_MINUTE
 
-    day_unit = _loc('UNIT_DAY_SHORT', 'd')
-    hour_unit = _loc('UNIT_HOUR_SHORT', 'h')
-    minute_unit = _loc('UNIT_MINUTE_SHORT', 'm')
+    day_unit = _loc('UNIT_DAY_SHORT')
+    hour_unit = _loc('UNIT_HOUR_SHORT')
+    minute_unit = _loc('UNIT_MINUTE_SHORT')
 
     if days >= 1:
         return '{0}{1} {2}{3}'.format(days, day_unit, hours, hour_unit)
