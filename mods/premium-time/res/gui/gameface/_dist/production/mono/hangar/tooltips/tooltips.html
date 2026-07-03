@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+    Zanju Premium Time: copy of the game's mono/hangar/tooltips document shell
+    (gui-part2.pkg) with one extra script tag at the end of <head>. This document's
+    content view is the page ROOT (its model is window.model, not a subView), so the
+    OpenWG ModInjectModel injector never sees it; shadowing the shell is the only way
+    to load our module here. Refresh this copy from the game package on client updates.
+-->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Blank</title>
+      <script type="module" crossorigin src="../views/tooltips/tooltips.html/bundle.js"></script>
+      <link rel="stylesheet" crossorigin href="../lib/lib.css">
+      <link rel="stylesheet" crossorigin href="../common/common.css">
+      <link rel="stylesheet" crossorigin href="../tankman_role/tankman_role.css">
+      <link rel="stylesheet" crossorigin href="../tooltips/tooltips.css">
+      <link rel="stylesheet" crossorigin href="../global/global.css">
+      <script type="module" crossorigin src="coui://gui/gameface/mods/zanju_premiumtime/tooltip_patch.js"></script>
+    </head>
+    <body>
+        <div id="root"></div>
+    </body>
+</html>

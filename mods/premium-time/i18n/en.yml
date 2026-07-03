@@ -1,31 +1,7 @@
-# Widget
-WIDGET_TITLE: "Premium Time"
-
-# Subscription labels
-LABEL_PREMIUM_ACCOUNT: "Premium Account"
-LABEL_WOT_PLUS: "WoT Plus"
-LABEL_WOT_PLUS_PRO: "WoT Plus Pro"
-
-# Values
-VALUE_INACTIVE: "Inactive"
-DURATION_LESS_THAN_MINUTE: "<1m"
-DURATION_UNKNOWN: "--"
+# Header counter units (kept short: the header buttons have little room)
 UNIT_DAY_SHORT: "d"
 UNIT_HOUR_SHORT: "h"
 UNIT_MINUTE_SHORT: "m"
 
-# Configurator labels
-SETTING_SHOW_PREMIUM_ACCOUNT: "Show Premium Account"
-SETTING_SHOW_WOT_PLUS: "Show WoT Plus"
-SETTING_HIDE_WHEN_INACTIVE: "Hide when inactive"
-SETTING_CORNER: "Screen corner"
-SETTING_CORNER_TOP_RIGHT: "Top right"
-SETTING_CORNER_TOP_LEFT: "Top left"
-SETTING_CORNER_BOTTOM_RIGHT: "Bottom right"
-SETTING_CORNER_BOTTOM_LEFT: "Bottom left"
-
-# Configurator tooltips
-TOOLTIP_SHOW_PREMIUM_ACCOUNT_BODY: "Show the remaining time on your WoT Premium Account."
-TOOLTIP_SHOW_WOT_PLUS_BODY: "Show the remaining time on your WoT Plus / WoT Plus Pro subscription."
-TOOLTIP_HIDE_WHEN_INACTIVE_BODY: "Hide the widget entirely when no premium subscription is active, instead of showing an \"Inactive\" line."
-TOOLTIP_CORNER_BODY: "Choose which corner of the hangar the widget is anchored to."
+# Tooltips
+TOOLTIP_ENDS_ON: "Ends on:"

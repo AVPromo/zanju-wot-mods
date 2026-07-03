@@ -1,31 +1,7 @@
-# Widget
-WIDGET_TITLE: "Czas Premium"
-
-# Subscription labels
-LABEL_PREMIUM_ACCOUNT: "Konto Premium"
-LABEL_WOT_PLUS: "WoT Plus"
-LABEL_WOT_PLUS_PRO: "WoT Plus Pro"
-
-# Values
-VALUE_INACTIVE: "Nieaktywne"
-DURATION_LESS_THAN_MINUTE: "<1m"
-DURATION_UNKNOWN: "--"
+# Header counter units (kept short: the header buttons have little room)
 UNIT_DAY_SHORT: "d"
-UNIT_HOUR_SHORT: "h"
+UNIT_HOUR_SHORT: "g"
 UNIT_MINUTE_SHORT: "m"
 
-# Configurator labels
-SETTING_SHOW_PREMIUM_ACCOUNT: "Pokaż Konto Premium"
-SETTING_SHOW_WOT_PLUS: "Pokaż WoT Plus"
-SETTING_HIDE_WHEN_INACTIVE: "Ukryj gdy nieaktywne"
-SETTING_CORNER: "Róg ekranu"
-SETTING_CORNER_TOP_RIGHT: "Prawy górny"
-SETTING_CORNER_TOP_LEFT: "Lewy górny"
-SETTING_CORNER_BOTTOM_RIGHT: "Prawy dolny"
-SETTING_CORNER_BOTTOM_LEFT: "Lewy dolny"
-
-# Configurator tooltips
-TOOLTIP_SHOW_PREMIUM_ACCOUNT_BODY: "Pokazuje pozostały czas konta Premium WoT."
-TOOLTIP_SHOW_WOT_PLUS_BODY: "Pokazuje pozostały czas subskrypcji WoT Plus / WoT Plus Pro."
-TOOLTIP_HIDE_WHEN_INACTIVE_BODY: "Ukrywa cały widżet, gdy żadna subskrypcja nie jest aktywna, zamiast pokazywać wiersz \"Nieaktywne\"."
-TOOLTIP_CORNER_BODY: "Wybierz, do którego rogu ekranu w garażu przypięty jest widżet."
+# Tooltips
+TOOLTIP_ENDS_ON: "Kończy się:"

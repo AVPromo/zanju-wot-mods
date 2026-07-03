@@ -1,37 +1,37 @@
 # Zanju's Premium Time
 
-### A small, always-on hangar widget that shows how much premium time you have left.
+### Shows exactly how much premium time you have left, right on the lobby header.
 
-The widget reads your account state and displays the remaining time for the two
-independent premium subscriptions:
+The game's own header buttons only show a coarse day count for Premium Account and an
+"Activate" / "Manage" label for WoT Plus. This mod integrates into that existing UI
+instead of adding its own window:
+
+- **Header counters** — while a subscription is running, its header button shows a live
+  `NNd NNh NNm` countdown. Inactive subscriptions keep the game's default label.
+- **Tooltip end time** — the hover tooltips of both buttons gain the exact end date and
+  time (to the second, with the UTC offset) of the subscription.
+
+Covers the two independent premium subscriptions:
 
 - **Premium Account** — the classic WoT premium time.
-- **WoT Plus / WoT Plus Pro** — the renewable subscription (the active tier is detected
-  and labelled automatically).
+- **WoT Plus / WoT Plus Pro** — the renewable subscription.
 
-Each line shows the time remaining as a compact `Xd Yh` value, colour-coded by urgency
-(green → amber under 3 days → red under 1 day). A subscription you do not currently hold
-is shown as **Inactive**, or hidden entirely via the settings.
+There is nothing to configure: the mod has no settings and keeps no config file.
 
-### Settings
+### Requirements
 
-Configured in-game through Aslain's ModsSettings menu:
-
-- **Show Premium Account** — toggle the Premium Account line.
-- **Show WoT Plus** — toggle the WoT Plus / WoT Plus Pro line.
-- **Hide when inactive** — hide the widget completely when nothing is active.
-- **Screen corner** — anchor the widget to any of the four hangar corners.
-
-Settings live in `%APPDATA%/zanju_wot_mods_cache/premium-time/config.json` and survive
-modpack reinstalls.
+The header counters and the WoT Plus tooltip line need the
+[OpenWG Gameface](https://gitlab.com/openwg/wot.gameface) library
+(`net.openwg.gameface`, bundled with popular modpacks such as Aslain's). Without it the
+mod still works, but only the Premium Account tooltip line is shown.
 
 ## Translations
 
-Reference language `en` defines 22 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+Reference language `en` defines 4 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
 
 | Language | Coverage | Missing |
 | --- | --- | --- |
-| `pl` | 100% (22/22) | 0 |
+| `pl` | 100% (4/4) | 0 |
 
 ## Install And Use
 
@@ -51,19 +51,32 @@ For the wider repository workflow, see:
 - [Architecture](../../docs/architecture.md)
 - [Technical Reference](../../docs/reference/README.md)
 
+### How it hooks the game UI
+
+The lobby header and its tooltips are Gameface (HTML/JS) views; their texts are rendered
+by the game's JS bundles, not by Python. The mod therefore works on both sides:
+
+- **Header counters** — `UserAccountModel._initialize` is wrapped to attach an OpenWG
+  `ModInjectModel` (which makes the OpenWG bootstrap load `header_patch.js` into the
+  header document) plus a small `zanjuPtHeader` data model with localized unit labels
+  and the client↔server clock offset. The injected JS computes the countdowns from the
+  game's own `subscriptions.*.expiryTime` and rewrites the button labels, restoring the
+  originals when a subscription is inactive.
+- **WoT Plus tooltip** — the hover tooltip is a param tooltip (`ParamTooltipModel`)
+  rendering the `wot_plus_header_widget` template. Its content view is the tooltip
+  document's root (`window.model`, not a subview), which the OpenWG injector never
+  scans — so the mod ships a shadowed copy of the document shell
+  (`res/gui/gameface/_dist/.../tooltips/tooltips.html`, refresh it from the game
+  package on client updates) that loads `tooltip_patch.js` directly. The wrapped model
+  carries a pre-formatted, localized "Ends on: …" line (computed fresh on every hover)
+  that the script appends to the tooltip content.
+- **Premium Account tooltip** — a classic Python blocks tooltip
+  (`AmmunitionEmptyBlockTooltipData` with the `#tooltips:header/premium_buy` alias);
+  `_packBlocks` is wrapped to append the end-time text block for that alias only.
+
 ### Data sources
 
-- **Premium Account** — `itemsCache.items.stats.activePremiumExpiryTime` (falling back to
-  `totalPremiumExpiryTime`, then legacy fields on older clients).
-- **WoT Plus** — `IWotPlusController.getExpiryTime()` (falling back to `getState()`, then
-  account-stats / player probes). When the controller exposes a known accessor it is
-  treated as authoritative, so a zero expiry means "no active subscription" rather than a
-  read failure.
-
-If none of the known WoT Plus shapes match on a future client, the collector logs the
-candidate attribute names once to `python.log` (search for `WoT Plus expiry not resolved`)
-so the field can be re-pinned without guesswork.
-
-Not yet verified in-game: **WoT Plus Pro** tier detection (whether the line should read
-"WoT Plus" vs "WoT Plus Pro"). It currently defaults to "WoT Plus"; confirming the Pro flag
-needs an account with an active WoT Plus Pro subscription.
+- **Premium Account** — `itemsCache.items.stats` (`isPremium`,
+  `activePremiumExpiryTime`), the same fields the game's header presenter uses.
+- **WoT Plus** — `IWotPlusController.getExpiryTime()`; the header counter reads
+  `expiryTime`/`state` straight from the game's own header view model.

@@ -1,61 +1,80 @@
-"""Remaining-time formatting helpers for premium-time.
+"""Time helpers shared by the header and tooltip integrations.
 
-Pure functions: no WoT imports here so the formatting is trivially testable and reused by
-both the runtime collector and the Scaleform payload builder.
+Pure-ish helpers: the only WoT imports are done lazily so failures degrade to
+sensible fallbacks instead of breaking the caller.
 """
 from __future__ import print_function, unicode_literals
 
+import time
+
 from .localization import get_text as _loc
 
-_SECONDS_PER_MINUTE = 60
-_SECONDS_PER_HOUR = 60 * 60
-_SECONDS_PER_DAY = 24 * 60 * 60
+
+def server_now():
+    """Current time as epoch seconds, server-synced when the client exposes it."""
+    try:
+        from helpers import time_utils
+        timestamp = time_utils.getCurrentTimestamp()
+        if timestamp:
+            return float(timestamp)
+    except Exception:
+        pass
+    return time.time()
 
 
-def format_remaining(seconds):
-    """Format a remaining-seconds count as a compact localized duration.
+def server_time_offset():
+    """Seconds to add to the client clock to approximate server time (constant per session)."""
+    return server_now() - time.time()
 
-    Returns a short string such as "23d 4h", "4h 12m", or "8m". Sub-minute and
-    non-positive inputs collapse to the "less than a minute" label; callers decide
-    whether a non-positive remainder means "expired / inactive" before calling here.
+
+def format_end_datetime(timestamp):
+    """Format an epoch timestamp as a localized "date time" string, seconds included."""
+    try:
+        from gui.impl import backport
+        date_str = backport.getLongDateFormat(timestamp)
+        # The regional long time format includes seconds; the short one does not.
+        time_str = backport.getLongTimeFormat(timestamp)
+        if date_str and time_str:
+            return '{0} {1}'.format(date_str, time_str)
+    except Exception:
+        pass
+    try:
+        return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+    except Exception:
+        return ''
+
+
+def utc_offset_label(timestamp):
+    """UTC offset designation (e.g. 'UTC+2') of the local zone at the given timestamp.
+
+    An offset is used instead of a zone name: Python 2.7 on Windows reports zone names
+    localized in the OS language and codepage, which is both unwieldy in a tooltip and
+    prone to mojibake.
     """
     try:
-        total = int(seconds)
-    except (TypeError, ValueError):
-        return _loc('DURATION_UNKNOWN')
-
-    if total < _SECONDS_PER_MINUTE:
-        return _loc('DURATION_LESS_THAN_MINUTE')
-
-    days = total // _SECONDS_PER_DAY
-    hours = (total % _SECONDS_PER_DAY) // _SECONDS_PER_HOUR
-    minutes = (total % _SECONDS_PER_HOUR) // _SECONDS_PER_MINUTE
-
-    day_unit = _loc('UNIT_DAY_SHORT')
-    hour_unit = _loc('UNIT_HOUR_SHORT')
-    minute_unit = _loc('UNIT_MINUTE_SHORT')
-
-    if days >= 1:
-        return '{0}{1} {2}{3}'.format(days, day_unit, hours, hour_unit)
-    if hours >= 1:
-        return '{0}{1} {2}{3}'.format(hours, hour_unit, minutes, minute_unit)
-    return '{0}{1}'.format(minutes, minute_unit)
+        is_dst = time.localtime(timestamp).tm_isdst > 0
+        offset_seconds = -(time.altzone if is_dst else time.timezone)
+    except Exception:
+        return ''
+    total_minutes = int(offset_seconds) // 60
+    sign = '+' if total_minutes >= 0 else '-'
+    hours, minutes = divmod(abs(total_minutes), 60)
+    if minutes:
+        return 'UTC{0}{1}:{2:02d}'.format(sign, hours, minutes)
+    return 'UTC{0}{1}'.format(sign, hours)
 
 
-def remaining_severity(seconds):
-    """Classify how urgent a remaining-time value is, for colouring in the widget.
+def end_datetime_text(expiry_timestamp):
+    """'<date> <time> UTC+X' display value for an end timestamp, or ''."""
+    formatted = format_end_datetime(expiry_timestamp)
+    if not formatted:
+        return ''
+    offset = utc_offset_label(expiry_timestamp)
+    if offset:
+        return '{0} {1}'.format(formatted, offset)
+    return formatted
 
-    Returns one of: "expired", "critical" (< 1 day), "warning" (< 3 days), "normal".
-    """
-    try:
-        total = int(seconds)
-    except (TypeError, ValueError):
-        return 'normal'
 
-    if total <= 0:
-        return 'expired'
-    if total < _SECONDS_PER_DAY:
-        return 'critical'
-    if total < 3 * _SECONDS_PER_DAY:
-        return 'warning'
-    return 'normal'
+def ends_on_label():
+    """Localized "Ends on:" label preceding the end-time value in tooltips."""
+    return _loc('TOOLTIP_ENDS_ON')
