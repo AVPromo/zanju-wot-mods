@@ -1,4 +1,4 @@
-﻿MOD_NAME: "Индикатор прогресса опыта Занджу"
+MOD_NAME: "Индикатор прогресса опыта Занджу"
 MOD_DESCRIPTION: "Показывает прогресс опыта в исследованиях, улучшениях XI уровня, полевых модернизациях и уровнях элитности для выбранной машины."
 
 # Метки режимов
@@ -7,7 +7,7 @@ MODE_FIELD_MODS: "Модернизация"
 MODE_UPGRADES: "Улучшение"
 MODE_ELITE: "Элитность"
 
-# Метки конфигурации
+# Метки настроек
 SETTING_ENABLED: "Включить/отключить мод"
 SETTING_RESEARCH_REMINDER: "Показывать напоминание об исследовании"
 SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Показывать напоминание об ускоренном обучении экипажа"
@@ -34,16 +34,16 @@ TOOLTIP_ELITE_HEADER: "Элитность"
 TOOLTIP_ELITE_BODY: "<b>Включено</b>: Показывает и элитные значки, и элементы кастомизации XI уровня..\n<b>Только кастомизация</b>: Показывает элементы кастомизации XI уровня и скрывает элитные значки.\n<b>Отключено</b>: Полностью скрывает прогресс элитности."
 
 # Подписи счётчиков
-CAPTION_VEHICLE_XP: "Опыт танка"
-CAPTION_TOTAL_XP: "Весь опыт"
-CAPTION_BASE_XP: "Чистый опыт"
+CAPTION_VEHICLE_XP: "XP в наличии:"
+CAPTION_TOTAL_XP: "Полный XP:"
+CAPTION_BASE_XP: "Чистый XP:"
 CAPTION_UNLOCKED: "Разблокировано"
 CAPTION_LOCKED: "Заблокировано"
-BLUEPRINT_TOOLTIP_FORMAT: "<count>{count}</count>/<total>{total}</total> Чертежи (<discount>{discount}%</discount> скидка)"
+BLUEPRINT_TOOLTIP_FORMAT: "Чертежи: <count>{count}</count>/<total>{total}</total> (скидка: <discount>{discount}%</discount>)"
 FIELD_MOD_VALUE_FORMAT: "{label}: {value}"
 FIELD_MOD_STATUS_ACTIVE: "Активно"
 FIELD_MOD_STATUS_INACTIVE: "Не активно"
-TOOLTIP_LEVEL_FORMAT: "Уровень {level}"
+TOOLTIP_LEVEL_FORMAT: "Уровень: {level}"
 FIELD_MOD_TOOLTIP_SUBTITLE_DUAL: "Парная модификация"
 FIELD_MOD_TOOLTIP_SUBTITLE_ROLE_SLOT: "Вторая категория оборудования"
 FIELD_MOD_TOOLTIP_AVAILABLE_CATEGORIES: "Доступные категории для оборудования"
@@ -51,12 +51,12 @@ FIELD_MOD_TOOLTIP_OPTION_A: "Вариант А"
 FIELD_MOD_TOOLTIP_OPTION_B: "Вариант B"
 
 # Метки танков
-VEHICLE_LABEL_TIER_FORMAT: "{name} (Уровень {tier})"
+VEHICLE_LABEL_TIER_FORMAT: "{name} (Уровень: {tier})"
 VEHICLE_LABEL_TIER_UNKNOWN_FORMAT: "{name} (Уровень неизвестен)"
 
 # Метки элитности
-ELITE_LEVEL_FORMAT: "Уровень элитности {level}"
-ELITE_BASE_XP_PROGRESS_FORMAT: "{current} / {target} Опыт"
+ELITE_LEVEL_FORMAT: "Уровень элитности: {level}"
+ELITE_BASE_XP_PROGRESS_FORMAT: "Прогресс XP: {current} / {target}"
 ELITE_BADGE_METAL: "Железный значок"
 ELITE_BADGE_BRONZE: "Бронзовый значок"
 ELITE_BADGE_SILVER: "Серебряный значок"
@@ -80,7 +80,7 @@ SEPARATE_STATUS_ACCELERATE_CREW_TRAINING: "Ускорьте обучение э�
 SEPARATE_STATUS_RESEARCH_NOW: "Исследование доступно!"
 STATUS_NO_UNLOCKS: "Нет доступных разблокировок"
 STATUS_READY_FOR_RESEARCH: "Готов к исследованию"
-STATUS_XP_LEFT_FORMAT: "Осталось XP: {xp}"
+STATUS_XP_LEFT_FORMAT: "Не хватает XP: {xp}"
 STATUS_TIER_UNKNOWN: "Уровень неизвестен."
 STATUS_FIELD_MODS_REQUIRES_ELITE: "Полевая модернизация требуют требует получение статуса элитной машины."
 STATUS_FIELD_MODS_NOT_AVAILABLE: "Полевая модернизация недоступна для этого танка."
