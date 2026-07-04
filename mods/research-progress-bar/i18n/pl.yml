@@ -6,6 +6,7 @@ MODE_ELITE: "Elita"
 
 # Configurator labels
 SETTING_ENABLED: "Włącz / wyłącz mod"
+SETTING_SHOW_TOTAL_XP: "Pokaż Łączne PD"
 SETTING_RESEARCH_REMINDER: "Pokaż przypomnienie o badaniu"
 SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Pokaż przypomnienie o przyspieszonym szkoleniu załogi"
 SETTING_RESEARCH: "Badania"
@@ -21,6 +22,7 @@ SETTING_OPTION_ON: "Włączone"
 SETTING_OPTION_OFF: "Wyłączone"
 
 # Configurator tooltips
+TOOLTIP_SHOW_TOTAL_XP_BODY: "Pokaż postęp Łącznych PD, czyli PD pojazdu razem z Wolnymi PD. Licznik Łącznych PD obok paska oraz odpowiadający mu wiersz w podpowiedziach pokazują łączny postęp, a żółta część paska i żółte znaczniki pokazują, co można zbadać z użyciem Wolnych PD."
 TOOLTIP_RESEARCH_REMINDER_BODY: "Pokaż przypomnienie \"Badaj teraz!\" nad przyciskami trybów."
 TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY: "Pokaż przypomnienie \"Przyspiesz szkolenie załogi!\" nad przyciskami trybów."
 TOOLTIP_RESEARCH_BODY: "<b>Pokaż hipotetyczny pojazd XI poziomu w badaniach</b>: Pokazuje postęp w kierunku pojazdu XI poziomu, który może pojawić się w przyszłości.\n<b>Pokaż tylko prawdziwe elementy badań</b>: Pokazuje postęp tylko w kierunku elementów badań, które istnieją obecnie.\n<b>Wyłączone</b>: Całkowicie ukryj badania."
@@ -29,6 +31,10 @@ TOOLTIP_FIELD_MODS_BODY: "<b>Zawsze pokazuj</b>: Pozostaw tryb ulepszeń polowyc
 TOOLTIP_UPGRADES_BODY: "Pokaż postęp drzewka ulepszeń XI poziomu."
 TOOLTIP_ELITE_HEADER: "Elita"
 TOOLTIP_ELITE_BODY: "<b>Włączone</b>: Pokaż elitarne odznaki i elementy personalizacji XI poziomu.\n<b>Tylko personalizacja</b>: Pokaż elementy personalizacji XI poziomu i ukryj elitarne odznaki.\n<b>Wyłączone</b>: Ukryj postęp elity."
+
+# Research tooltip
+TOOLTIP_PREREQUISITES: "Wymagania"
+TOOLTIP_COST_WITH_PREREQS: "Koszt z wymaganiami"
 
 # Counter captions
 CAPTION_VEHICLE_XP: "PD pojazdu"
@@ -65,8 +71,8 @@ ELITE_REWARD_VOLUMETRIC_STYLE: "Styl wolumetryczny"
 ELITE_REWARD_GUN_SLEEVE: "Osłona działa"
 
 # Upgrade labels
-UPGRADE_MINOR: "Drobne ulepszenie"
-UPGRADE_MAJOR: "Główne ulepszenie"
+UPGRADE_MINOR: "Mniejsze ulepszenie"
+UPGRADE_MAJOR: "Większe ulepszenie"
 UPGRADE_FINAL: "Końcowe ulepszenie"
 UPGRADE_ALL_OTHER_NODES: "Wszystkie pozostałe węzły"
 HYPOTHETICAL_T11_VEHICLE_NAME: "Hipotetyczny pojazd XI poziomu"

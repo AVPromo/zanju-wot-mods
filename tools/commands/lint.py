@@ -9,6 +9,14 @@ import sys
 
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
+from ..core.i18n_audit import (
+    audit_code_key_coverage,
+    check_readme_coverage,
+    check_templates,
+    compute_translation_coverage,
+    write_readme_coverage,
+    write_templates,
+)
 from ..core.paths import REPO_ROOT
 
 try:
@@ -30,6 +38,8 @@ COMMAND_CHOICES = (
     "py27-lint",
     "py27-format",
     "py27-format-check",
+    "i18n",
+    "i18n-check",
 )
 ALIAS_COMMANDS = {
     "py3-check": ("check", {"py3_only": True}),
@@ -264,6 +274,66 @@ def run_py27_format(check, verbose=False):
     )
 
 
+def _raise_on_code_key_coverage():
+    problems = audit_code_key_coverage()
+    if problems:
+        message = ["Localization key coverage failed (keys used in code but absent from en.yml):"]
+        message.extend("  - {}".format(problem) for problem in problems)
+        raise RuntimeError("\n".join(message))
+
+
+def _report_translation_coverage(verbose=False):
+    for mod_name, mod_coverage in sorted(compute_translation_coverage().items()):
+        for lang in mod_coverage["languages"]:
+            total = lang["total"] or 1
+            percent = round(100.0 * lang["present"] / total)
+            note = " ({0} missing)".format(len(lang["missing"])) if lang["missing"] else ""
+            if lang["extra"]:
+                note += " ({0} unknown)".format(len(lang["extra"]))
+            detail(
+                "{0}: {1} {2}% ({3}/{4}){5}".format(
+                    mod_name, lang["code"], percent, lang["present"], lang["total"], note
+                ),
+                verbose=verbose,
+            )
+
+
+def run_i18n_check(verbose=False):
+    section("Localization")
+    _raise_on_code_key_coverage()
+
+    # A language being incomplete never fails the build (translations are community-maintained),
+    # but the generated files must be committed up to date -- a stale or missing README coverage
+    # section or i18n template IS a failure. Contributors run `zwm lint i18n` and commit the result.
+    problems = check_readme_coverage() + check_templates()
+    if problems:
+        message = ["Generated localization files are out of date or missing:"]
+        message.extend("  - {0}".format(problem) for problem in problems)
+        message.append("Run `zwm lint i18n` and commit the updated files.")
+        raise RuntimeError("\n".join(message))
+
+    success("Localization key coverage, README coverage, and i18n templates up to date")
+    _report_translation_coverage(verbose=verbose)
+
+
+def run_i18n_write(verbose=False):
+    section("Localization")
+    _raise_on_code_key_coverage()
+
+    updated = write_readme_coverage()
+    if updated:
+        success("Refreshed translation coverage in README for: {0}".format(", ".join(updated)))
+    else:
+        success("Translation coverage READMEs already up to date")
+
+    updated_templates = write_templates()
+    if updated_templates:
+        success("Refreshed i18n template for: {0}".format(", ".join(updated_templates)))
+    else:
+        success("i18n templates already up to date")
+    _report_translation_coverage(verbose=verbose)
+
+
 def parse_args(argv):
     parser = argparse.ArgumentParser(
         prog="zwm lint",
@@ -282,6 +352,8 @@ def parse_args(argv):
             "  py27-lint                     Run flake8 compatibility checks on Python 2.7 targets.\n"
             "  py27-format                   Run autopep8 on Python 2.7 targets.\n"
             "  py27-format-check            Alias for: py27-format --check\n"
+            "  i18n                          Regenerate each mod's README coverage table and i18n template.\n"
+            "  i18n-check                    Verify key coverage and that generated i18n files are current.\n"
             "\n"
             "Examples:\n"
             "  zwm lint\n"
@@ -379,6 +451,8 @@ def run_check(args):
         run_py27_lint(resolve_py27_python(args.py27_python), verbose=args.verbose)
         run_py27_format(check=True, verbose=args.verbose)
 
+    run_i18n_check(verbose=args.verbose)
+
 
 def run_fix(args):
     run_py3_lint(fix=True, verbose=args.verbose)
@@ -423,6 +497,14 @@ def _main(argv=None):
 
     if args.command == "py27-format":
         run_py27_format(check=args.check, verbose=args.verbose)
+        return 0
+
+    if args.command == "i18n":
+        run_i18n_write(verbose=args.verbose)
+        return 0
+
+    if args.command == "i18n-check":
+        run_i18n_check(verbose=args.verbose)
         return 0
 
     raise RuntimeError("Unsupported command: {}".format(args.command))

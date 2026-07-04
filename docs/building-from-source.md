@@ -78,8 +78,7 @@ installation artifact is the generated zip inside each bundle directory.
 Each built mod bundle includes:
 
 - `<mod-id>_<version>.zip` containing the install-ready `mods/` tree
-- `mods/<wot_client_version>/<mod-id>_<version>.wotmod`
-- `mods/configs/<mod-name>/...` for config and optional i18n files
+- `mods/<wot_client_version>/<mod-id>_<version>.wotmod` (translations are bundled inside it at `res/mods/<id>/text/*.yml`)
 
 ## Deploy To A Local WoT Install
 

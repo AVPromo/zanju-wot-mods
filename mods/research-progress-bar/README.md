@@ -31,6 +31,15 @@
 
 ![Mod configuration image](./images/config.png)
 
+## Translations
+
+Reference language `en` defines 75 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+
+| Language | Coverage | Missing |
+| --- | --- | --- |
+| `pl` | 100% (75/75) | 0 |
+| `ru` | 100% (75/75) | 0 |
+
 ## Install And Use
 
 If you already have the prepared mod zip file, follow the general install path in [Installing Mods](../../docs/installing-mods.md).
