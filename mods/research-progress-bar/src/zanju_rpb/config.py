@@ -11,7 +11,6 @@ from numbers import Integral
 from .constants import MOD_NAME
 from .localization import get_text as _loc
 from .localization import make_tooltip as _loc_tooltip
-from .localization import set_language_override as _set_language_override
 from .storage import atomic_write_text, resolve_mod_data_dir
 
 _logger = logging.getLogger('zanju.researchprogressbar')
@@ -23,7 +22,7 @@ except NameError:
 
 _config = {
     'enabled': True,
-    'language': 'auto',
+    'showTotalXp': True,
     'showResearchReminder': True,
     'showAcceleratedCrewTrainingReminder': True,
     'researchMode': 'hypothetical_t11',
@@ -40,7 +39,7 @@ _DEFAULT_CONFIG = dict(_config)
 
 _CONFIG_PERSISTED_KEYS = (
     'enabled',
-    'language',
+    'showTotalXp',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     'researchMode',
@@ -54,8 +53,7 @@ _CONFIG_SAVE_KEY_ORDER = (
     '_comment',
     'configVersion',
     'enabled',
-    '_language_comment',
-    'language',
+    'showTotalXp',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     '_researchMode_comment',
@@ -77,10 +75,6 @@ _CONFIG_COMMENTS = {
         'Auto-generated config for zanju.researchprogressbar. Stored in AppData so it survives '
         'modpack reinstalls; edited in-game via the mod settings menu and recreated with '
         'defaults if deleted.'
-    ),
-    '_language_comment': (
-        'auto | <language-code>; runtime loads mods/configs/research-progress-bar/i18n/<code>.yml '
-        'with English fallback'
     ),
     '_researchMode_comment': 'hypothetical_t11 | real_only | off',
     '_upgradesMode_comment': 'on | off',
@@ -140,6 +134,7 @@ _UPGRADES_MODE_INDEX_BY_VALUE = dict(
 
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
+    'showTotalXp',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     'showResearchMode',
@@ -276,15 +271,9 @@ def _normalize_display_config():
     legacy_show_research = bool(_config.get('showTechTree', True))
     legacy_show_hypothetical_t11 = bool(_config.get('showHypotheticalTier11InResearch', True))
     legacy_show_upgrades = bool(_config.get('showUpgrades', True))
-    language = _config.get('language', 'auto')
-    if not isinstance(language, _STRING_TYPES):
-        language = 'auto'
-    language = language.strip().lower().replace('-', '_') or 'auto'
-    if language in ('client', 'default', 'system'):
-        language = 'auto'
-    _config['language'] = language
     for key in (
             'enabled',
+            'showTotalXp',
             'showResearchReminder',
             'showAcceleratedCrewTrainingReminder'):
         _config[key] = bool(_config.get(key, True))
@@ -305,7 +294,6 @@ def _normalize_display_config():
     _config['eliteMode'] = _normalize_elite_mode(
         _config.get('eliteMode', legacy_elite_value)
     )
-    _set_language_override(_config.get('language', 'auto'))
 
 
 def _build_mode_preferences():
@@ -314,6 +302,7 @@ def _build_mode_preferences():
     )
     upgrades_mode = _normalize_upgrades_mode(_config.get('upgradesMode', _UPGRADES_MODE_ON))
     return {
+        'showTotalXp': bool(_config.get('showTotalXp', True)),
         'showResearchReminder': bool(_config.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
             _config.get('showAcceleratedCrewTrainingReminder', True)
@@ -346,7 +335,9 @@ def _save_config():
         )
         data = {}
 
-    data['configVersion'] = data.get('configVersion', 1)
+    data['configVersion'] = 2
+    data.pop('language', None)
+    data.pop('_language_comment', None)
     data.pop('showTechTree', None)
     data.pop('showHypotheticalTier11InResearch', None)
     data.pop('showUpgrades', None)
@@ -382,6 +373,7 @@ def _build_mod_settings_state(config=None):
     upgrades_mode = _normalize_upgrades_mode(config.get('upgradesMode', _UPGRADES_MODE_ON))
     return {
         'enabled': bool(config.get('enabled', True)),
+        'showTotalXp': bool(config.get('showTotalXp', True)),
         'showResearchReminder': bool(config.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
             config.get('showAcceleratedCrewTrainingReminder', True)
@@ -435,96 +427,71 @@ def _build_mod_settings_template():
         'column1': [
             {
                 'type': 'CheckBox',
-                'text': _loc('SETTING_RESEARCH_REMINDER', 'Show research reminder'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_RESEARCH_REMINDER',
-                    'TOOLTIP_RESEARCH_REMINDER_BODY',
-                    'Research reminder',
-                    'Show the separate "Research now!" reminder above the mode buttons.',
-                ),
+                'text': _loc('SETTING_SHOW_TOTAL_XP'),
+                'tooltip': _loc_tooltip('SETTING_SHOW_TOTAL_XP', 'TOOLTIP_SHOW_TOTAL_XP_BODY'),
+                'value': settings['showTotalXp'],
+                'varName': 'showTotalXp',
+            },
+            {
+                'type': 'CheckBox',
+                'text': _loc('SETTING_RESEARCH_REMINDER'),
+                'tooltip': _loc_tooltip('SETTING_RESEARCH_REMINDER', 'TOOLTIP_RESEARCH_REMINDER_BODY'),
                 'value': settings['showResearchReminder'],
                 'varName': 'showResearchReminder',
             },
             {
                 'type': 'CheckBox',
-                'text': _loc('SETTING_ACCELERATED_CREW_TRAINING_REMINDER', 'Show accelerated crew training reminder'),
+                'text': _loc('SETTING_ACCELERATED_CREW_TRAINING_REMINDER'),
                 'tooltip': _loc_tooltip(
                     'SETTING_ACCELERATED_CREW_TRAINING_REMINDER',
                     'TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY',
-                    'Accelerated crew training reminder',
-                    'Show the separate accelerated crew training reminder above the mode buttons.',
                 ),
                 'value': settings['showAcceleratedCrewTrainingReminder'],
                 'varName': 'showAcceleratedCrewTrainingReminder',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_RESEARCH', 'Research'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_RESEARCH',
-                    'TOOLTIP_RESEARCH_BODY',
-                    'Research',
-                    'Show XP progress toward the next researchable module or vehicle.',
-                ),
+                'text': _loc('SETTING_RESEARCH'),
+                'tooltip': _loc_tooltip('SETTING_RESEARCH', 'TOOLTIP_RESEARCH_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_HYPOTHETICAL_TIER11_IN_RESEARCH', 'Show hypothetical tier 11 in research')},
-                    {'label': _loc('SETTING_RESEARCH_OPTION_REAL_ONLY', 'Show only real research items')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_HYPOTHETICAL_TIER11_IN_RESEARCH')},
+                    {'label': _loc('SETTING_RESEARCH_OPTION_REAL_ONLY')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showResearchMode'],
                 'varName': 'showResearchMode',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_UPGRADES', 'Upgrades'),
-                'tooltip': _loc_tooltip(
-                    'SETTING_UPGRADES',
-                    'TOOLTIP_UPGRADES_BODY',
-                    'Upgrades',
-                    'Show tier XI upgrade tree progress.',
-                ),
+                'text': _loc('SETTING_UPGRADES'),
+                'tooltip': _loc_tooltip('SETTING_UPGRADES', 'TOOLTIP_UPGRADES_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_OPTION_ON', 'On')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_OPTION_ON')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showUpgradesMode'],
                 'varName': 'showUpgradesMode',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_FIELD_MODS', 'Field Mods'),
-                'tooltip': _loc_tooltip(
-                    'TOOLTIP_FIELD_MODS_HEADER',
-                    'TOOLTIP_FIELD_MODS_BODY',
-                    'Field Mods',
-                    '<b>Always show</b>: Keep the field mods mode available even after '
-                    'all field modifications are complete.\n'
-                    '<b>Until complete</b>: Hide the field mods mode once all field modifications are complete.\n'
-                    '<b>Off</b>: Hide field mods entirely.',
-                ),
+                'text': _loc('SETTING_FIELD_MODS'),
+                'tooltip': _loc_tooltip('TOOLTIP_FIELD_MODS_HEADER', 'TOOLTIP_FIELD_MODS_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_FIELD_MODS_OPTION_ALWAYS', 'Always show')},
-                    {'label': _loc('SETTING_FIELD_MODS_OPTION_UNTIL_COMPLETE', 'Until complete')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_FIELD_MODS_OPTION_ALWAYS')},
+                    {'label': _loc('SETTING_FIELD_MODS_OPTION_UNTIL_COMPLETE')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showFieldModsProgress'],
                 'varName': 'showFieldModsProgress',
             },
             {
                 'type': 'RadioButtonGroup',
-                'text': _loc('SETTING_ELITE', 'Elite'),
-                'tooltip': _loc_tooltip(
-                    'TOOLTIP_ELITE_HEADER',
-                    'TOOLTIP_ELITE_BODY',
-                    'Elite',
-                    '<b>On</b>: Show elite badges and tier XI customization elements.\n'
-                    '<b>Customization only</b>: Show tier XI customization elements and hide elite badges.\n'
-                    '<b>Off</b>: Hide elite progress entirely.',
-                ),
+                'text': _loc('SETTING_ELITE'),
+                'tooltip': _loc_tooltip('TOOLTIP_ELITE_HEADER', 'TOOLTIP_ELITE_BODY'),
                 'options': [
-                    {'label': _loc('SETTING_OPTION_ON', 'On')},
-                    {'label': _loc('SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY', 'Customization only')},
-                    {'label': _loc('SETTING_OPTION_OFF', 'Off')},
+                    {'label': _loc('SETTING_OPTION_ON')},
+                    {'label': _loc('SETTING_ELITE_OPTION_CUSTOMIZATION_ONLY')},
+                    {'label': _loc('SETTING_OPTION_OFF')},
                 ],
                 'value': settings['showEliteProgress'],
                 'varName': 'showEliteProgress',

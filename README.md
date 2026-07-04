@@ -42,6 +42,15 @@ Use this path if you want to change code, add features, or create new mods in th
 - [Technical Reference](docs/reference/README.md)
 - [Debugging](docs/debugging.md)
 
+## Translate
+
+Use this path if you want to add or update a language for a mod.
+
+- Prerequisites: **Python 3 and Git only** — no Docker or Dev Container (that is only for building packages)
+- Edit `mods/<mod-name>/i18n/<code>.yml`, then run `python3 -m tools.commands.lint i18n` to refresh the coverage table
+
+- [Translating](docs/translating.md)
+
 ## Reference
 
 - [Technical Reference](docs/reference/README.md)

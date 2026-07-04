@@ -28,7 +28,7 @@ In this repository:
 - authored Python sources live under `mods/<mod-name>/src/`
 - `zwm build` compiles them into the runtime package shape
 - config is not shipped: each mod self-creates its config in AppData on first run, so it survives modpack reinstalls
-- authored `i18n/*.yml` files are staged into both packaged text resources and deployable config folders
+- authored `i18n/*.yml` files are bundled inside the `.wotmod` at `res/mods/<meta.id>/text/*.yml` (the single localisation destination — no loose config copies); the runtime reads them from the mounted package VFS via `ResMgr` at `mods/<meta.id>/text/<lang>.yml`
 - `ui/compile_ui.py` is auto-run by `zwm build` when present
 
 ## Entry Point Rule

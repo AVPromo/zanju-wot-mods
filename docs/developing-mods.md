@@ -2,6 +2,9 @@
 
 This page is for contributors working on the code in this repository.
 
+> Only adding or updating a translation? You do not need this toolchain — see
+> [Translating](translating.md), which needs just Python 3.
+
 ## Toolchain
 
 The entire toolchain ships inside one Docker image
