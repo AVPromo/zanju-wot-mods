@@ -12,11 +12,15 @@ jobs:
     name: Format and Lint
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/${{ github.repository }}/toolchain:latest
+      # Pinned to the canonical repo's published image instead of ${{ github.repository }}:
+      # in a fork's own workflow runs that expression resolves to the fork's namespace,
+      # which has no published toolchain image and breaks outright for owners with
+      # capital letters in their name (Docker image references must be lowercase).
+      image: ghcr.io/przemyslaw-zan/zanju-wot-mods/toolchain:latest
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Python 3 format and lint (Black + Ruff)
       run: python3 -m tools.commands.lint py3-check
