@@ -6,6 +6,7 @@ MODE_ELITE: "Elite"
 
 # Configurator labels
 SETTING_ENABLED: "Enable / Disable mod"
+SETTING_SHOW_TOTAL_XP: "Show Total XP"
 SETTING_RESEARCH_REMINDER: "Show research reminder"
 SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Show accelerated crew training reminder"
 SETTING_RESEARCH: "Research"
@@ -21,6 +22,7 @@ SETTING_OPTION_ON: "On"
 SETTING_OPTION_OFF: "Off"
 
 # Configurator tooltips
+TOOLTIP_SHOW_TOTAL_XP_BODY: "Show Total XP progress, which combines Vehicle XP with Free XP. The Total XP counter next to the bar and the matching row in tooltips show the combined progress, while the yellow bar segment and yellow markers show what could be researched using Free XP."
 TOOLTIP_RESEARCH_REMINDER_BODY: "Show the \"Research now!\" reminder above the mode buttons."
 TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY: "Show the \"Accelerate crew training!\" reminder above the mode buttons."
 TOOLTIP_RESEARCH_BODY: "<b>Show hypothetical tier 11 in research</b>: Shows progress towards tier 11 vehicle which might exist in the future.\n<b>Show only real research items</b>: Shows progress only towards research items which exist now.\n<b>Off</b>: Hide research entirely."

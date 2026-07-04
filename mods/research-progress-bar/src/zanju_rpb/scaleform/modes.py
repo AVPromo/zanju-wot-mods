@@ -82,25 +82,33 @@ _T11_DESCRIPTION_DEFAULT_TAG_COLOR = '#EDE6D9'
 def build_scaleform_view_payload(vehicle, data, mode_preferences=None, preferred_mode_id=None):
     """Builds the full Scaleform payload, including empty-mode UI states."""
     preferences = _normalize_mode_preferences(mode_preferences)
+    show_total_xp = preferences['showTotalXp']
     modes = []
 
     if preferences['showResearch']:
-        research_mode = _build_regular_research_mode(data)
+        research_mode = _build_regular_research_mode(data, show_total_xp)
         if research_mode is not None:
             modes.append(research_mode)
 
     if preferences['showUpgrades']:
-        tier11_mode = _build_tier11_mode(data)
+        tier11_mode = _build_tier11_mode(data, show_total_xp)
         if tier11_mode is not None:
             modes.append(tier11_mode)
 
-    field_mods_mode = _build_field_mods_mode(data, preferences['fieldModsMode'])
+    field_mods_mode = _build_field_mods_mode(data, preferences['fieldModsMode'], show_total_xp)
     if field_mods_mode is not None:
         modes.append(field_mods_mode)
 
     elite_mode = _build_elite_mode(data, preferences['eliteMode'])
     if elite_mode is not None:
         modes.append(elite_mode)
+
+    if not show_total_xp:
+        # Without the Total XP calculation the tooltip's Total XP row would just repeat
+        # the Vehicle XP row, so every marker collapses to the single-row layout.
+        for mode in modes:
+            for marker in mode.get('markers') or []:
+                marker['singleProgressRow'] = True
 
     selected_mode_id = _resolve_selected_mode_id(modes, preferred_mode_id) if modes else None
     return {
@@ -145,6 +153,7 @@ def _normalize_mode_preferences(mode_preferences):
         elite_mode = ELITE_MODE_ON
 
     return {
+        'showTotalXp': bool(preferences.get('showTotalXp', True)),
         'showResearchReminder': bool(preferences.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
             preferences.get('showAcceleratedCrewTrainingReminder', True)
@@ -299,7 +308,7 @@ def _is_tier11_research_ready_now(data, vehicle_xp):
     return next_step_xp_cost is not None and next_step_xp_cost > 0 and next_step_xp_cost <= vehicle_xp
 
 
-def _build_regular_research_mode(data):
+def _build_regular_research_mode(data, show_total_xp=True):
     tech_tree = data.get('tech_tree') or {}
     visible_unlocks = tech_tree.get('visible_unlocks') or []
     available_unlocks = tech_tree.get('available_unlocks') or []
@@ -314,16 +323,18 @@ def _build_regular_research_mode(data):
         _to_int(tech_tree.get('free_xp')) or 0,
         max(0, max_requirement_xp - vehicle_xp),
     )
+    if not show_total_xp:
+        free_xp = 0
 
-    if available_unlocks:
-        right_caption = _loc('CAPTION_TOTAL_XP')
-        right_text = _format_percent(vehicle_xp + free_xp, max_requirement_xp)
-    elif locked_unlock_count > 0:
+    if locked_unlock_count > 0 and not available_unlocks:
         right_caption = _loc('CAPTION_LOCKED')
         right_text = str(locked_unlock_count)
-    else:
+    elif show_total_xp:
         right_caption = _loc('CAPTION_TOTAL_XP')
         right_text = _format_percent(vehicle_xp + free_xp, max_requirement_xp)
+    else:
+        right_caption = ''
+        right_text = ''
 
     return _make_mode(
         MODE_REGULAR_RESEARCH,
@@ -339,7 +350,7 @@ def _build_regular_research_mode(data):
     )
 
 
-def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
+def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS, show_total_xp=True):
     field_mods = data.get('field_mods') or {}
     tier_plan = field_mods.get('tier_plan') or {}
     tech_tree = data.get('tech_tree') or {}
@@ -364,6 +375,9 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
     total_xp = _to_int(tech_tree.get('total_xp'))
     if total_xp is None:
         total_xp = vehicle_xp + free_xp
+    if not show_total_xp:
+        free_xp = 0
+        total_xp = vehicle_xp
 
     remaining_levels = range(current_level + 1, max_level + 1)
 
@@ -428,6 +442,10 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
         bar_max_value = max_level
         markers = []
 
+    if not show_total_xp:
+        right_text = ''
+        right_caption = ''
+
     return _make_mode(
         MODE_FIELD_MODS,
         _loc('MODE_FIELD_MODS'),
@@ -443,7 +461,7 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS):
     )
 
 
-def _build_tier11_mode(data):
+def _build_tier11_mode(data, show_total_xp=True):
     field_mods = data.get('field_mods') or {}
     tech_tree = data.get('tech_tree') or {}
     if not _is_tier11_mode_enabled(field_mods, tech_tree):
@@ -459,6 +477,9 @@ def _build_tier11_mode(data):
     total_xp = _to_int(tech_tree.get('total_xp'))
     if total_xp is None:
         total_xp = vehicle_xp + free_xp
+    if not show_total_xp:
+        free_xp = 0
+        total_xp = vehicle_xp
 
     display_layout = _build_t11_display_layout(field_mods)
     total_cost = display_layout['total_cost']
@@ -505,6 +526,10 @@ def _build_tier11_mode(data):
         right_caption = _loc('CAPTION_TOTAL_XP')
         bar_max_value = total_steps
         markers = []
+
+    if not show_total_xp:
+        right_text = ''
+        right_caption = ''
 
     return _make_mode(
         MODE_TIER11_UPGRADES,

@@ -22,6 +22,7 @@ except NameError:
 
 _config = {
     'enabled': True,
+    'showTotalXp': True,
     'showResearchReminder': True,
     'showAcceleratedCrewTrainingReminder': True,
     'researchMode': 'hypothetical_t11',
@@ -38,6 +39,7 @@ _DEFAULT_CONFIG = dict(_config)
 
 _CONFIG_PERSISTED_KEYS = (
     'enabled',
+    'showTotalXp',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     'researchMode',
@@ -51,6 +53,7 @@ _CONFIG_SAVE_KEY_ORDER = (
     '_comment',
     'configVersion',
     'enabled',
+    'showTotalXp',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     '_researchMode_comment',
@@ -131,6 +134,7 @@ _UPGRADES_MODE_INDEX_BY_VALUE = dict(
 
 _MODS_SETTINGS_USER_KEYS = (
     'enabled',
+    'showTotalXp',
     'showResearchReminder',
     'showAcceleratedCrewTrainingReminder',
     'showResearchMode',
@@ -269,6 +273,7 @@ def _normalize_display_config():
     legacy_show_upgrades = bool(_config.get('showUpgrades', True))
     for key in (
             'enabled',
+            'showTotalXp',
             'showResearchReminder',
             'showAcceleratedCrewTrainingReminder'):
         _config[key] = bool(_config.get(key, True))
@@ -297,6 +302,7 @@ def _build_mode_preferences():
     )
     upgrades_mode = _normalize_upgrades_mode(_config.get('upgradesMode', _UPGRADES_MODE_ON))
     return {
+        'showTotalXp': bool(_config.get('showTotalXp', True)),
         'showResearchReminder': bool(_config.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
             _config.get('showAcceleratedCrewTrainingReminder', True)
@@ -367,6 +373,7 @@ def _build_mod_settings_state(config=None):
     upgrades_mode = _normalize_upgrades_mode(config.get('upgradesMode', _UPGRADES_MODE_ON))
     return {
         'enabled': bool(config.get('enabled', True)),
+        'showTotalXp': bool(config.get('showTotalXp', True)),
         'showResearchReminder': bool(config.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
             config.get('showAcceleratedCrewTrainingReminder', True)
@@ -418,6 +425,13 @@ def _build_mod_settings_template():
         'modDisplayName': MOD_NAME,
         'enabled': settings['enabled'],
         'column1': [
+            {
+                'type': 'CheckBox',
+                'text': _loc('SETTING_SHOW_TOTAL_XP'),
+                'tooltip': _loc_tooltip('SETTING_SHOW_TOTAL_XP', 'TOOLTIP_SHOW_TOTAL_XP_BODY'),
+                'value': settings['showTotalXp'],
+                'varName': 'showTotalXp',
+            },
             {
                 'type': 'CheckBox',
                 'text': _loc('SETTING_RESEARCH_REMINDER'),
