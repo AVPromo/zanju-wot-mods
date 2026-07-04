@@ -14,13 +14,18 @@ import os
 import shutil
 
 
-def copy_tree_contents(src_dir, dst_dir):
-    """Copy the contents of src_dir into dst_dir (merging into existing dirs)."""
+def copy_tree_contents(src_dir, dst_dir, ignore_names=()):
+    """Copy the contents of src_dir into dst_dir (merging into existing dirs).
+
+    Top-level entries whose name is in ignore_names are skipped.
+    """
     if not os.path.isdir(src_dir):
         return
 
     os.makedirs(dst_dir, exist_ok=True)
     for name in sorted(os.listdir(src_dir)):
+        if name in ignore_names:
+            continue
         src_path = os.path.join(src_dir, name)
         dst_path = os.path.join(dst_dir, name)
         if os.path.isdir(src_path):

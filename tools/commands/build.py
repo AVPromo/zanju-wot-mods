@@ -46,6 +46,7 @@ import zipfile
 from ..core.companion_artifacts import resolve_bundle_artifacts_if_defined, should_include_companion_bundle
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
+from ..core.i18n_audit import TEMPLATE_FILE_NAME
 from ..core.mod_assets import (
     copy_tree_contents,
     directory_has_entries,
@@ -97,7 +98,12 @@ def stage_i18n_resources(mod_dir, mod_id, staged_res_dir):
             )
         )
 
-    copy_tree_contents(i18n_dir, os.path.join(staged_res_dir, "mods", mod_id, "text"))
+    # The translation template is a repository-only aid for translators, not a language.
+    copy_tree_contents(
+        i18n_dir,
+        os.path.join(staged_res_dir, "mods", mod_id, "text"),
+        ignore_names=(TEMPLATE_FILE_NAME,),
+    )
 
 
 def stage_resource_trees(mod_dir, mod_id, staged_res_dir):
