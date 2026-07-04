@@ -38,6 +38,7 @@ Reference language `en` defines 75 strings. Translations are community-maintaine
 | Language | Coverage | Missing |
 | --- | --- | --- |
 | `pl` | 100% (75/75) | 0 |
+| `ru` | 100% (75/75) | 0 |
 
 ## Install And Use
 

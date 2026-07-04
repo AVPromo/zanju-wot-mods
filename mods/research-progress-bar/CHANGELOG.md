@@ -3,6 +3,7 @@ Changelog
 
 ## Unreleased
 
+- New Russian translation. Thank you [@AVPromo](https://github.com/AVPromo)!
 - New "Show Total XP" setting (enabled by default). Turning it off hides the Total XP calculation everywhere: the Free XP (yellow) segment of the bar, the yellow highlight of markers reachable with Free XP, the Total XP counter next to the bar, and the Total XP row in tooltips — leaving only Vehicle XP progress.
 - The Vehicle XP / Total XP rows in tooltips are now laid out as a real table with right-aligned columns. They were previously aligned by padding with spaces, which only lined up in the mod's monospace font — translations rendered in the fallback font (e.g. Russian) drifted apart as label lengths diverged.
 - Russian and other Cyrillic text now renders in the mod's own font, matching English and Polish, instead of the system fallback font.
