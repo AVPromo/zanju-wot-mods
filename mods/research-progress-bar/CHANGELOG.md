@@ -1,16 +1,16 @@
 Changelog
 =========
 
-## Unreleased
+## 1.2.0 (4 July 2026)
 
-- New Russian translation. Thank you [@AVPromo](https://github.com/AVPromo)!
 - New "Show Total XP" setting (enabled by default). Turning it off hides the Total XP calculation everywhere: the Free XP (yellow) segment of the bar, the yellow highlight of markers reachable with Free XP, the Total XP counter next to the bar, and the Total XP row in tooltips — leaving only Vehicle XP progress.
+- Research tooltips for items that have prerequisites now show the combined cost of the item plus its prerequisites, and the Vehicle XP / Total XP progress is measured against that combined total — so a module that looks cheaper on its own no longer understates what it actually takes to unlock. [[#6](https://github.com/przemyslaw-zan/zanju-wot-mods/issues/6)]
+- New Russian translation. Thank you [@AVPromo](https://github.com/AVPromo)!
+- Fixed untranslated text in the tooltips: the field modifications and upgrades progress now shows "Vehicle XP" / "Total XP", along with the "Prerequisites" heading and completed-item text, in the client language instead of always in English. [[#8](https://github.com/przemyslaw-zan/zanju-wot-mods/issues/8)]
 - The Vehicle XP / Total XP rows in tooltips are now laid out as a real table with right-aligned columns. They were previously aligned by padding with spaces, which only lined up in the mod's monospace font — translations rendered in the fallback font (e.g. Russian) drifted apart as label lengths diverged.
 - Russian and other Cyrillic text now renders in the mod's own font, matching English and Polish, instead of the system fallback font.
-- Research tooltips for items that have prerequisites now show the combined cost of the item plus its prerequisites, and the Vehicle XP / Total XP progress is measured against that combined total — so a module that looks cheaper on its own no longer understates what it actually takes to unlock. [[#6](https://github.com/przemyslaw-zan/zanju-wot-mods/issues/6)]
-- Fixed untranslated text in the tooltips: the field modifications and upgrades progress now shows "Vehicle XP" / "Total XP", along with the "Prerequisites" heading and completed-item text, in the client language instead of always in English. [[#8](https://github.com/przemyslaw-zan/zanju-wot-mods/issues/8)]
 - Elite tooltips now show the reward name on its own line below the title, so the icon lines up with the title instead of floating between two lines.
-- Translations now ship inside the mod package itself, so installing leaves no loose language files in the modpack's `mods/configs` folder.
+- Translations now ship inside the mod package itself, so installing leaves no loose language files in the modpack's `mods/configs` folder. The `language` override in the config file is gone as part of this — the mod now always follows the game client's language.
 
 ## 1.1.0 (26 June 2026)
 
