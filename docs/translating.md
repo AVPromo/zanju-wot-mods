@@ -19,7 +19,10 @@ setup is only for building `.wotmod` packages. Translating needs just **Python 3
 ## Add or update a language
 
 1. Use the language code the WoT client uses (`pl`, `de`, `fr`, `ru`, `uk`, ...).
-2. In `mods/<mod-name>/i18n/`, copy `en.yml` to `<code>.yml` (or open the existing file).
+2. In `mods/<mod-name>/i18n/`, copy `_template.yml` to `<code>.yml` (or open the existing
+   language file). The template has every key with an empty value and the English source text
+   in the `# en:` comment above it — fill in the values. Copying `en.yml` and translating in
+   place works too.
 3. Translate each value:
 
    ```yaml
@@ -31,7 +34,9 @@ setup is only for building `.wotmod` packages. Translating needs just **Python 3
    ```
 
 You do not have to translate every key at once — untranslated keys simply show in English, and the
-coverage table (below) tracks how complete each language is.
+coverage table (below) tracks how complete each language is. A key can also be kept in the file
+with an empty value (`SOME_KEY: ""`) as a "still to translate" placeholder: empty values are
+treated exactly like missing keys, both in-game (English fallback) and in the coverage table.
 
 ## Refresh the coverage table
 

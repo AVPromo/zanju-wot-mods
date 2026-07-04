@@ -4,18 +4,19 @@ package {
     import flash.text.TextFormat;
 
     public final class ResearchProgressBarFonts {
-        [Embed(source="assets/fonts/RobotoMono-Regular.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", unicodeRange="U+0020-U+007E,U+00A0-U+017F")]
+        [Embed(source="assets/fonts/RobotoMono-Regular.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", unicodeRange="U+0020-U+007E,U+00A0-U+017F,U+0400-U+04FF")]
         private static const ROBOTO_MONO_REGULAR:Class;
 
-        [Embed(source="assets/fonts/RobotoMono-Bold.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", fontWeight="bold", unicodeRange="U+0020-U+007E,U+00A0-U+017F")]
+        [Embed(source="assets/fonts/RobotoMono-Bold.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", fontWeight="bold", unicodeRange="U+0020-U+007E,U+00A0-U+017F,U+0400-U+04FF")]
         private static const ROBOTO_MONO_BOLD:Class;
 
         public static const FONT_NAME:String = "ResearchProgressBarFont";
-        // Device font used when text contains characters outside the embedded unicode range.
+        // Device font used when text contains characters outside the embedded unicode ranges
+        // (Latin and Cyrillic are embedded; this path covers the rest, e.g. Greek and CJK).
         // "_sans" resolves to the OS default sans (Arial on Windows), which has Latin/Greek/Cyrillic
         // coverage but NO Korean glyphs — Korean rendered as boxes. Malgun Gothic ships with every
         // Windows install (all locales, since Vista) and covers Latin + Greek + Cyrillic + Hangul,
-        // so it renders Korean correctly. Only used in the fallback path for non-Latin locales.
+        // so it renders Korean correctly.
         public static const FALLBACK_FONT_NAME:String = "Malgun Gothic";
 
         public static function configureTextField(field:TextField):TextField {
@@ -61,7 +62,8 @@ package {
         }
 
         // Returns true if any character in text falls outside the ranges embedded in ROBOTO_MONO_*.
-        // Embedded ranges: U+0020-U+007E (Basic Latin), U+00A0-U+017F (Latin Extended A/B).
+        // Embedded ranges: U+0020-U+007E (Basic Latin), U+00A0-U+017F (Latin-1 + Latin Extended-A),
+        // U+0400-U+04FF (Cyrillic). Keep in sync with the [Embed] unicodeRange attributes above.
         private static function containsNonEmbeddedChars(text:String):Boolean {
             if (text == null || text.length == 0) {
                 return false;
@@ -81,6 +83,12 @@ package {
                     return true;
                 }
                 if (code <= 0x017F) {
+                    continue;
+                }
+                if (code < 0x0400) {
+                    return true;
+                }
+                if (code <= 0x04FF) {
                     continue;
                 }
                 return true;
@@ -115,7 +123,7 @@ package {
                     break;
                 }
                 code = parseInt(html.substring(eIdx + 3, semiIdx), 16);
-                if (code > 0x017F) {
+                if (code > 0x017F && !(code >= 0x0400 && code <= 0x04FF)) {
                     return true;
                 }
                 idx = semiIdx + 1;

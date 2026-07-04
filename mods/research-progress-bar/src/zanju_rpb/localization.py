@@ -164,18 +164,23 @@ def _parse_flat_yaml(text):
         if not key:
             continue
         if not value:
-            data[key] = ''
+            # An empty value marks a key awaiting translation; skip it so the English
+            # fallback (merged underneath) stays in effect.
             continue
 
         if value.startswith('"') and value.endswith('"'):
             try:
-                data[key] = json.loads(value)
-                continue
+                decoded = json.loads(value)
             except Exception:
                 pass
+            else:
+                if decoded:
+                    data[key] = decoded
+                continue
 
         if value.startswith("'") and value.endswith("'"):
-            data[key] = value[1:-1]
+            if value[1:-1]:
+                data[key] = value[1:-1]
             continue
 
         data[key] = value

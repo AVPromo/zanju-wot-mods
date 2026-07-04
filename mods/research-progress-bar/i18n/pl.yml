@@ -6,6 +6,7 @@ MODE_ELITE: "Elita"
 
 # Configurator labels
 SETTING_ENABLED: "Włącz / wyłącz mod"
+SETTING_SHOW_TOTAL_XP: "Pokaż Łączne PD"
 SETTING_RESEARCH_REMINDER: "Pokaż przypomnienie o badaniu"
 SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Pokaż przypomnienie o przyspieszonym szkoleniu załogi"
 SETTING_RESEARCH: "Badania"
@@ -21,6 +22,7 @@ SETTING_OPTION_ON: "Włączone"
 SETTING_OPTION_OFF: "Wyłączone"
 
 # Configurator tooltips
+TOOLTIP_SHOW_TOTAL_XP_BODY: "Pokaż postęp Łącznych PD, czyli PD pojazdu razem z Wolnymi PD. Licznik Łącznych PD obok paska oraz odpowiadający mu wiersz w podpowiedziach pokazują łączny postęp, a żółta część paska i żółte znaczniki pokazują, co można zbadać z użyciem Wolnych PD."
 TOOLTIP_RESEARCH_REMINDER_BODY: "Pokaż przypomnienie \"Badaj teraz!\" nad przyciskami trybów."
 TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY: "Pokaż przypomnienie \"Przyspiesz szkolenie załogi!\" nad przyciskami trybów."
 TOOLTIP_RESEARCH_BODY: "<b>Pokaż hipotetyczny pojazd XI poziomu w badaniach</b>: Pokazuje postęp w kierunku pojazdu XI poziomu, który może pojawić się w przyszłości.\n<b>Pokaż tylko prawdziwe elementy badań</b>: Pokazuje postęp tylko w kierunku elementów badań, które istnieją obecnie.\n<b>Wyłączone</b>: Całkowicie ukryj badania."

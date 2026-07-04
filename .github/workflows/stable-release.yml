@@ -14,19 +14,24 @@ permissions:
   contents: write
   packages: write
 
+# The release pipeline is meaningful only in the canonical repository: forks pushing to
+# their master would otherwise attempt to publish releases and toolchain images into
+# their own namespace. Guarding the two root jobs skips the whole dependent chain.
 jobs:
   lint:
     name: Lint
+    if: github.repository == 'przemyslaw-zan/zanju-wot-mods'
     uses: ./.github/workflows/lint.yml
 
   detect:
     name: Detect image input changes
+    if: github.repository == 'przemyslaw-zan/zanju-wot-mods'
     runs-on: ubuntu-latest
     outputs:
       image_changed: ${{ steps.filter.outputs.changed }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
     - name: Diff image inputs
@@ -66,12 +71,12 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
     - name: Set up Python 3 host
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
 

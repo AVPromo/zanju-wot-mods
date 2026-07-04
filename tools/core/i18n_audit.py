@@ -22,8 +22,23 @@ import re
 
 from .paths import MODS_DIR
 
-_KEY_LINE = re.compile(r"^([A-Za-z0-9_]+)\s*:")
+_KEY_LINE = re.compile(r"^([A-Za-z0-9_]+)\s*:\s*(.*)$")
 _REFERENCE_LANGUAGE = "en"
+
+# Committed, generated starting point for new translations: every key from en.yml with an
+# empty value and the English source text in a comment above it. Kept out of coverage and
+# out of the packaged .wotmod. Translators without any tooling can copy it on GitHub.
+# The leading underscore sorts it to the top of the i18n/ directory listing.
+TEMPLATE_FILE_NAME = "_template.yml"
+
+_TEMPLATE_HEADER = """\
+# Auto-generated translation template -- regenerate with `zwm lint i18n`; do not edit by hand.
+#
+# To start a new language, copy this file to `<language-code>.yml` (the code the WoT client
+# uses: `pl`, `de`, `fr`, `ru`, ...) and fill in the values. Each key's English source text is
+# in the `# en:` comment above it. Keys left empty ("") simply fall back to English in-game,
+# so partial translations are fine.
+"""
 
 # Localization helpers whose leading positional argument(s) are en.yml keys. get_wg_text is
 # deliberately excluded: its argument is a Wargaming resource id, not one of our keys.
@@ -45,8 +60,14 @@ def _load_yaml_keys(path):
             if not line or line.startswith("#"):
                 continue
             match = _KEY_LINE.match(line)
-            if match:
-                keys.add(match.group(1))
+            if not match:
+                continue
+            value = match.group(2).strip()
+            if value in ("", '""', "''"):
+                # Empty values mark keys awaiting translation (the runtime falls back to
+                # English for them), so they count as missing, not as translated.
+                continue
+            keys.add(match.group(1))
     return keys
 
 
@@ -140,7 +161,7 @@ def compute_translation_coverage():
         en_keys = _load_yaml_keys(en_path)
         languages = []
         for name in sorted(os.listdir(i18n_dir)):
-            if not name.endswith(".yml"):
+            if not name.endswith(".yml") or name == TEMPLATE_FILE_NAME:
                 continue
             code = name[:-4]
             if code == _REFERENCE_LANGUAGE:
@@ -157,6 +178,58 @@ def compute_translation_coverage():
             )
         coverage[mod_name] = {"reference_count": len(en_keys), "languages": languages}
     return coverage
+
+
+def render_template(en_path):
+    """Render template.yml content from en.yml: structure preserved, values emptied."""
+    lines = [_TEMPLATE_HEADER]
+    with io.open(en_path, "r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.rstrip("\n")
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                lines.append(line)
+                continue
+            match = _KEY_LINE.match(stripped)
+            if not match:
+                lines.append(line)
+                continue
+            lines.append("# en: {0}".format(match.group(2).strip()))
+            lines.append('{0}: ""'.format(match.group(1)))
+    return "\n".join(lines) + "\n"
+
+
+def _iter_mods_with_reference():
+    for mod_name, i18n_dir in _iter_mod_i18n_dirs():
+        en_path = os.path.join(i18n_dir, "{0}.yml".format(_REFERENCE_LANGUAGE))
+        if os.path.isfile(en_path):
+            yield mod_name, i18n_dir, en_path
+
+
+def check_templates():
+    """Return problem strings for mods whose i18n template is missing or out of date."""
+    problems = []
+    for mod_name, i18n_dir, en_path in _iter_mods_with_reference():
+        template_path = os.path.join(i18n_dir, TEMPLATE_FILE_NAME)
+        if not os.path.isfile(template_path):
+            problems.append("{0}: i18n/{1} is missing".format(mod_name, TEMPLATE_FILE_NAME))
+        elif _read_text(template_path) != render_template(en_path):
+            problems.append("{0}: i18n/{1} is out of date".format(mod_name, TEMPLATE_FILE_NAME))
+    return problems
+
+
+def write_templates():
+    """(Re)generate each mod's i18n template from en.yml. Returns updated mods."""
+    updated = []
+    for mod_name, i18n_dir, en_path in _iter_mods_with_reference():
+        template_path = os.path.join(i18n_dir, TEMPLATE_FILE_NAME)
+        rendered = render_template(en_path)
+        if os.path.isfile(template_path) and _read_text(template_path) == rendered:
+            continue
+        with io.open(template_path, "w", encoding="utf-8") as handle:
+            handle.write(rendered)
+        updated.append(mod_name)
+    return updated
 
 
 def render_coverage_section(mod_coverage):
