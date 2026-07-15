@@ -3,6 +3,7 @@ package {
     import flash.display.Shape;
     import flash.display.Sprite;
     import flash.events.Event;
+    import flash.events.KeyboardEvent;
     import flash.events.MouseEvent;
     import flash.geom.Matrix;
     import flash.text.TextField;
@@ -48,6 +49,12 @@ package {
         private var tooltipContainer:Sprite;
         private var tooltipBackground:Shape;
         private var tooltipContent:Sprite;
+        // Reverse DAAPI channel: when the Python view binds flashObject.script,
+        // GFx injects the same-named Python method into this declared slot (the
+        // same pattern WG's own meta classes use, e.g. ServerStatsMeta.relogin).
+        public var onMarkerClickAction:Function;
+        // The marker sprite currently under the cursor (for keyboard picking).
+        private var _hoveredMarkerDisplay:Sprite = null;
         private var _context:Object;
         private var _selectedModeId:String;
         private var _selectedVehicleIntCD:String;
@@ -80,6 +87,7 @@ package {
                 onStageMouseMove,
                 onStageMouseLeave
             );
+            attachKeyListener();
         }
 
         override protected function onDispose():void {
@@ -92,7 +100,21 @@ package {
                 onStageMouseMove,
                 onStageMouseLeave
             );
+            detachKeyListener();
+            _hoveredMarkerDisplay = null;
             super.onDispose();
+        }
+
+        private function attachKeyListener():void {
+            if (stage != null) {
+                stage.addEventListener(KeyboardEvent.KEY_DOWN, onStageKeyDown, false, 0, true);
+            }
+        }
+
+        private function detachKeyListener():void {
+            if (stage != null) {
+                stage.removeEventListener(KeyboardEvent.KEY_DOWN, onStageKeyDown);
+            }
         }
 
         override protected function nextFrameAfterPopulateHandler():void {
@@ -106,6 +128,7 @@ package {
                 onStageMouseMove,
                 onStageMouseLeave
             );
+            attachKeyListener();
             layoutFromStage();
             stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
             _lastStageWidth = Number(stageState.stageWidth);
@@ -399,7 +422,8 @@ package {
                 _barX,
                 _barY,
                 onMarkerMouseOver,
-                onMarkerMouseOut
+                onMarkerMouseOut,
+                onMarkerClick
             );
         }
 
@@ -411,6 +435,7 @@ package {
         }
 
         private function onMarkerMouseOver(event:MouseEvent):void {
+            _hoveredMarkerDisplay = event != null ? event.currentTarget as Sprite : null;
             ResearchProgressBarTooltipView.refreshAtStagePoint(
                 visible,
                 markersContainer,
@@ -425,6 +450,9 @@ package {
         }
 
         private function onMarkerMouseOut(event:MouseEvent):void {
+            if (_hoveredMarkerDisplay == (event != null ? event.currentTarget as Sprite : null)) {
+                _hoveredMarkerDisplay = null;
+            }
             ResearchProgressBarTooltipView.refreshAtStagePoint(
                 visible,
                 markersContainer,
@@ -436,6 +464,86 @@ package {
                 event.stageX,
                 event.stageY
             );
+        }
+
+        // Keyboard pick for a hovered dual marker: WoT's hangar GFx exposes no
+        // usable right-click, so the A/B choice is made by key -- 1 (or A) picks
+        // Option A, 2 (or B) picks Option B. The chosen modification id rides along
+        // as the third argument; WG's own pair dialog then confirms the pick.
+        private function onStageKeyDown(event:KeyboardEvent):void {
+            var entry:Object;
+            var clickAction:Object;
+            var code:int;
+            var modId:Number;
+
+            if (event == null || _hoveredMarkerDisplay == null || onMarkerClickAction == null) {
+                return;
+            }
+            entry = _markerTooltipDataByDisplay[_hoveredMarkerDisplay];
+            if (entry == null || entry.marker == null) {
+                return;
+            }
+            clickAction = entry.marker.clickAction;
+            if (clickAction == null || clickAction.leftId === undefined || clickAction.rightId === undefined) {
+                return;
+            }
+
+            code = event.keyCode;
+            modId = Number.NaN;
+            if (code == 49 || code == 97 || code == 65) {
+                modId = Number(clickAction.leftId);
+            }
+            else if (code == 50 || code == 98 || code == 66) {
+                modId = Number(clickAction.rightId);
+            }
+            if (!isNaN(modId)) {
+                moveFocusToSelf();
+                onMarkerClickAction(String(clickAction.kind), Number(clickAction.id), modId);
+            }
+        }
+
+        // Move focus off any marker to the (persistent) view before an action's
+        // modal dialog opens. WG's AbstractView remembers the focused element to
+        // restore focus to when the modal resolves; our bar destroys the clicked
+        // marker on the post-action sync, so a marker left as the focused element
+        // makes AbstractView.onSetModalFocus assert ("Last focused element is not
+        // on display list") and corrupts modal focus, taking the hangar's loadout
+        // bar down with it. Focusing the view (what AbstractView.draw does itself)
+        // keeps _lastFocusedElement valid across the rebuild.
+        private function moveFocusToSelf():void {
+            try {
+                setFocus(this);
+            }
+            catch (error:Error) {
+            }
+        }
+
+        private function onMarkerClick(event:MouseEvent):void {
+            var markerDisplay:Sprite = event != null ? event.currentTarget as Sprite : null;
+            var entry:Object = markerDisplay != null ? _markerTooltipDataByDisplay[markerDisplay] : null;
+            var clickAction:Object;
+
+            if (entry == null || entry.marker == null || onMarkerClickAction == null) {
+                return;
+            }
+            if (!ResearchProgressBarInteractions.isMarkerClickable(
+                entry.marker,
+                Number(entry.combatXp),
+                Number(entry.freeXp)
+            )) {
+                return;
+            }
+
+            clickAction = entry.marker.clickAction;
+            moveFocusToSelf();
+            // Some single-click actions carry a second id (e.g. the modification to
+            // switch a picked dual level to); pass it through when present.
+            if (clickAction.extra !== undefined) {
+                onMarkerClickAction(String(clickAction.kind), Number(clickAction.id), Number(clickAction.extra));
+            }
+            else {
+                onMarkerClickAction(String(clickAction.kind), Number(clickAction.id));
+            }
         }
 
         private function layoutFromStage():void {

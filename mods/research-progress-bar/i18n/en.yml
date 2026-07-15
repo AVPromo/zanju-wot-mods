@@ -6,6 +6,7 @@ MODE_ELITE: "Elite"
 
 # Configurator labels
 SETTING_ENABLED: "Enable / Disable mod"
+SETTING_CLICK_TO_RESEARCH: "Click to research or purchase"
 SETTING_SHOW_TOTAL_XP: "Show Total XP"
 SETTING_RESEARCH_REMINDER: "Show research reminder"
 SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Show accelerated crew training reminder"
@@ -22,6 +23,7 @@ SETTING_OPTION_ON: "On"
 SETTING_OPTION_OFF: "Off"
 
 # Configurator tooltips
+TOOLTIP_CLICK_TO_RESEARCH_BODY: "Enables research or purchase of items on the bar whenever possible. This uses the game's native confirmation windows, so there is no risk of a misclick."
 TOOLTIP_SHOW_TOTAL_XP_BODY: "Show Total XP progress, which combines Vehicle XP with Free XP. The Total XP counter next to the bar and the matching row in tooltips show the combined progress, while the yellow bar segment and yellow markers show what could be researched using Free XP."
 TOOLTIP_RESEARCH_REMINDER_BODY: "Show the \"Research now!\" reminder above the mode buttons."
 TOOLTIP_ACCELERATED_CREW_TRAINING_REMINDER_BODY: "Show the \"Accelerate crew training!\" reminder above the mode buttons."
@@ -35,6 +37,14 @@ TOOLTIP_ELITE_BODY: "<b>On</b>: Show elite badges and tier XI customization elem
 # Research tooltip
 TOOLTIP_PREREQUISITES: "Prerequisites"
 TOOLTIP_COST_WITH_PREREQS: "Cost with prerequisites"
+TOOLTIP_CLICK_TO_RESEARCH: "Click to research."
+TOOLTIP_CLICK_TO_ENABLE: "Click to enable."
+TOOLTIP_CLICK_TO_DISABLE: "Click to disable."
+TOOLTIP_CLICK_TO_CHANGE_MODIFICATION: "Click to change modification."
+TOOLTIP_CLICK_TO_SELECT: "Click to select."
+TOOLTIP_CLICK_TO_OPEN_UPGRADES: "Click to open the upgrades menu."
+TOOLTIP_KEY_OPTION_A: "Press 1 to research."
+TOOLTIP_KEY_OPTION_B: "Press 2 to research."
 
 # Counter captions
 CAPTION_VEHICLE_XP: "Vehicle XP"
@@ -44,8 +54,10 @@ CAPTION_UNLOCKED: "Unlocked"
 CAPTION_LOCKED: "Locked"
 BLUEPRINT_TOOLTIP_FORMAT: "<count>{count}</count>/<total>{total}</total> Blueprints (<discount>{discount}%</discount> discount)"
 FIELD_MOD_VALUE_FORMAT: "{label}: {value}"
-FIELD_MOD_STATUS_ACTIVE: "Active"
-FIELD_MOD_STATUS_INACTIVE: "Not active"
+FIELD_MOD_STATUS_ACTIVE: "Enabled"
+FIELD_MOD_STATUS_INACTIVE: "Disabled"
+FIELD_MOD_LOADOUT_ESSENTIALS_CONTENTS: "shells and consumables"
+FIELD_MOD_LOADOUT_AUXILIARY_CONTENTS: "equipment and directives"
 TOOLTIP_LEVEL_FORMAT: "Level {level}"
 FIELD_MOD_TOOLTIP_SUBTITLE_DUAL: "Dual Modification"
 FIELD_MOD_TOOLTIP_SUBTITLE_ROLE_SLOT: "Second Slot Category"
@@ -75,6 +87,8 @@ UPGRADE_MINOR: "Minor Upgrade"
 UPGRADE_MAJOR: "Major Upgrade"
 UPGRADE_FINAL: "Final Upgrade"
 UPGRADE_ALL_OTHER_NODES: "All Other Nodes"
+UPGRADE_REQUIRES_OTHERS: "Requires other upgrades"
+UPGRADE_REMAINING: "Upgrades remaining: {count}"
 HYPOTHETICAL_T11_VEHICLE_NAME: "Hypothetical tier 11 vehicle"
 
 # Status strings

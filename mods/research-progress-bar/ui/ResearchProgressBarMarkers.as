@@ -45,7 +45,8 @@ package {
             barX:Number,
             barY:Number,
             onMarkerMouseOver:Function,
-            onMarkerMouseOut:Function
+            onMarkerMouseOut:Function,
+            onMarkerClick:Function
         ):Dictionary {
             var marker:Object;
             var markerPositionValue:Number;
@@ -80,7 +81,8 @@ package {
                     combatXp,
                     freeXp,
                     onMarkerMouseOver,
-                    onMarkerMouseOut
+                    onMarkerMouseOut,
+                    onMarkerClick
                 );
                 markerDisplay.x = barX + markerX;
                 markerDisplay.y = barY;
@@ -103,7 +105,8 @@ package {
             combatXp:Number,
             freeXp:Number,
             onMarkerMouseOver:Function,
-            onMarkerMouseOut:Function
+            onMarkerMouseOut:Function,
+            onMarkerClick:Function
         ):Sprite {
             var markerSprite:Sprite = new Sprite();
             var markerBitmap:Bitmap = createMarkerBitmap(marker, markerProgressValue, combatXp, freeXp);
@@ -125,8 +128,25 @@ package {
 
             markerSprite.mouseEnabled = true;
             markerSprite.mouseChildren = false;
+            // Keep markers out of keyboard focus/tab traversal. Click focus is
+            // handled defensively in clearMarkers (GFx has no mouseFocusEnabled).
+            markerSprite.tabEnabled = false;
+            markerSprite.focusRect = false;
             markerSprite.addEventListener(MouseEvent.MOUSE_OVER, onMarkerMouseOver, false, 0, true);
             markerSprite.addEventListener(MouseEvent.MOUSE_OUT, onMarkerMouseOut, false, 0, true);
+            if (onMarkerClick != null
+                    && ResearchProgressBarInteractions.isMarkerClickable(marker, combatXp, freeXp)
+                    && !isPickMarker(marker)) {
+                // buttonMode + useHandCursor make GFx dispatch a CURSOR_CHANGE that
+                // WoT's CursorManager forwards to the engine cursor (the hand).
+                // Pick markers (dual A/B choice) are excluded: a mouse click can't
+                // express which option, and WoT's hangar GFx delivers no usable
+                // right-click, so they are keyboard-driven instead (press 1/2, see
+                // ResearchProgressBarLobby.onStageKeyDown).
+                markerSprite.buttonMode = true;
+                markerSprite.useHandCursor = true;
+                markerSprite.addEventListener(MouseEvent.CLICK, onMarkerClick, false, 0, true);
+            }
             return markerSprite;
         }
 
@@ -193,6 +213,13 @@ package {
             icon.x = -Math.round(icon.width / 2);
             icon.y = markerTopY - MARKER_ICON_GAP - icon.height;
             return icon;
+        }
+
+        private static function isPickMarker(marker:Object):Boolean {
+            return marker != null
+                && marker.clickAction != null
+                && marker.clickAction.leftId !== undefined
+                && marker.clickAction.rightId !== undefined;
         }
 
         private static function shouldHideBarIcon(marker:Object):Boolean {

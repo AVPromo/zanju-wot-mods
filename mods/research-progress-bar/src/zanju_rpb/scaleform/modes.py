@@ -3,6 +3,14 @@ from __future__ import print_function, unicode_literals
 
 import re
 
+from ..constants import (
+    MARKER_CLICK_ACTION_FIELD_MOD,
+    MARKER_CLICK_ACTION_FIELD_MOD_PICK,
+    MARKER_CLICK_ACTION_FIELD_MOD_SELECT,
+    MARKER_CLICK_ACTION_FIELD_MOD_TOGGLE,
+    MARKER_CLICK_ACTION_RESEARCH,
+    MARKER_CLICK_ACTION_UPGRADES,
+)
 from ..localization import get_text as _loc, get_wg_text as _wg_loc
 
 
@@ -17,6 +25,9 @@ FIELD_MODS_MODE_OFF = 'off'
 
 FIELD_MOD_DUAL_BUFF_HTML_COLOR = '#80D43A'
 FIELD_MOD_DUAL_DEBUFF_HTML_COLOR = '#D95C56'
+# Blue used for clickable/keyboard hint text in tooltips (matches the AS3
+# TOOLTIP_CLICK_HINT_TEXT_COLOR).
+FIELD_MOD_CLICK_HINT_HTML_COLOR = '#5FB2F2'
 FIELD_MOD_MARKER_HIGHLIGHT_HTML_COLOR = '#F0CF74'
 FIELD_MOD_MARKER_MUTED_HTML_COLOR = '#B8AC97'
 FIELD_MOD_BAR_ICON_CATEGORIES = frozenset((
@@ -83,19 +94,22 @@ def build_scaleform_view_payload(vehicle, data, mode_preferences=None, preferred
     """Builds the full Scaleform payload, including empty-mode UI states."""
     preferences = _normalize_mode_preferences(mode_preferences)
     show_total_xp = preferences['showTotalXp']
+    click_to_research = preferences['clickToResearch']
     modes = []
 
     if preferences['showResearch']:
-        research_mode = _build_regular_research_mode(data, show_total_xp)
+        research_mode = _build_regular_research_mode(data, show_total_xp, click_to_research)
         if research_mode is not None:
             modes.append(research_mode)
 
     if preferences['showUpgrades']:
-        tier11_mode = _build_tier11_mode(data, show_total_xp)
+        tier11_mode = _build_tier11_mode(data, show_total_xp, click_to_research)
         if tier11_mode is not None:
             modes.append(tier11_mode)
 
-    field_mods_mode = _build_field_mods_mode(data, preferences['fieldModsMode'], show_total_xp)
+    field_mods_mode = _build_field_mods_mode(
+        data, preferences['fieldModsMode'], show_total_xp, click_to_research
+    )
     if field_mods_mode is not None:
         modes.append(field_mods_mode)
 
@@ -153,6 +167,7 @@ def _normalize_mode_preferences(mode_preferences):
         elite_mode = ELITE_MODE_ON
 
     return {
+        'clickToResearch': bool(preferences.get('clickToResearch', True)),
         'showTotalXp': bool(preferences.get('showTotalXp', True)),
         'showResearchReminder': bool(preferences.get('showResearchReminder', True)),
         'showAcceleratedCrewTrainingReminder': bool(
@@ -308,7 +323,7 @@ def _is_tier11_research_ready_now(data, vehicle_xp):
     return next_step_xp_cost is not None and next_step_xp_cost > 0 and next_step_xp_cost <= vehicle_xp
 
 
-def _build_regular_research_mode(data, show_total_xp=True):
+def _build_regular_research_mode(data, show_total_xp=True, click_to_research=True):
     tech_tree = data.get('tech_tree') or {}
     visible_unlocks = tech_tree.get('visible_unlocks') or []
     available_unlocks = tech_tree.get('available_unlocks') or []
@@ -346,11 +361,11 @@ def _build_regular_research_mode(data, show_total_xp=True):
         _loc('CAPTION_VEHICLE_XP'),
         right_text,
         right_caption,
-        markers=[_build_research_marker(item) for item in visible_unlocks],
+        markers=[_build_research_marker(item, click_to_research) for item in visible_unlocks],
     )
 
 
-def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS, show_total_xp=True):
+def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS, show_total_xp=True, click_to_research=True):
     field_mods = data.get('field_mods') or {}
     tier_plan = field_mods.get('tier_plan') or {}
     tech_tree = data.get('tech_tree') or {}
@@ -399,6 +414,7 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS, show_to
                 0,
                 0,
                 field_mods,
+                click_to_research,
             )
         else:
             primary_value = 0.0
@@ -425,6 +441,7 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS, show_to
             vehicle_xp,
             total_xp,
             field_mods,
+            click_to_research,
         )
     else:
         primary_value, secondary_value = _build_fractional_fill(
@@ -461,7 +478,7 @@ def _build_field_mods_mode(data, field_mods_mode=FIELD_MODS_MODE_ALWAYS, show_to
     )
 
 
-def _build_tier11_mode(data, show_total_xp=True):
+def _build_tier11_mode(data, show_total_xp=True, click_to_research=True):
     field_mods = data.get('field_mods') or {}
     tech_tree = data.get('tech_tree') or {}
     if not _is_tier11_mode_enabled(field_mods, tech_tree):
@@ -500,6 +517,7 @@ def _build_tier11_mode(data, show_total_xp=True):
             display_layout,
             vehicle_xp,
             total_xp,
+            click_to_research,
         )
     elif next_step_xp_cost:
         primary_value, secondary_value = _build_fractional_fill(
@@ -710,7 +728,7 @@ def _elite_cumulative_xp_to_level(level):
     return total_xp
 
 
-def _build_research_marker(item):
+def _build_research_marker(item, click_to_research=True):
     blueprint_count = item.get('blueprint_count')
     blueprint_total = item.get('blueprint_total')
     blueprint_discount_percent = item.get('blueprint_discount_percent')
@@ -718,7 +736,7 @@ def _build_research_marker(item):
     if item.get('is_hypothetical_t11'):
         marker_name = _loc('HYPOTHETICAL_T11_VEHICLE_NAME')
 
-    return {
+    marker = {
         'id': 'unlock_{0}'.format(item['intcd']),
         'positionValue': item['xp_cost'],
         'costXp': item['xp_cost'],
@@ -745,6 +763,20 @@ def _build_research_marker(item):
         ),
     }
 
+    # Hypothetical tier 11 vehicles do not exist, so there is nothing to research.
+    # Prerequisite-blocked items keep no click action either: WG's unlock flow only
+    # accepts currently researchable unlocks. The view still gates on the displayed
+    # XP readiness before enabling the click. Gated by the "Click to research or
+    # purchase" setting.
+    if click_to_research and item.get('is_available', True) and not item.get('is_hypothetical_t11'):
+        marker['clickAction'] = {
+            'kind': MARKER_CLICK_ACTION_RESEARCH,
+            'id': item['intcd'],
+        }
+        marker['clickHintText'] = _loc('TOOLTIP_CLICK_TO_RESEARCH')
+
+    return marker
+
 
 def _build_blueprint_tooltip_text(count, total, discount_percent):
     if count is None or total is None or discount_percent is None:
@@ -753,7 +785,8 @@ def _build_blueprint_tooltip_text(count, total, discount_percent):
     return _loc('BLUEPRINT_TOOLTIP_FORMAT', count=count, total=total, discount=discount_percent)
 
 
-def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp, field_mods=None):
+def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp, total_xp,
+                             field_mods=None, click_to_research=True):
     markers = []
     cumulative_total_cost = 0
     level_details = (field_mods or {}).get('level_details') or {}
@@ -770,6 +803,18 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             vehicle_xp,
             total_xp,
         )
+        click_action = None
+        click_hint_text = None
+        show_inline_pick_hints = False
+        if click_to_research:
+            click_action, click_hint_text, show_inline_pick_hints = _resolve_field_mod_interactivity(
+                level, current_level, level_detail, marker_state
+            )
+        # Inline "Press X to research." hints live inside the dual option sections;
+        # flag the detail so the tooltip builders render them (under each option
+        # title, above its stats).
+        if level_detail is not None:
+            level_detail['_show_pick_hints'] = show_inline_pick_hints
         completed_tooltip_html = _build_field_mod_completed_tooltip_html(level_detail)
         completed_tooltip_text = _build_field_mod_completed_tooltip_text(level_detail)
         pending_tooltip_html = _build_field_mod_pending_tooltip_html(level_detail)
@@ -815,9 +860,150 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             'progressXpLeftFormat': _loc('STATUS_XP_LEFT_FORMAT'),
         }
         marker.update(_build_field_mod_marker_display(level_detail, roman_level))
+        if click_action is not None:
+            marker['clickAction'] = click_action
+        if click_hint_text is not None:
+            marker['clickHintText'] = click_hint_text
         markers.append(marker)
 
     return markers
+
+
+def _resolve_field_mod_interactivity(level, current_level, level_detail, marker_state):
+    """Interactivity for a field-mod level marker, gated by click-to-research upstream.
+
+    Returns ``(click_action, click_hint_text, show_inline_pick_hints)``:
+      - not-yet-researched next level -> research it;
+      - completed loadout-switch (feature) -> toggle it;
+      - completed second-slot (role_slot) -> open WG's screen to select/reassign;
+      - completed dual, unpicked -> keyboard pick (hints shown inline per option);
+      - completed dual, picked -> click to change to the other modification.
+    """
+    if marker_state != 'completed':
+        step_id = _resolve_field_mod_click_step_id(level, current_level, level_detail)
+        if step_id is not None:
+            action = {'kind': MARKER_CLICK_ACTION_FIELD_MOD, 'id': step_id}
+            return action, _loc('TOOLTIP_CLICK_TO_RESEARCH'), False
+        return None, None, False
+
+    kind = level_detail.get('kind') if level_detail else None
+
+    if kind == 'feature':
+        group_id = _resolve_field_mod_toggle_group_id(level_detail)
+        if group_id is not None:
+            action = {'kind': MARKER_CLICK_ACTION_FIELD_MOD_TOGGLE, 'id': group_id}
+            hint = _loc(
+                'TOOLTIP_CLICK_TO_DISABLE' if level_detail.get('is_active') else 'TOOLTIP_CLICK_TO_ENABLE'
+            )
+            return action, hint, False
+        return None, None, False
+
+    if kind == 'role_slot':
+        # The A/B category selection lives inside WG's own modal, so we can only
+        # open that screen; available whether or not a category is already picked.
+        action = {
+            'kind': MARKER_CLICK_ACTION_FIELD_MOD_SELECT,
+            'id': _to_int(level_detail.get('research_step_id')) or 0,
+        }
+        return action, _loc('TOOLTIP_CLICK_TO_SELECT'), False
+
+    if kind == 'dual':
+        selected = _resolve_field_mod_dual_selected_choice_index(level_detail)
+        if selected is None:
+            pick_action = _resolve_field_mod_pick_action(level_detail)
+            if pick_action is not None:
+                return pick_action, None, True
+            return None, None, False
+        change_action = _resolve_field_mod_change_action(level_detail, selected)
+        if change_action is not None:
+            return change_action, _loc('TOOLTIP_CLICK_TO_CHANGE_MODIFICATION'), False
+        return None, None, False
+
+    return None, None, False
+
+
+def _resolve_field_mod_change_action(level_detail, selected_choice_index):
+    """Click action that swaps a picked dual level to its other modification.
+
+    WG's PURCHASE_POST_PROGRESSION_PAIR with the not-currently-picked modification
+    id switches the choice (and shows its own confirm dialog). A single click is
+    enough because there are only two options.
+    """
+    pair_step_id = _to_int(level_detail.get('pair_step_id'))
+    other_index = 2 if selected_choice_index == 1 else 1
+    other_mod_id = _resolve_field_mod_choice_modification_id(level_detail, other_index)
+    if pair_step_id is None or other_mod_id is None:
+        return None
+    return {
+        'kind': MARKER_CLICK_ACTION_FIELD_MOD_PICK,
+        'id': pair_step_id,
+        'extra': other_mod_id,
+    }
+
+
+def _resolve_field_mod_pick_action(level_detail):
+    """Keyboard pick action for an unlocked dual level whose variant is unpicked.
+
+    The level is researched (its marker is 'completed') but neither Option A nor B
+    is chosen yet. Pressing 1 picks A (choice index 1), 2 picks B (index 2) -- WoT's
+    hangar GFx delivers no usable right-click, so the choice is by key. leftId/rightId
+    carry each option's modification id for WG's PURCHASE_POST_PROGRESSION_PAIR action
+    (which confirms via its own dialog). Returns None if already picked or the pick
+    ids are unavailable.
+    """
+    if not level_detail or level_detail.get('kind') != 'dual':
+        return None
+    if _resolve_field_mod_dual_selected_choice_index(level_detail) is not None:
+        return None
+
+    pair_step_id = _to_int(level_detail.get('pair_step_id'))
+    left_id = _resolve_field_mod_choice_modification_id(level_detail, 1)
+    right_id = _resolve_field_mod_choice_modification_id(level_detail, 2)
+    if pair_step_id is None or left_id is None or right_id is None:
+        return None
+
+    return {
+        'kind': MARKER_CLICK_ACTION_FIELD_MOD_PICK,
+        'id': pair_step_id,
+        'leftId': left_id,
+        'rightId': right_id,
+    }
+
+
+def _resolve_field_mod_choice_modification_id(level_detail, choice_index):
+    choice = None
+    for choice in level_detail.get('available_choices') or []:
+        if _to_int(choice.get('choice_index')) == choice_index:
+            return _to_int(choice.get('modification_id'))
+    return None
+
+
+def _resolve_field_mod_toggle_group_id(level_detail):
+    """The setup-switch group id a click on this unlocked feature level toggles.
+
+    Only the loadout-switch feature levels (essentials / auxiliary) are freely
+    togglable; the group id feeds WG's SWITCH_PREBATTLE_AMMO_PANEL_AVAILABILITY
+    action, which applies without a confirmation dialog.
+    """
+    if not level_detail or level_detail.get('kind') != 'feature':
+        return None
+    return level_detail.get('feature_group_id')
+
+
+def _resolve_field_mod_click_step_id(level, current_level, level_detail):
+    """The post-progression step id a click on this level's marker should research.
+
+    Only the next unresearched level is directly researchable (earlier levels are
+    complete, later ones are blocked by it as a prerequisite). The id is the
+    level's LEVELED base step -- also on levels with a variant pair, since the
+    pair lives in a free MultiModsItem child that is chosen separately and never
+    purchased. Skill-tree based plans never populate step ids here.
+    """
+    if level != current_level + 1:
+        return None
+    if not level_detail:
+        return None
+    return level_detail.get('research_step_id')
 
 
 def _is_field_mod_pre_progress_detail(level_detail):
@@ -905,6 +1091,33 @@ def _build_field_mod_feature_label(action_name):
     )
 
 
+# Loadout-switch features, keyed by their normalized action name (see the
+# collector's _normalize_post_progression_feature_identifier), map to a mod-owned
+# i18n key naming what the loadout contains -- shown parenthetically after the
+# switch's own label. Unknown features simply omit the parenthetical.
+_FIELD_MOD_LOADOUT_CONTENTS_KEYS = {
+    'shellsconsumablesswitch': 'FIELD_MOD_LOADOUT_ESSENTIALS_CONTENTS',
+    'optdevboostersswitch': 'FIELD_MOD_LOADOUT_AUXILIARY_CONTENTS',
+}
+
+
+def _resolve_field_mod_loadout_contents(action_name):
+    normalized = re.sub(r'[^a-z0-9]+', '', (action_name or '').lower())
+    contents_key = _FIELD_MOD_LOADOUT_CONTENTS_KEYS.get(normalized)
+    if contents_key is None:
+        return None
+    return _loc(contents_key)
+
+
+def _build_field_mod_feature_completed_label(level_detail):
+    action_name = level_detail.get('action_name')
+    label = _build_field_mod_feature_label(action_name)
+    contents = _resolve_field_mod_loadout_contents(action_name)
+    if contents:
+        return u'{0} ({1})'.format(label, contents)
+    return label
+
+
 def _build_field_mod_marker_html_text(text, is_highlighted, is_bold=False):
     if not text:
         return ''
@@ -954,7 +1167,7 @@ def _build_field_mod_completed_tooltip_text(level_detail):
 
     kind = level_detail.get('kind')
     if kind == 'feature':
-        label = _build_field_mod_feature_label(level_detail.get('action_name'))
+        label = _build_field_mod_feature_completed_label(level_detail)
         value = _loc('FIELD_MOD_STATUS_ACTIVE') if level_detail.get('is_active') else _loc('FIELD_MOD_STATUS_INACTIVE')
         return _loc('FIELD_MOD_VALUE_FORMAT', label=label, value=value)
 
@@ -996,6 +1209,17 @@ def _build_field_mod_completed_tooltip_text(level_detail):
 def _build_field_mod_completed_tooltip_html(level_detail):
     if not level_detail:
         return None
+
+    if level_detail.get('kind') == 'feature':
+        label = _build_field_mod_feature_completed_label(level_detail)
+        is_active = bool(level_detail.get('is_active'))
+        value = _loc('FIELD_MOD_STATUS_ACTIVE') if is_active else _loc('FIELD_MOD_STATUS_INACTIVE')
+        value_color = FIELD_MOD_DUAL_BUFF_HTML_COLOR if is_active else FIELD_MOD_DUAL_DEBUFF_HTML_COLOR
+        return '<b>{0}:</b> <font color="{1}"><b>{2}</b></font>'.format(
+            _escape_html(label),
+            value_color,
+            _escape_html(value),
+        )
 
     if level_detail.get('kind') == 'role_slot':
         html_lines = []
@@ -1100,6 +1324,9 @@ def _build_field_mod_dual_choice_names_text(level_detail):
         lines = [
             _loc('FIELD_MOD_VALUE_FORMAT', label=section.get('label'), value=section.get('name'))
         ]
+        hint = section.get('hint')
+        if hint:
+            lines.append(hint)
         stat = None
         for stat in section.get('lines') or []:
             text = stat.get('text')
@@ -1121,6 +1348,13 @@ def _build_field_mod_dual_choice_names_html(level_detail):
         html_lines = [
             _build_field_mod_label_value_html(section.get('label'), section.get('name')),
         ]
+        hint = section.get('hint')
+        if hint:
+            html_lines.append(
+                '<font color="{0}">{1}</font>'.format(
+                    FIELD_MOD_CLICK_HINT_HTML_COLOR, _escape_html(hint)
+                )
+            )
         stat = None
         for stat in section.get('lines') or []:
             text = stat.get('text')
@@ -1133,6 +1367,7 @@ def _build_field_mod_dual_choice_names_html(level_detail):
 
 
 def _resolve_field_mod_dual_option_sections(level_detail):
+    show_hints = bool(level_detail.get('_show_pick_hints')) if level_detail else False
     option_sections = []
     choice_index = None
     for choice_index in (1, 2):
@@ -1141,11 +1376,16 @@ def _resolve_field_mod_dual_option_sections(level_detail):
             continue
         option_label = _loc('FIELD_MOD_TOOLTIP_OPTION_A') if choice_index == 1 else _loc('FIELD_MOD_TOOLTIP_OPTION_B')
         choice = _resolve_field_mod_dual_choice(level_detail, choice_index) or {}
-        option_sections.append({
+        section = {
             'label': option_label,
             'name': option_name,
             'lines': _resolve_field_mod_dual_choice_lines(choice),
-        })
+        }
+        if show_hints:
+            section['hint'] = _loc(
+                'TOOLTIP_KEY_OPTION_A' if choice_index == 1 else 'TOOLTIP_KEY_OPTION_B'
+            )
+        option_sections.append(section)
     return option_sections
 
 
@@ -1381,7 +1621,7 @@ def _humanize_field_mod_token(value):
     return text[0].upper() + text[1:]
 
 
-def _build_t11_markers(display_layout, vehicle_xp, total_xp):
+def _build_t11_markers(display_layout, vehicle_xp, total_xp, click_to_research=True):
     completed_minor_nodes = display_layout['completed_minor_nodes']
     completed_major_nodes = display_layout['completed_major_nodes']
     remaining_minor_nodes = display_layout['remaining_minor_nodes']
@@ -1410,6 +1650,11 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
         minor_marker['iconCacheKey'] = 'minor_upgrade'
         minor_marker['hideTooltipIcon'] = False
         minor_marker['name'] = _loc('UPGRADE_MINOR')
+        minor_marker['tooltipSubtitle'] = _format_t11_upgrades_remaining(remaining_minor_count)
+        if display_layout['minor_reachable']:
+            _apply_t11_upgrades_click(minor_marker, click_to_research)
+        else:
+            _apply_t11_blocked_marker(minor_marker)
         markers.append(minor_marker)
 
     if remaining_major_count > 0:
@@ -1429,6 +1674,11 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
         major_marker['iconCacheKey'] = 'major_upgrade'
         major_marker['hideTooltipIcon'] = False
         major_marker['name'] = _loc('UPGRADE_MAJOR')
+        major_marker['tooltipSubtitle'] = _format_t11_upgrades_remaining(remaining_major_count)
+        if display_layout['major_reachable']:
+            _apply_t11_upgrades_click(major_marker, click_to_research)
+        else:
+            _apply_t11_blocked_marker(major_marker)
         markers.append(major_marker)
 
     if remaining_final_count > 0:
@@ -1447,6 +1697,15 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
             'missingPrereqNames': [_loc('UPGRADE_ALL_OTHER_NODES')] if not final_available else [],
             'missingPrereqs': [],
             'prerequisitesLabel': _loc('TOOLTIP_PREREQUISITES'),
+            # The final node's prerequisite is the abstract "all other nodes", so
+            # there is no item list to price row-by-row. Surface the combined cost
+            # (the whole remaining tree: this node plus every other remaining one)
+            # the same way research-mode prerequisite items do, and the view then
+            # measures its progress rows against that total instead of the node's
+            # own 25k. Available final nodes have no prerequisites, so they keep
+            # the plain cost.
+            'costWithPrereqsXp': None if final_available else display_layout['remaining_cost'],
+            'costWithPrereqsLabel': _loc('TOOLTIP_COST_WITH_PREREQS'),
             'name': _resolve_t11_action_node_name(final_node, _loc('UPGRADE_FINAL')),
             'label': '',
             'hideTooltipIcon': True,
@@ -1459,9 +1718,62 @@ def _build_t11_markers(display_layout, vehicle_xp, total_xp):
         }
         final_marker = _apply_t11_action_metadata(final_marker, final_node)
         final_marker = _apply_t11_action_tooltip_details(final_marker, final_node)
+        _apply_t11_upgrades_click(final_marker, click_to_research)
         markers.append(_apply_t11_bar_icon(final_marker, True))
 
     return markers
+
+
+def _apply_t11_upgrades_click(marker, click_to_research):
+    """Arms the "open the upgrades screen" click on a remaining Tier 11 node.
+
+    The flat bar cannot represent the branching upgrade tree, so a click does not
+    buy a specific node -- it just opens WG's own upgrades screen where the player
+    picks and buys. Gated by the "Click to research or purchase" setting; the view
+    then only shows the hand cursor and blue hint when the node is actually
+    reachable (its cost is within reach of a displayed XP row), and never on a
+    final node still locked behind the other nodes (isAvailable is False there).
+    """
+    if not click_to_research:
+        return marker
+
+    marker['clickAction'] = {'kind': MARKER_CLICK_ACTION_UPGRADES, 'id': 0}
+    marker['clickHintText'] = _loc('TOOLTIP_CLICK_TO_OPEN_UPGRADES')
+    return marker
+
+
+def _format_t11_upgrades_remaining(count):
+    """The "Upgrades remaining: N" line shown under a minor/major bucket title,
+    with the count in bold.
+
+    A bucket stands in for every remaining node of its tier, so the count tells
+    the player how many are left; a count-agnostic phrasing sidesteps per-language
+    plural rules. Rendered through the HTML subtitle row, so the localized label
+    and the count are each escaped (a translation may hold HTML-special characters)
+    and the number is wrapped in <b>. Only ever called with count >= 1 -- the
+    minor/major markers are not built when their bucket is empty.
+    """
+    template = _loc('UPGRADE_REMAINING')  # raw, e.g. "Upgrades remaining: {count}"
+    bold_count = u'<b>{0}</b>'.format(_escape_html(u'{0}'.format(count)))
+    return bold_count.join(_escape_html(part) for part in template.split(u'{count}'))
+
+
+def _apply_t11_blocked_marker(marker):
+    """Grays out a bucket marker whose remaining upgrades are all locked behind
+    other, not-yet-researched nodes in the tree -- none is researchable now.
+
+    Mirrors how a prerequisite-blocked research marker is drawn (default/gray
+    icon, no click), but the branching tree has no single prerequisite list worth
+    showing, so the tooltip carries a short "requires other upgrades" line instead
+    of a prerequisite/progress table. The forced 'locked' state overrides the
+    XP-based state so an affordable-but-unreachable node is not painted green.
+    """
+    marker['isAvailable'] = False
+    marker['markerState'] = 'locked'
+    marker['blockedText'] = _loc('UPGRADE_REQUIRES_OTHERS')
+    marker.pop('clickAction', None)
+    marker.pop('clickHintText', None)
+    return marker
 
 
 def _build_t11_completed_markers(completed_minor_count, completed_major_count):
@@ -1531,6 +1843,15 @@ def _build_t11_display_layout(field_mods):
     completed_cost = completed_minor_cost + completed_major_cost
     total_cost = completed_cost + remaining_minor_cost + remaining_major_cost + remaining_final_cost
 
+    # A bucket is reachable when at least one of its still-unresearched nodes has
+    # its tree prerequisites satisfied (the game's own per-node state). When the
+    # client cannot report node states, reachability_known is False and every
+    # bucket is treated as reachable, preserving the plain cost-only behavior.
+    reachable_buckets = field_mods.get('t11_bucket_unresearched_reachable') or {}
+    reachability_known = bool(field_mods.get('t11_reachability_known'))
+    minor_reachable = (not reachability_known) or (_to_int(reachable_buckets.get('small_10k')) or 0) > 0
+    major_reachable = (not reachability_known) or (_to_int(reachable_buckets.get('big_20k')) or 0) > 0
+
     return {
         'completed_minor_count': completed_minor_count,
         'completed_major_count': completed_major_count,
@@ -1550,6 +1871,8 @@ def _build_t11_display_layout(field_mods):
         'remaining_final_cost': remaining_final_cost,
         'remaining_cost': remaining_minor_cost + remaining_major_cost + remaining_final_cost,
         'total_cost': total_cost,
+        'minor_reachable': minor_reachable,
+        'major_reachable': major_reachable,
     }
 
 

@@ -14,6 +14,7 @@ import logging
 
 from CurrentVehicle import g_currentVehicle
 from helpers import dependency
+from . import actions as _actions_api
 from . import collector as _collector_api
 from . import mode_state as _mode_state_api
 from . import runtime_lifecycle as _runtime_lifecycle_api
@@ -32,6 +33,7 @@ _lobby_state_logger = logging.getLogger('gui.lobby_state_machine.lobby_state_mac
 
 _config = _config_api._config
 _collect_research_progress_data = _collector_api._collect_research_progress_data
+_execute_marker_click_action = _actions_api._execute_marker_click_action
 _cancel_callback = _scaleform_callbacks_api._cancel_callback
 _cancel_pending_update_runtime = _runtime_updates_api._cancel_pending_update
 _cancel_visibility_probe_runtime = _runtime_updates_api._cancel_visibility_probe
@@ -222,8 +224,30 @@ class ResearchProgressBar(object):
     def _on_preview_vehicle_changed(self):
         _handle_preview_vehicle_changed_runtime(self)
 
+    def _on_items_cache_synced(self, _reason, _invalid_items):
+        # Every server-confirmed stats/inventory change lands here, which is how the
+        # bar picks up a research/purchase without a vehicle switch. Deliberately
+        # unfiltered: the scheduled update is coalesced to the next tick and exits
+        # early when the bar is hidden, so a burst of syncs costs one rebuild.
+        if self._active:
+            self._schedule_update('items_cache_synced')
+
     def _on_view_added_to_container(self, _container, view):
         _handle_view_added_to_container_runtime(self, view, _logger)
+
+    def _on_marker_click(self, action_kind, action_id, action_extra=None):
+        if not self._active or not _config.get('enabled'):
+            return
+        _execute_marker_click_action(
+            action_kind,
+            action_id,
+            action_extra,
+            on_state_changed=self._on_marker_action_state_changed,
+        )
+
+    def _on_marker_action_state_changed(self):
+        if self._active:
+            self._schedule_update('marker_action_state_changed')
 
     def _deferred_update(self):
         _run_deferred_update_runtime(self, _logger)

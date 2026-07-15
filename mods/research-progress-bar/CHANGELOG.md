@@ -1,6 +1,23 @@
 Changelog
 =========
 
+## Unreleased
+
+- New **"Click to research or purchase"** setting (on by default, at the top of the settings). It turns all of the bar's interactivity below on or off. Every action goes through the game's own confirmation windows, so there is no risk from a misclick.
+- The bar is interactive in the Research and Field Mods modes: clicking a marker starts the game's own research flow for that item, opening the same confirmation window as the tech tree or field modification screens — nothing is spent without confirming there.
+  - A marker is clickable exactly when one of its displayed tooltip rows reads "ready for research", so with the "Show Total XP" setting off only Vehicle XP progress arms the click, and items still blocked by prerequisites are never clickable.
+  - Clickable markers show a hand cursor on hover, and their tooltip gains a blue "Click to research." line at the bottom.
+  - On field modification levels with a choice between two modifications, the click researches the level itself. Once a level is researched but its variant is still unpicked, hover the marker and press **1** or **2** to choose — each option's tooltip shows its "Press X to research." hint above its stats, so you can compare before choosing. On a level whose variant is already picked, a click swaps to the other modification ("Click to change modification.").
+  - On the second-slot-category level, a click opens the game's Field Modification screen to select or reassign the category (the choice is made inside that screen). Once a category is picked, the hangar's bottom loadout panel refreshes on its own, the same way it does after a loadout switch is toggled, instead of showing the previous category until a vehicle change.
+- The Tier 11 upgrades mode is interactive too: a click on a currently reachable minor, major or final upgrade node opens the game's own upgrades menu, with a blue "Click to open the upgrades menu." tooltip line. The flat bar cannot show the branching upgrade tree, so the pick and purchase are made on that screen — nothing is spent from the bar.
+  - The final upgrade node's tooltip, locked behind all the other nodes, now shows the combined "Cost with prerequisites" for the whole remaining tree and measures its progress against that total, the same way research items with prerequisites are shown.
+  - A minor or major upgrade node whose remaining upgrades are all locked behind other, not-yet-researched nodes in the tree is now grayed out (like a prerequisite-blocked research item) and its tooltip reads "Requires other upgrades" instead of showing a reachable cost or progress. Reachability comes from the game's own per-node tree state, so it respects the branching upgrade paths.
+  - The minor and major upgrade markers each stand in for every remaining node of their tier, so their tooltip now shows an "Upgrades remaining: N" line under the title with the respective (bold) count.
+- The unlocked essentials / auxiliary loadout-switch levels are clickable too: a click toggles the loadout switch on or off directly, with a blue "Click to enable." / "Click to disable." tooltip line. No confirmation window appears for these — the toggle is free, exactly like the switch in the game's Field Modification screen. Once the game confirms the toggle, the hangar's bottom loadout panel refreshes on its own, so its loadout switches and status dots no longer need a vehicle change to update.
+- Fixed the first vehicle research of a session failing with an "unlocks/vehicle/required_locked" error when the Research screen had not been opened yet. The game validates a vehicle unlock against its tech tree data, which it only loads once that screen is first opened; the bar now makes sure it is loaded before researching a vehicle.
+- The bar now follows research and purchases confirmed by the game without needing a vehicle switch: it refreshes as soon as the change lands, instead of continuing to show a just-researched item as still available until another vehicle was selected and re-selected.
+- The loadout-switch tooltips now name what each switch controls — e.g. "Essentials Loadout (shells and consumables)" — and show the switch state as "Enabled" in green or "Disabled" in red, instead of a plain "Active" / "Not active".
+
 ## 1.2.0 (4 July 2026)
 
 - New "Show Total XP" setting (enabled by default). Turning it off hides the Total XP calculation everywhere: the Free XP (yellow) segment of the bar, the yellow highlight of markers reachable with Free XP, the Total XP counter next to the bar, and the Total XP row in tooltips — leaving only Vehicle XP progress.

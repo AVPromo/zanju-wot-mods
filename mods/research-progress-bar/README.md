@@ -21,6 +21,11 @@
 
 ### Other features of the mod:
 
+- The bar can _optionally_ allow research and purchase of items without entering the respective menus:
+  - Safe by design - purchases and research use the game's native confirmation windows, so a misclick won't cause accidental research.
+  - Research mode allows researching modules and vehicles.
+  - Field mods mode allows unlocking, selecting and toggling dual modifications, secondary loadouts and second slot categories.
+  - Tier 11 upgrades mode opens the upgrades screen from a reachable item, since the flat bar cannot show the branching upgrade tree.
 - Different XP types are taken into account:
   - Separate calculation for research using vehicle XP only. (_Displayed in green_)
   - Separate calculation for research using vehicle XP + free XP. (_Displayed in yellow_)
@@ -33,12 +38,12 @@
 
 ## Translations
 
-Reference language `en` defines 75 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+Reference language `en` defines 89 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
 
 | Language | Coverage | Missing |
 | --- | --- | --- |
-| `pl` | 100% (75/75) | 0 |
-| `ru` | 100% (75/75) | 0 |
+| `pl` | 100% (89/89) | 0 |
+| `ru` | 82% (73/89) | 16 |
 
 ## Install And Use
 

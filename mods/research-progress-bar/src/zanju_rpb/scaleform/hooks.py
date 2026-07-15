@@ -6,18 +6,22 @@ from CurrentVehicle import g_currentPreviewVehicle, g_currentVehicle
 from frameworks.wulf import WindowLayer
 from gui.Scaleform.framework import ScopeTemplates, ViewSettings, g_entitiesFactories
 from gui.Scaleform.framework.entities.View import View
+from helpers import dependency
+from skeletons.gui.shared import IItemsCache
 
 _on_scaleform_view_populated = None
 _on_scaleform_view_disposed = None
 _on_lobby_route_log = None
+_on_scaleform_marker_click = None
 
 
-def _configure_scaleform_runtime_callbacks(on_view_populated, on_view_disposed, on_lobby_route_log):
-    global _on_lobby_route_log, _on_scaleform_view_disposed, _on_scaleform_view_populated
+def _configure_scaleform_runtime_callbacks(on_view_populated, on_view_disposed, on_lobby_route_log, on_marker_click):
+    global _on_lobby_route_log, _on_scaleform_marker_click, _on_scaleform_view_disposed, _on_scaleform_view_populated
 
     _on_scaleform_view_populated = on_view_populated
     _on_scaleform_view_disposed = on_view_disposed
     _on_lobby_route_log = on_lobby_route_log
+    _on_scaleform_marker_click = on_marker_click
 
 
 class _ScaleformGarageView(View):
@@ -45,6 +49,16 @@ class _ScaleformGarageView(View):
         if self._isDAAPIInited():
             return self.flashObject.as_refreshLayout()
         return None
+
+    def onMarkerClickAction(self, action_kind, action_id, action_extra=None):
+        # Reverse DAAPI channel: when _populate binds flashObject.script = self,
+        # GFx injects this method into the SWF's declared
+        # `public var onMarkerClickAction:Function` slot, so marker clicks in
+        # ActionScript land here. `action_extra` is the pick action's chosen
+        # modification id; other kinds omit it (GFx calls with two args, the
+        # default fills in).
+        if callable(_on_scaleform_marker_click):
+            _on_scaleform_marker_click(action_kind, action_id, action_extra)
 
     def _populate(self):
         super(_ScaleformGarageView, self)._populate()
@@ -96,6 +110,33 @@ def _detach_vehicle_change_hooks(on_vehicle_changed, on_preview_vehicle_changed)
 
     try:
         g_currentVehicle.onChanged -= on_vehicle_changed
+    except Exception:
+        pass
+
+
+def _refresh_items_cache_hooks(on_items_cache_synced, reason, logger):
+    """Subscribes to the items-cache sync so the bar follows server-side changes.
+
+    g_currentVehicle.onChanged only fires when the selected vehicle changes, so
+    without this the bar kept showing an item as researchable after WG confirmed the
+    unlock -- the new state only landed on the next vehicle switch. onSyncCompleted
+    carries every stats/inventory diff (including stats.unlocks), and the update it
+    schedules is coalesced to the next tick, so a burst of syncs costs one rebuild.
+    """
+    try:
+        items_cache = dependency.instance(IItemsCache)
+        try:
+            items_cache.onSyncCompleted -= on_items_cache_synced
+        except Exception:
+            pass
+        items_cache.onSyncCompleted += on_items_cache_synced
+    except Exception:
+        logger.exception('Failed to refresh items cache hook (%s)', reason)
+
+
+def _detach_items_cache_hooks(on_items_cache_synced):
+    try:
+        dependency.instance(IItemsCache).onSyncCompleted -= on_items_cache_synced
     except Exception:
         pass
 

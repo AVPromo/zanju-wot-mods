@@ -80,6 +80,30 @@ def _resolve_post_progression_step_action(step):
     return None
 
 
+def _resolve_post_progression_step_reachable(step):
+    """Whether an unresearched step is currently researchable -- its tree
+    prerequisites are satisfied so the game would let you unlock it now.
+
+    Uses the client's own per-step state machine. A step's state is one of
+    RESTRICTED / LOCKED / UNLOCKED / RECEIVED, and the UNLOCKED state means "the
+    node's unlockStrategy (any/all) is satisfied over its requiredUnlocks, but it
+    is not yet bought" -- i.e. reachable. RECEIVED means already bought, LOCKED
+    means no prerequisite path is unlocked yet. `step.isUnlocked()` is exactly the
+    UNLOCKED test (note the name clash: the collector's "unlocked step ids" set is
+    the RECEIVED/bought state, the opposite end of the lifecycle).
+
+    Returns True/False, or None when the state cannot be read (older client), so
+    callers can fall back to treating the node as reachable rather than hiding it.
+    """
+    method = getattr(step, 'isUnlocked', None)
+    if not callable(method):
+        return None
+    try:
+        return bool(method())
+    except Exception:
+        return None
+
+
 def _extract_post_progression_repr_token(value, token_name):
     try:
         text = repr(value)
@@ -940,11 +964,24 @@ def _build_post_progression_dual_available_choices(action, vehicle):
         )
         choices.append({
             'choice_index': choice_index,
+            'modification_id': _resolve_post_progression_modification_id(modification),
             'mod_name': _resolve_post_progression_action_name(modification),
             'lines': choice_lines,
         })
 
     return sorted(choices, key=lambda item: item.get('choice_index') or 99)
+
+
+def _resolve_post_progression_modification_id(modification):
+    """The modification's own id, as PURCHASE_POST_PROGRESSION_PAIR expects it.
+
+    WG identifies a pair modification by its `actionID` (MultiModsItem.getPurchasedID
+    returns `modifications[idx].actionID`, and getModificationByID keys on it).
+    """
+    value = getattr(modification, 'actionID', None)
+    if value is None:
+        value = getattr(modification, 'id', None)
+    return _to_int_or_none(value)
 
 
 def _normalize_post_progression_pairs(state):
@@ -1005,6 +1042,7 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
         feature_entry = None
         role_slot_entry = None
         multi_entry = None
+        leveled_entry = None
 
         entry = None
         for entry in entries:
@@ -1015,11 +1053,22 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
                 role_slot_entry = entry
             elif action_class_name == 'MultiModsItem':
                 multi_entry = entry
+            if action_class_name != 'MultiModsItem' and leveled_entry is None:
+                leveled_entry = entry
+
+        # A level's purchasable step is its LEVELED base step (SimpleModItem /
+        # FeatureModItem / RoleSlotModItem, paid in XP). The MultiModsItem that
+        # often shares the level is that step's free child holding the two
+        # selectable variants -- it costs nothing and cannot be researched, so
+        # it must never be the click target.
+        research_step_id = leveled_entry.get('step_id') if leveled_entry else None
 
         if feature_entry is not None:
             feature_group_id = _resolve_post_progression_feature_group_id(feature_entry.get('action_name'))
             level_details[level] = {
                 'kind': 'feature',
+                'research_step_id': research_step_id,
+                'feature_group_id': feature_group_id,
                 'action_name': feature_entry.get('action_name'),
                 'is_active': _resolve_post_progression_setup_switch_active(
                     pp,
@@ -1033,6 +1082,7 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
         if role_slot_entry is not None:
             level_details[level] = {
                 'kind': 'role_slot',
+                'research_step_id': research_step_id,
                 'action_name': role_slot_entry.get('action_name'),
                 'category': role_slot_entry.get('category'),
                 'categories': _resolve_role_slot_available_categories(vehicle, level),
@@ -1056,12 +1106,26 @@ def _build_regular_field_mod_level_details(pp, state, vehicle=None):
             )
             level_details[level] = {
                 'kind': 'dual',
+                'research_step_id': research_step_id,
+                # The MultiModsItem's own step id, used to reach the action for a
+                # PURCHASE_POST_PROGRESSION_PAIR pick (distinct from research_step_id,
+                # which is the leveled base step researched to unlock the level).
+                'pair_step_id': multi_entry.get('step_id'),
                 'multi_action_name': multi_entry.get('action_name'),
                 'selected_choice_index': selected_choice_index,
                 'selected_mod_name': selected_mod_name,
                 'selected_choice_lines': selected_choice_lines,
                 'available_choices': _build_post_progression_dual_available_choices(multi_action, vehicle),
             }
+            continue
+
+        # Plain research levels have no special display data, but the marker click
+        # action still needs their purchasable step id. Every tooltip/display
+        # consumer treats the 'plain' kind the same as a missing detail entry.
+        level_details[level] = {
+            'kind': 'plain',
+            'research_step_id': research_step_id,
+        }
 
     return level_details
 
@@ -1901,6 +1965,7 @@ def _collect_post_progression_step_metadata(pp, is_veh_skill_tree, vehicle, reso
                         'action_class_name': _resolve_post_progression_action_class_name(action),
                         'action_category': _resolve_post_progression_action_category(action),
                         'action_meta': action_meta,
+                        'reachable': _resolve_post_progression_step_reachable(step),
                     }
 
             if level is not None:
@@ -1993,6 +2058,12 @@ def _collect_t11_unlock_data(pp, state, vehicle, step_meta, unlocked_step_ids):
     unresearched_action_nodes = []
     researched_buckets = _make_empty_t11_bucket_counts()
     unresearched_buckets = _make_empty_t11_bucket_counts()
+    # Per bucket, how many still-unresearched nodes are currently researchable
+    # (tree prerequisites satisfied). reachability_known stays False until at least
+    # one unresearched node reports a definite state, so an older client that can't
+    # report step states leaves every bucket treated as reachable (never grayed).
+    unresearched_reachable_buckets = _make_empty_t11_bucket_counts()
+    reachability_known = False
 
     _normalize_t11_final_bucket(step_meta)
 
@@ -2003,6 +2074,13 @@ def _collect_t11_unlock_data(pp, state, vehicle, step_meta, unlocked_step_ids):
         is_researched = step_id in unlocked_step_ids
         bucket_counts = researched_buckets if is_researched else unresearched_buckets
         bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+
+        if not is_researched:
+            reachable = meta.get('reachable')
+            if reachable is not None:
+                reachability_known = True
+                if reachable:
+                    unresearched_reachable_buckets[bucket] = unresearched_reachable_buckets.get(bucket, 0) + 1
 
         action_node = _build_t11_action_node(step_id, meta, pp, state, vehicle)
         if action_node is None:
@@ -2015,6 +2093,8 @@ def _collect_t11_unlock_data(pp, state, vehicle, step_meta, unlocked_step_ids):
     return {
         't11_bucket_researched': researched_buckets,
         't11_bucket_unresearched': unresearched_buckets,
+        't11_bucket_unresearched_reachable': unresearched_reachable_buckets,
+        't11_reachability_known': reachability_known,
         't11_action_nodes_researched': sorted(researched_action_nodes, key=_t11_action_node_sort_key),
         't11_action_nodes_unresearched': sorted(unresearched_action_nodes, key=_t11_action_node_sort_key),
     }
@@ -2027,6 +2107,8 @@ def _collect_post_progression_unlock_state(pp, step_id_to_level, step_meta, is_v
         'level_details': {},
         't11_bucket_researched': _make_empty_t11_bucket_counts(),
         't11_bucket_unresearched': _make_empty_t11_bucket_counts(),
+        't11_bucket_unresearched_reachable': _make_empty_t11_bucket_counts(),
+        't11_reachability_known': False,
         't11_action_nodes_researched': [],
         't11_action_nodes_unresearched': [],
     }
@@ -2106,6 +2188,8 @@ def _collect_post_progression(vehicle, stats, resolve_t11_action_marker_meta=Non
         'next_purchasable_step_xp': None,
         't11_bucket_researched': _make_empty_t11_bucket_counts(),
         't11_bucket_unresearched': _make_empty_t11_bucket_counts(),
+        't11_bucket_unresearched_reachable': _make_empty_t11_bucket_counts(),
+        't11_reachability_known': False,
         't11_action_nodes_researched': [],
         't11_action_nodes_unresearched': [],
     }
@@ -2252,6 +2336,8 @@ def _collect_research_progress_data(
             'next_purchasable_step_xp': field_mods['next_purchasable_step_xp'],
             't11_bucket_researched': field_mods['t11_bucket_researched'],
             't11_bucket_unresearched': field_mods['t11_bucket_unresearched'],
+            't11_bucket_unresearched_reachable': field_mods['t11_bucket_unresearched_reachable'],
+            't11_reachability_known': field_mods['t11_reachability_known'],
             't11_action_nodes_researched': field_mods['t11_action_nodes_researched'],
             't11_action_nodes_unresearched': field_mods['t11_action_nodes_unresearched'],
             'tier_plan': tier_plan,

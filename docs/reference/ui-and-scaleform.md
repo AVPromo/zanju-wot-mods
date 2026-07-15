@@ -54,3 +54,27 @@ Consequences for a custom view:
 Reading the factor from Python: `ServicesLocator.settingsCore.interfaceScale` is an `InterfaceScaleManager` whose resolved factor lives in its mangled `__scaleValue`; `getSetting(GRAPHICS.INTERFACE_SCALE) == 0.0` means "auto", not the factor. Avoid calling its getters (`getScaleOptions()`, `getIndex()`) at volatile moments — they re-validate the active scale against the current resolution and can reset an unsupported scale back to x1.
 
 Repro note: x2 is only offered when the logical canvas stays at least 1024x768 (render height of roughly 1536 or more). At shorter resolutions WoT lists only `['auto', 'x1']` and silently clamps x2 back to x1 on any UI rebuild, so reproducing the x2 layout locally needs a tall (e.g. DSR) resolution.
+
+## Flash → Python (DAAPI Reverse Channel)
+
+Python → flash calls go through `self.flashObject.as_xxx(...)`. The reverse
+direction works because `View._populate` binds `flashObject.script = self`
+(see `DAAPIEntity.turnDAAPIon` in the decompiled client): GFx then injects the
+Python view's public methods into same-named **declared** `public var
+name:Function` slots on the AS3 document class. This is the same pattern WG's
+own meta classes use (e.g. `ServerStatsMeta.relogin`). AVM2 classes are sealed,
+so the declared var is required — an undeclared dynamic call cannot receive the
+injection. Guard the var for null before calling; it stays null until DAAPI
+init completes.
+
+In this repo: `ResearchProgressBarLobby.onMarkerClickAction` (AS3 slot) →
+`_ScaleformGarageView.onMarkerClickAction` (Python) → `zanju_rpb.actions`.
+
+## Hand Cursor Over Clickable Elements
+
+WoT renders its own engine cursor, but GFx cursor semantics still apply: a
+sprite with `buttonMode = true` and `useHandCursor = true` makes GFx dispatch
+`scaleform.gfx.MouseCursorEvent.CURSOR_CHANGE` on roll-over, which WoT's
+`CursorManager` (see `BaseCursorManager.onChangeCursorHandler` in the
+decompiled AS3) forwards to the engine via `WG.setCursor`. No manual cursor
+management is needed — set the two flags on the clickable sprite.

@@ -12,12 +12,14 @@ _register_mod_settings = _config_api._register_mod_settings
 _attach_lobby_route_log_handler = _scaleform_hooks_api._attach_lobby_route_log_handler
 _configure_scaleform_runtime_callbacks = _scaleform_hooks_api._configure_scaleform_runtime_callbacks
 _detach_vehicle_change_hooks = _scaleform_hooks_api._detach_vehicle_change_hooks
+_detach_items_cache_hooks = _scaleform_hooks_api._detach_items_cache_hooks
 _detach_lobby_route_log_handler = _scaleform_hooks_api._detach_lobby_route_log_handler
 _LobbyStateRouteLogHandler = _scaleform_hooks_api._LobbyStateRouteLogHandler
 _hide_scaleform_view = _scaleform_runtime_api._hide_scaleform_view
 _install_role_slot_ui_hooks = _role_slot_ui_metadata_api._install_role_slot_ui_hooks
 _install_t11_ui_name_hooks = _t11_action_metadata_api._install_t11_ui_name_hooks
 _refresh_vehicle_change_hooks = _scaleform_hooks_api._refresh_vehicle_change_hooks
+_refresh_items_cache_hooks = _scaleform_hooks_api._refresh_items_cache_hooks
 _uninstall_role_slot_ui_hooks = _role_slot_ui_metadata_api._uninstall_role_slot_ui_hooks
 _uninstall_t11_ui_name_hooks = _t11_action_metadata_api._uninstall_t11_ui_name_hooks
 
@@ -63,6 +65,7 @@ def _start_runtime_lifecycle(mod, logger, lobby_state_logger):
         mod._on_scaleform_view_populated,
         mod._on_scaleform_view_disposed,
         mod._on_lobby_route_log,
+        mod._on_marker_click,
     )
     _install_role_slot_ui_hooks(mod._schedule_update)
     _install_t11_ui_name_hooks(mod._schedule_update)
@@ -79,6 +82,7 @@ def _start_runtime_lifecycle(mod, logger, lobby_state_logger):
         'start',
         logger,
     )
+    _refresh_items_cache_hooks(mod._on_items_cache_synced, 'start', logger)
 
 
 def _stop_runtime_lifecycle(mod, logger, lobby_state_logger):
@@ -94,8 +98,9 @@ def _stop_runtime_lifecycle(mod, logger, lobby_state_logger):
     _uninstall_role_slot_ui_hooks()
     _uninstall_t11_ui_name_hooks()
     mod._stop_scaleform_view()
+    _detach_items_cache_hooks(mod._on_items_cache_synced)
     _detach_vehicle_change_hooks(mod._on_vehicle_changed, mod._on_preview_vehicle_changed)
-    _configure_scaleform_runtime_callbacks(None, None, None)
+    _configure_scaleform_runtime_callbacks(None, None, None, None)
 
 
 def _handle_runtime_config_change(mod, reason, logger):
