@@ -3,12 +3,13 @@ from __future__ import print_function, unicode_literals
 from .scaleform import callbacks as _scaleform_callbacks_api
 from .scaleform import gate as _scaleform_gate_api
 from .scaleform import hooks as _scaleform_hooks_api
-from .constants import _VISIBILITY_PROBE_DELAY
+from .constants import _MODAL_UPDATE_RETRY_DELAY, _VISIBILITY_PROBE_DELAY
 
 _cancel_callback = _scaleform_callbacks_api._cancel_callback
 _extract_route_path = _scaleform_gate_api._extract_route_path
 _is_default_hangar_route = _scaleform_gate_api._is_default_hangar_route
 _refresh_vehicle_change_hooks = _scaleform_hooks_api._refresh_vehicle_change_hooks
+_reschedule_callback = _scaleform_callbacks_api._reschedule_callback
 _reschedule_immediate_callback = _scaleform_callbacks_api._reschedule_immediate_callback
 _run_deferred_update_callback = _scaleform_callbacks_api._run_deferred_update_callback
 _run_visibility_probe_callback = _scaleform_callbacks_api._run_visibility_probe_callback
@@ -68,6 +69,23 @@ def _schedule_update(mod, reason=None):
     mod._pending_update_callback = _reschedule_immediate_callback(
         mod._active,
         mod._pending_update_callback,
+        mod._deferred_update,
+    )
+
+
+def _defer_update_past_modal(mod, logger):
+    """Re-arms the pending update while one of WG's modal dialogs is up.
+
+    Also keeps the retry off the frame the dialog closes on, so the rebuild lands
+    after WG has finished restoring focus rather than in the middle of it.
+    """
+    if not mod._update_deferred_for_modal:
+        mod._update_deferred_for_modal = True
+        logger.info('Update deferred: waiting for a modal dialog to close')
+    mod._pending_update_callback = _reschedule_callback(
+        mod._active,
+        mod._pending_update_callback,
+        _MODAL_UPDATE_RETRY_DELAY,
         mod._deferred_update,
     )
 

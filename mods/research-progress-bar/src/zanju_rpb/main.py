@@ -20,6 +20,7 @@ from . import mode_state as _mode_state_api
 from . import runtime_lifecycle as _runtime_lifecycle_api
 from .scaleform import sync as _scaleform_sync_api
 from .scaleform import callbacks as _scaleform_callbacks_api
+from .scaleform import gate as _scaleform_gate_api
 from . import runtime_updates as _runtime_updates_api
 from . import t11_action_metadata as _t11_action_metadata_api
 from .constants import (
@@ -37,6 +38,7 @@ _execute_marker_click_action = _actions_api._execute_marker_click_action
 _cancel_callback = _scaleform_callbacks_api._cancel_callback
 _cancel_pending_update_runtime = _runtime_updates_api._cancel_pending_update
 _cancel_visibility_probe_runtime = _runtime_updates_api._cancel_visibility_probe
+_defer_update_past_modal_runtime = _runtime_updates_api._defer_update_past_modal
 _finalize_runtime = _runtime_lifecycle_api._finalize_runtime
 _handle_registered_mod_settings_change = _runtime_lifecycle_api._handle_registered_mod_settings_change
 _handle_runtime_config_change = _runtime_lifecycle_api._handle_runtime_config_change
@@ -44,6 +46,7 @@ _handle_lobby_route_log_runtime = _runtime_updates_api._handle_lobby_route_log
 _handle_preview_vehicle_changed_runtime = _runtime_updates_api._handle_preview_vehicle_changed
 _handle_vehicle_changed_runtime = _runtime_updates_api._handle_vehicle_changed
 _initialize_runtime = _runtime_lifecycle_api._initialize_runtime
+_is_modal_window_open = _scaleform_gate_api._is_modal_window_open
 _run_deferred_update_runtime = _runtime_updates_api._run_deferred_update
 _run_visibility_probe_runtime = _runtime_updates_api._run_visibility_probe
 _schedule_update_runtime = _runtime_updates_api._schedule_update
@@ -87,6 +90,7 @@ class ResearchProgressBar(object):
         self._pending_update_callback = None
         self._visibility_probe_callback = None
         self._update_in_progress = False
+        self._update_deferred_for_modal = False
         self._scaleform_view = None
         self._scaleform_payload = None
         self._scaleform_view_requested = False
@@ -261,6 +265,15 @@ class ResearchProgressBar(object):
             return
         if self._update_in_progress:
             return
+        # A rebuild recreates the marker sprites. Doing that while one of WG's modal
+        # dialogs is up (a research confirm, say) destroys sprites its focus stack
+        # still tracks, which blanks the hangar ammo bar until a vehicle change. The
+        # bar only ever rebuilt on vehicle/route changes before, so it never hit
+        # this; following item-cache syncs made it reachable. Wait the dialog out.
+        if _is_modal_window_open():
+            _defer_update_past_modal_runtime(self, _logger)
+            return
+        self._update_deferred_for_modal = False
 
         self._update_in_progress = True
         try:

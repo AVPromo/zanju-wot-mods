@@ -810,7 +810,7 @@ def _build_field_mod_markers(current_level, max_level, xp_per_level, vehicle_xp,
             click_action, click_hint_text, show_inline_pick_hints = _resolve_field_mod_interactivity(
                 level, current_level, level_detail, marker_state
             )
-        # Inline "Press X to research." hints live inside the dual option sections;
+        # Inline "Press X to purchase." hints live inside the dual option sections;
         # flag the detail so the tooltip builders render them (under each option
         # title, above its stats).
         if level_detail is not None:

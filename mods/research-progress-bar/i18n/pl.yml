@@ -43,8 +43,8 @@ TOOLTIP_CLICK_TO_DISABLE: "Kliknij, aby wyłączyć."
 TOOLTIP_CLICK_TO_CHANGE_MODIFICATION: "Kliknij, aby zmienić modyfikację."
 TOOLTIP_CLICK_TO_SELECT: "Kliknij, aby wybrać."
 TOOLTIP_CLICK_TO_OPEN_UPGRADES: "Kliknij, aby otworzyć menu ulepszeń."
-TOOLTIP_KEY_OPTION_A: "Naciśnij 1, aby zbadać."
-TOOLTIP_KEY_OPTION_B: "Naciśnij 2, aby zbadać."
+TOOLTIP_KEY_OPTION_A: "Naciśnij 1, aby kupić."
+TOOLTIP_KEY_OPTION_B: "Naciśnij 2, aby kupić."
 
 # Counter captions
 CAPTION_VEHICLE_XP: "PD pojazdu"

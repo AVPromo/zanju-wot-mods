@@ -88,9 +88,9 @@ TOOLTIP_CLICK_TO_CHANGE_MODIFICATION: ""
 TOOLTIP_CLICK_TO_SELECT: ""
 # en: "Click to open the upgrades menu."
 TOOLTIP_CLICK_TO_OPEN_UPGRADES: ""
-# en: "Press 1 to research."
+# en: "Press 1 to purchase."
 TOOLTIP_KEY_OPTION_A: ""
-# en: "Press 2 to research."
+# en: "Press 2 to purchase."
 TOOLTIP_KEY_OPTION_B: ""
 
 # Counter captions
