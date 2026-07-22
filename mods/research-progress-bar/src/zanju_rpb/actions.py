@@ -50,6 +50,9 @@ _logger = logging.getLogger('zanju.researchprogressbar.actions')
 # seconds later (observed >2s). Poll the readable state until it flips.
 _HANGAR_REFRESH_POLL_INTERVAL = 0.3
 _HANGAR_REFRESH_MAX_WAIT = 15.0
+# Research / pair-pick sit behind a confirm dialog the player may read for a while,
+# so their wait has to outlast that, not just the server round-trip.
+_POST_PROGRESSION_REFRESH_MAX_WAIT = 120.0
 
 # Live InteractingItem wrappers backing the hangar loadout bar, cached between
 # toggles. The gc scan that finds them is the mod's main share of the refresh
@@ -138,6 +141,59 @@ def _select_field_mod_slot(on_state_changed=None):
         _logger.exception('Marker click slot-spec select failed')
 
 
+def _read_post_progression_snapshot(vehicle):
+    """A comparable snapshot of the vehicle's post-progression state.
+
+    Covers both flows the hangar loadout panel renders from: researching a step
+    grows `state.unlocks`, and picking a dual modification rewrites `state.pairs`
+    (the two halves of the raw per-vehicle post-progression record). One predicate
+    -- "the snapshot changed" -- therefore serves research and pair picks alike.
+
+    Returns None when unreadable, which callers treat as "not landed yet".
+    """
+    try:
+        pp = getattr(vehicle, 'postProgression', None)
+        if pp is None:
+            return None
+        state = pp.getState(True)
+        unlocks = frozenset(getattr(state, 'unlocks', ()) or ())
+        pairs = getattr(state, 'pairs', None) or {}
+        return unlocks, tuple(sorted(pairs.items()))
+    except Exception:
+        _logger.exception('Failed to read the post-progression snapshot')
+        return None
+
+
+def _refresh_loadout_bar_when_post_progression_lands(vehicle, what):
+    """Refreshes the hangar loadout panel once a field-mod change is readable.
+
+    The panel renders from an InteractingItem holding a vehicle COPY, and nothing
+    rebuilds that copy for the same vehicle (see _refresh_hangar_loadout_bar). A
+    field-mod research or pair pick changes the very post-progression state the
+    panel's loadout is derived from, so leaving the copy stale leaves the panel
+    inconsistent with the real vehicle -- it blanks until a vehicle change. The
+    toggle path has always refreshed for this reason; research and pair picks
+    need the same treatment.
+
+    Nothing is refreshed if the change never lands (a cancelled confirm dialog):
+    there is no stale copy to fix in that case.
+    """
+    baseline = _read_post_progression_snapshot(vehicle)
+    _refresh_hangar_when_state_lands(
+        vehicle,
+        _read_post_progression_snapshot,
+        lambda snapshot: snapshot is not None and snapshot != baseline,
+        what,
+        refresh_on_timeout=False,
+        # These run behind a confirm dialog the player may read for a while, so the
+        # wait has to outlast that rather than the toggle's instant round-trip.
+        max_wait=_POST_PROGRESSION_REFRESH_MAX_WAIT,
+    )
+    # Pre-warm the wrapper cache while the game is already busy with the click, so
+    # the later refresh does not add its own gc-scan freeze.
+    _get_loadout_wrappers()
+
+
 def _resolve_dyn_slot_type_id(vehicle):
     """The vehicle's selected second-slot ("dynamic slot") type id, 0 when unset.
 
@@ -175,6 +231,7 @@ def _pick_field_mod_pair(step_id, modification_id):
             int(step_id),
             int(modification_id),
         )
+        _refresh_loadout_bar_when_post_progression_lands(vehicle, 'pair modification pick')
     except Exception:
         _logger.exception(
             'Marker click pair pick failed for step %s mod %s', step_id, modification_id,
@@ -216,6 +273,7 @@ def _unlock_field_mod(step_id):
             vehicle,
             [int(step_id)],
         )
+        _refresh_loadout_bar_when_post_progression_lands(vehicle, 'field mod research')
     except Exception:
         _logger.exception('Marker click field mod research failed for %s', step_id)
         _open_field_mods_screen(vehicle)
@@ -271,7 +329,15 @@ def _toggle_field_mod_feature(group_id, on_state_changed=None):
         _open_field_mods_screen(vehicle)
 
 
-def _refresh_hangar_when_state_lands(vehicle, read_state, has_landed, what, on_state_changed=None):
+def _refresh_hangar_when_state_lands(
+    vehicle,
+    read_state,
+    has_landed,
+    what,
+    on_state_changed=None,
+    refresh_on_timeout=True,
+    max_wait=_HANGAR_REFRESH_MAX_WAIT,
+):
     """Refreshes the hangar loadout bar once a server-side change is readable.
 
     An action's success code returns quickly, but the inventory diff carrying the
@@ -305,7 +371,16 @@ def _refresh_hangar_when_state_lands(vehicle, read_state, has_landed, what, on_s
             return
 
         poll_state['elapsed'] += _HANGAR_REFRESH_POLL_INTERVAL
-        if poll_state['elapsed'] >= _HANGAR_REFRESH_MAX_WAIT:
+        if poll_state['elapsed'] >= max_wait:
+            if not refresh_on_timeout:
+                # The change never landed (e.g. a cancelled confirm dialog), so the
+                # panel's copy is still consistent -- nothing to refresh.
+                _logger.info(
+                    'Refresh: %s never landed after %.1fs; nothing to refresh',
+                    what,
+                    poll_state['elapsed'],
+                )
+                return
             _logger.warning(
                 'Refresh: %s still reads %r after %.1fs; refreshing anyway',
                 what,

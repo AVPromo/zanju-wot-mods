@@ -20,8 +20,6 @@ MARKER_CLICK_ACTION_FIELD_MOD_PICK = 'field_mod_pick'
 MARKER_CLICK_ACTION_FIELD_MOD_SELECT = 'field_mod_select'
 MARKER_CLICK_ACTION_UPGRADES = 'upgrades'
 _VISIBILITY_PROBE_DELAY = 0.25
-# How often to re-check whether WG's modal dialog has closed before rebuilding.
-_MODAL_UPDATE_RETRY_DELAY = 0.25
 _VISIBLE_ROUTE_PREFIX = 'Visible route changed to: '
 _NAVIGATING_ROUTE_PREFIX = 'Navigating to '
 

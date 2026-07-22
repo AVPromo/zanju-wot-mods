@@ -93,6 +93,20 @@ class MyMod(object):
   (`ItemsCache.__invalidateData`/`__invalidateFullData` fire it with those two args).
   Filtering it is optional if the resulting update is coalesced to the next tick and
   exits early while the UI is hidden — correctness is easier to keep than a diff filter.
+- If the hangar ammo panel blanks after an action, the cause is the
+  stale-`InteractingItem` copy (see the loadout-panel section below) — a
+  post-progression change the panel renders from, made without refreshing its
+  vehicle copy. It looks identical to a focus bug; it isn't. Fix it by refreshing
+  the panel after the change lands, not by holding off the overlay's own rebuild.
+  - History worth keeping: this symptom was first (wrongly) blamed on rebuilding
+    the overlay's marker sprites while a modal confirm dialog was up — the theory
+    being that destroying sprites during/just-after the dialog corrupts WG's focus
+    stack. A "defer the rebuild until the dialog closes and settles" guard was built
+    and then removed, because with it in place (verified by log) the rebuild landed
+    well clear of the dialog and the panel *still* blanked — proving the rebuild
+    timing was never the cause. If a focus-corruption symptom ever shows up that is
+    genuinely tied to rebuilding under a modal (distinct from the stale copy), that
+    guard is the approach to revive; there's no evidence it's needed today.
 
 ## Refreshing The Hangar Bottom Bar (Loadout Panel) After A Server-Side Change
 
@@ -134,17 +148,31 @@ Working refresh recipe, scoped to the bar:
 Note: swapping the copy discards un-applied draft edits in the bar (same as a
 vehicle re-selection).
 
-The same refresh is needed after any server-side change the bar renders, not just
-the loadout switches — e.g. picking the second slot category
-(`SET_EQUIPMENT_SLOT_TYPE`) leaves the panel showing the old category otherwise.
-Each such change needs its own readable, server-confirmed value to wait on, since
-the action's success code returns before the diff lands:
+**This refresh is mandatory after every post-progression change made from the
+hangar, not an optional nicety.** The panel does not merely look stale without it —
+it renders from a vehicle copy that no longer matches the real vehicle's
+post-progression state and **blanks entirely until a vehicle change**. A field-mod
+research or dual-modification pick done from an overlay (rather than from WG's
+field-mods screen, where the hangar panel is not live) hits exactly this. Symptom
+to recognise: the ammo panel disappears and only a vehicle switch brings it back —
+that is the stale-`InteractingItem` signature, *not* a focus or timing problem.
+
+Each change needs its own readable, server-confirmed value to wait on, since the
+action's success code returns before the diff lands:
 
 - loadout switch: the disabled-switch state (see
   `_resolve_post_progression_setup_switch_active`).
 - second slot category: `items.inventory.getDynSlotTypeID(vehIntCD)` (0 when
   unset). This is the value `RoleSlotModItem.__applyDynamicSlotCategory` derives
   its displayed category from, so it is exactly what the panel re-reads.
+- field-mod research / dual pick: a snapshot of `pp.getState(True)` — `unlocks`
+  grows on a research, `pairs` changes on a pick, so comparing both against a
+  pre-action baseline covers either. Take the baseline right after dispatching:
+  `doAction` returns immediately (verified: the confirm dialog loads ~4ms after the
+  click, while the diff lands seconds later when the player confirms), so the
+  baseline is genuinely pre-purchase. Allow a wait long enough to outlast the
+  player reading that dialog, and skip the refresh if the change never lands (a
+  cancelled dialog leaves nothing stale to fix).
 
 Performance: the gc scan and WG's group-model rebuild each cause a small
 main-thread hitch. Cache the found wrappers between uses (they survive vehicle

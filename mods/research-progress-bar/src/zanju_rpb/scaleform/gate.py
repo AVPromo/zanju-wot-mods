@@ -3,8 +3,6 @@ from __future__ import print_function, unicode_literals
 import re
 
 from frameworks.wulf import WindowLayer
-from helpers import dependency
-from skeletons.gui.impl import IGuiLoader
 
 from ..constants import (
     SCALEFORM_VIEW_ALIAS,
@@ -18,35 +16,6 @@ _DEFAULT_HANGAR_ROUTES = frozenset((
     'subScope/subLayer/hangar',
     'subScope/subLayer/hangar/{root}',
 ))
-# Layers WG's modal dialogs live on, above the bar's own WINDOW layer: the research
-# confirm dialogs are TOP_WINDOW, fullscreen popups (e.g. the elite window) are
-# FULLSCREEN_WINDOW.
-_MODAL_WINDOW_LAYERS = frozenset((
-    WindowLayer.TOP_WINDOW,
-    WindowLayer.FULLSCREEN_WINDOW,
-))
-
-
-def _is_modal_window_open():
-    """Whether one of WG's modal dialogs is currently up.
-
-    Rebuilding the bar destroys and recreates its marker sprites. Doing that while a
-    dialog owns the modal focus corrupts WG's focus stack, which blanks the hangar
-    ammo bar until the next vehicle change -- the bar must therefore never rebuild
-    under a dialog, only once it is gone.
-    """
-    try:
-        windows_manager = dependency.instance(IGuiLoader).windowsManager
-        return bool(windows_manager.findWindows(_is_modal_window))
-    except Exception:
-        return False
-
-
-def _is_modal_window(window):
-    try:
-        return window.layer in _MODAL_WINDOW_LAYERS
-    except Exception:
-        return False
 
 
 def _extract_route_path(message):
