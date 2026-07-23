@@ -63,6 +63,38 @@ package {
             return !singleProgressRow && combatXp + freeXp >= costXp;
         }
 
+        // The ordered subset of a hovered tooltip stack that is driven by number
+        // keys: markers that are clickable AND carry a `keyHintText` template (the
+        // cost-positioned research markers, which are the ones that overlap). When
+        // this returns two or more entries the stack is ambiguous to a plain click,
+        // so the view numbers them 1..N in this exact order and the key handler maps
+        // a digit back to the same entry. Both callers use this one function so the
+        // tooltip's numbers and the keys can never disagree.
+        public static function keyboardStackEntries(entries:Array):Array {
+            var result:Array = [];
+            var entry:Object;
+            var marker:Object;
+
+            if (entries == null) {
+                return result;
+            }
+            for each (entry in entries) {
+                if (entry == null) {
+                    continue;
+                }
+                marker = entry.marker;
+                if (marker == null || marker.keyHintText === undefined || marker.keyHintText == null
+                        || String(marker.keyHintText).length == 0) {
+                    continue;
+                }
+                if (!isMarkerClickable(marker, Number(entry.combatXp), Number(entry.freeXp))) {
+                    continue;
+                }
+                result.push(entry);
+            }
+            return result;
+        }
+
         public static function rebuildMarkers(
             markersContainer:Sprite,
             tooltipContainer:Sprite,

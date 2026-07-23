@@ -26,7 +26,10 @@ package {
         private static const TOOLTIP_PROGRESS_GAP:Number = 8;
         private static const TOOLTIP_TEXT_FIELD_PADDING:Number = 8;
 
-        public static function buildTooltipSection(entry:Object):Sprite {
+        // `keyIndex` is this section's 1-based number within an ambiguous overlapping
+        // stack (0 when the stack is unambiguous). When set, the click hint reads
+        // "Press N to research." instead of "Click to research.".
+        public static function buildTooltipSection(entry:Object, keyIndex:int = 0):Sprite {
             var section:Sprite = new Sprite();
             var marker:Object = entry.marker;
             var markerCostXp:Number = Number(entry.costXp);
@@ -100,7 +103,7 @@ package {
                 rowBounds = row.getBounds(row);
                 cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
 
-                cursorY = appendClickHintRows(section, marker, combatXp, freeXp, cursorY);
+                cursorY = appendClickHintRows(section, marker, combatXp, freeXp, cursorY, keyIndex);
                 return section;
             }
 
@@ -217,7 +220,7 @@ package {
                 cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
             }
 
-            cursorY = appendClickHintRows(section, marker, combatXp, freeXp, cursorY);
+            cursorY = appendClickHintRows(section, marker, combatXp, freeXp, cursorY, keyIndex);
 
             return section;
         }
@@ -225,9 +228,11 @@ package {
         // Appends the marker's blue click-hint line(s) to `section` starting at
         // `cursorY`, returning the advanced cursorY. A pick marker carries
         // `clickHintLines` (one row per line: left-click / right-click); the
-        // research/toggle markers carry a single `clickHintText`.
-        private static function appendClickHintRows(section:Sprite, marker:Object, combatXp:Number, freeXp:Number, cursorY:Number):Number {
-            var hintLines:Array = resolveClickHintLines(marker);
+        // research/toggle markers carry a single `clickHintText`. When `keyIndex`
+        // is set (this section is a numbered entry in an ambiguous overlapping
+        // stack), the numbered `keyHintText` template replaces the plain hint.
+        private static function appendClickHintRows(section:Sprite, marker:Object, combatXp:Number, freeXp:Number, cursorY:Number, keyIndex:int = 0):Number {
+            var hintLines:Array = resolveClickHintLines(marker, keyIndex);
             var row:Sprite;
             var rowBounds:Object;
             var idx:int;
@@ -250,13 +255,22 @@ package {
             return cursorY;
         }
 
-        private static function resolveClickHintLines(marker:Object):Array {
+        private static function resolveClickHintLines(marker:Object, keyIndex:int = 0):Array {
             var lines:Array = [];
             var raw:Array;
             var idx:int;
             var text:String;
 
             if (marker == null) {
+                return lines;
+            }
+            // In a numbered overlapping stack, "Press N to research." (from the
+            // keyHintText template) stands in for the ambiguous single-click hint.
+            if (keyIndex > 0 && marker.keyHintText !== undefined && marker.keyHintText != null) {
+                text = String(marker.keyHintText).split("{key}").join(String(keyIndex));
+                if (text.length > 0) {
+                    lines.push(text);
+                }
                 return lines;
             }
             if (marker.clickHintLines is Array) {

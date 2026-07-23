@@ -28,7 +28,7 @@ try:
     import gui.shared.items_parameters.formatters as _wg_parameter_formatters
 except Exception:
     _wg_parameter_formatters = None
-from gui.shared.gui_items import GUI_ITEM_TYPE_NAMES
+from gui.shared.gui_items import GUI_ITEM_TYPE, GUI_ITEM_TYPE_NAMES
 from items import getTypeOfCompactDescr
 try:
     from post_progression_common import GROUP_ID_BY_FEATURE as _POST_PROGRESSION_GROUP_ID_BY_FEATURE
@@ -1142,6 +1142,20 @@ def _next_available_unlock(vehicle, unlocks_set, available_unlocks=None):
         return None, None
     item = available_unlocks[-1]
     return item['xp_cost'], item['intcd']
+
+
+def _is_vehicle_module_unlock(intcd):
+    """Whether tech-tree unlock `intcd` is a vehicle module (gun / turret / engine /
+    chassis / radio) rather than a vehicle.
+
+    Mirrors WG's own `itemTypeID in GUI_ITEM_TYPE.VEHICLE_MODULES` gate -- the game
+    only offers a buy-and-mount dialog for modules, and its buy action rejects
+    anything else. Vehicles (and any non-module unlock) return False.
+    """
+    try:
+        return int(getTypeOfCompactDescr(intcd)) in GUI_ITEM_TYPE.VEHICLE_MODULES
+    except Exception:
+        return False
 
 
 def _resolve_unlock_item_type(intcd):

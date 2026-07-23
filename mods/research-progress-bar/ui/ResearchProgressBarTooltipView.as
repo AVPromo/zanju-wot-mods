@@ -33,6 +33,8 @@ package {
             var idx:int;
             var tooltipWidth:Number;
             var tooltipHeight:Number;
+            var keyEntries:Array;
+            var keyIndex:int;
 
             if (tooltipContainer == null || tooltipBackground == null || tooltipContent == null) {
                 return;
@@ -40,9 +42,18 @@ package {
 
             clearContent(tooltipContent);
 
+            // Number the stack only when a plain click would be ambiguous -- two or
+            // more keyboard-pickable markers overlapping here. A lone clickable
+            // marker keeps its plain "Click to research." hint.
+            keyEntries = ResearchProgressBarInteractions.keyboardStackEntries(entries);
+            if (keyEntries.length < 2) {
+                keyEntries = null;
+            }
+
             for (idx = 0; idx < entries.length; idx++) {
                 entry = entries[idx];
-                section = ResearchProgressBarTooltipContent.buildTooltipSection(entry);
+                keyIndex = keyEntries != null ? keyEntries.indexOf(entry) + 1 : 0;
+                section = ResearchProgressBarTooltipContent.buildTooltipSection(entry, keyIndex);
                 section.y = cursorY;
                 tooltipContent.addChild(section);
                 sectionBounds = section.getBounds(section);
@@ -70,6 +81,9 @@ package {
             }
         }
 
+        // Returns the ordered tooltip-stack entries under the point (empty when the
+        // tooltip is hidden), so the host can derive the same keyboard-pick stack the
+        // rendered sections are numbered from.
         public static function refreshAtStagePoint(
             hostVisible:Boolean,
             markersContainer:Sprite,
@@ -80,14 +94,14 @@ package {
             stageSpace:Stage,
             stageX:Number,
             stageY:Number
-        ):void {
+        ):Array {
             var tooltipEntries:Array;
             var localPoint:Point;
             var localExtent:Point;
 
             if (!hostVisible || markersContainer == null) {
                 hideTooltip(tooltipContainer);
-                return;
+                return [];
             }
 
             // The mouse point arrives in global stage pixels, but markers and the
@@ -105,7 +119,7 @@ package {
 
             if (tooltipEntries.length == 0) {
                 hideTooltip(tooltipContainer);
-                return;
+                return [];
             }
 
             localExtent = stageSpace != null
@@ -122,6 +136,7 @@ package {
                 localExtent.x,
                 localExtent.y
             );
+            return tooltipEntries;
         }
 
         public static function resolveEntriesAtLocalPoint(

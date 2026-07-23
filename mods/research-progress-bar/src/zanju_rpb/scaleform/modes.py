@@ -774,6 +774,13 @@ def _build_research_marker(item, click_to_research=True):
             'id': item['intcd'],
         }
         marker['clickHintText'] = _loc('TOOLTIP_CLICK_TO_RESEARCH')
+        # Research items with near-equal XP costs overlap on the bar and stack in one
+        # tooltip, where a single click can only ever hit the topmost -- ambiguous.
+        # The view numbers such a stack and lets the player press the matching key;
+        # this template (with a literal {key} the view fills in) is that per-item
+        # hint. Only research markers carry it -- they are the cost-positioned ones
+        # that overlap; field-mod/upgrade markers sit at fixed, separated slots.
+        marker['keyHintText'] = _loc('TOOLTIP_KEY_TO_RESEARCH')
 
     return marker
 

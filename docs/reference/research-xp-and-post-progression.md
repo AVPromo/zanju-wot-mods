@@ -265,6 +265,23 @@ Symbols verified against the decompiled EU 2.3 client; implementation in
   - Vehicle unlocks must pass the blueprint-discounted cost plus discount percent
     plus raw full cost, or WG validates against the full cost. Module unlocks must
     keep the raw cost with discount 0, or WG's validator rejects the request.
+  - Buy-and-mount after a module research: shows WG's own "purchase and mount"
+    popup. **Gotcha:** the factory's `BUY_AND_INSTALL_ITEM` constant is *not*
+    registered in its `_ACTION_MAP`, so `factory.doAction(BUY_AND_INSTALL_ITEM, ...)`
+    just logs `Action type is not found buyAndInstallItemAction` and does nothing.
+    Build the action directly instead:
+    `BuyAndInstallItemAction(moduleCD, vehicleCD).doAction()` (from
+    `gui.shared.gui_items.items_actions.actions`). Its `doAction` is `@adisp_process`,
+    so calling it fires the flow; it runs `BuyAndInstallItemProcessor` with
+    `skipConfirm=False` (the `IGUIItemAction` default), whose
+    `BuyAndInstallConfirmator._gfMakeMeta` returns
+    `showBuyModuleDialog(item, installedModule, currency, installReason)` =
+    `BuyModuleDialogView` as the confirm step; only a confirmed dialog spends. The
+    action raises `SoftException` for non-`GUI_ITEM_TYPE.VEHICLE_MODULES` items, so
+    vehicles cannot reach it. UNLOCK_ITEM returns as soon as its confirm dialog
+    opens, and the module is only researched once the server round-trip lands, so
+    wait for `moduleCD in itemsCache.items.stats.unlocks` before offering the popup
+    (a cancelled research never lands -> no popup).
   - **The tech-tree data provider must be loaded before a VEHICLE unlock.**
     `UnlockItemValidator._validate` branches on item type: for a vehicle it calls
     `g_techTreeDP.isNext2Unlock(itemCD, **unlockStats._asdict())` and ignores the

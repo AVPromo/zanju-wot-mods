@@ -92,6 +92,8 @@ TOOLTIP_CLICK_TO_OPEN_UPGRADES: ""
 TOOLTIP_KEY_OPTION_A: ""
 # en: "Press 2 to purchase."
 TOOLTIP_KEY_OPTION_B: ""
+# en: "Press {key} to research."
+TOOLTIP_KEY_TO_RESEARCH: ""
 
 # Counter captions
 # en: "Vehicle XP"

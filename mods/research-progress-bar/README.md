@@ -38,12 +38,12 @@
 
 ## Translations
 
-Reference language `en` defines 89 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+Reference language `en` defines 90 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
 
 | Language | Coverage | Missing |
 | --- | --- | --- |
-| `pl` | 100% (89/89) | 0 |
-| `ru` | 82% (73/89) | 16 |
+| `pl` | 100% (90/90) | 0 |
+| `ru` | 81% (73/90) | 17 |
 
 ## Install And Use
 

@@ -45,6 +45,7 @@ TOOLTIP_CLICK_TO_SELECT: "Click to select."
 TOOLTIP_CLICK_TO_OPEN_UPGRADES: "Click to open the upgrades menu."
 TOOLTIP_KEY_OPTION_A: "Press 1 to purchase."
 TOOLTIP_KEY_OPTION_B: "Press 2 to purchase."
+TOOLTIP_KEY_TO_RESEARCH: "Press {key} to research."
 
 # Counter captions
 CAPTION_VEHICLE_XP: "Vehicle XP"

@@ -21,6 +21,14 @@ Symbols verified against the decompiled EU client (the game's own context-menu
     SWITCH_PREBATTLE_AMMO_PANEL_AVAILABILITY(vehicle, group_id, enabled) -- the same
     call WG's field-mods screen makes (post_progression_cfg_component
     ._onPrebattleSwitchToggleClick). Free, so it applies without any dialog.
+  * Module buy-and-mount (offered after a module research lands):
+    BuyAndInstallItemAction(moduleCD, vehicleCD).doAction() -- built directly because
+    the factory's BUY_AND_INSTALL_ITEM constant is not registered in its action map.
+    Its @adisp_process doAction runs BuyAndInstallItemProcessor with skipConfirm=False
+    (the IGUIItemAction default), so its BuyAndInstallConfirmator shows
+    showBuyModuleDialog (BuyModuleDialogView) as the confirm step -- the buy-and-mount
+    popup -- and only spends if the player confirms. WG's action rejects non-modules,
+    so vehicles never reach it.
 
 BigWorld scripting uses Python 2.7. Avoid Python-3-only syntax.
 """
@@ -53,6 +61,10 @@ _HANGAR_REFRESH_MAX_WAIT = 15.0
 # Research / pair-pick sit behind a confirm dialog the player may read for a while,
 # so their wait has to outlast that, not just the server round-trip.
 _POST_PROGRESSION_REFRESH_MAX_WAIT = 120.0
+# After a module research is started, how long to keep waiting for it to land before
+# offering the buy-and-mount popup -- must outlast the player reading the research
+# confirm dialog, and gives up quietly if they cancel it.
+_MODULE_RESEARCH_BUY_MAX_WAIT = 120.0
 
 # Live InteractingItem wrappers backing the hangar loadout bar, cached between
 # toggles. The gc scan that finds them is the mod's main share of the refresh
@@ -255,9 +267,80 @@ def _research_unlock(intcd):
             return
         if not _start_unlock_action(vehicle, intcd, row):
             _open_research_screen(vehicle)
+            return
+        # Modules only: once the research actually lands, follow it with WG's own
+        # buy-and-mount popup so the player can purchase and fit it right away.
+        # Vehicles are researched only -- buying a vehicle is left to the player.
+        if _collector_api._is_vehicle_module_unlock(intcd):
+            _offer_buy_and_mount_after_module_research(vehicle, intcd)
     except Exception:
         _logger.exception('Marker click research failed for %s', intcd)
         _open_research_screen(vehicle)
+
+
+def _offer_buy_and_mount_after_module_research(vehicle, intcd):
+    """Waits for a just-started module research to land, then opens WG's buy-and-mount
+    popup for that module.
+
+    The unlock action returns as soon as its confirm dialog is shown; the module is
+    only researched once the player confirms and the server round-trip lands (seconds
+    later), so poll the unlock state and act on the flip. If the player cancels the
+    confirm dialog the research never lands and the wait just times out -- no popup,
+    nothing bought.
+    """
+    vehicle_intcd = getattr(vehicle, 'intCD', None)
+    poll_state = {'elapsed': 0.0}
+
+    def _poll():
+        current_vehicle = _get_current_vehicle()
+        if current_vehicle is None or getattr(current_vehicle, 'intCD', None) != vehicle_intcd:
+            _logger.info('Buy offer: vehicle changed before module %s researched; stopping', intcd)
+            return
+        if _is_item_unlocked(intcd):
+            _logger.info('Buy offer: module %s researched after %.1fs; opening buy-and-mount dialog',
+                         intcd, poll_state['elapsed'])
+            _open_buy_and_install_dialog(intcd, vehicle_intcd)
+            return
+
+        poll_state['elapsed'] += _HANGAR_REFRESH_POLL_INTERVAL
+        if poll_state['elapsed'] >= _MODULE_RESEARCH_BUY_MAX_WAIT:
+            _logger.info('Buy offer: module %s not researched after %.1fs; no popup',
+                         intcd, poll_state['elapsed'])
+            return
+        BigWorld.callback(_HANGAR_REFRESH_POLL_INTERVAL, _poll)
+
+    BigWorld.callback(_HANGAR_REFRESH_POLL_INTERVAL, _poll)
+
+
+def _is_item_unlocked(intcd):
+    """Whether tech-tree item `intcd` is now researched (in the account unlock set)."""
+    try:
+        items = dependency.instance(IItemsCache).items
+        return int(intcd) in items.stats.unlocks
+    except Exception:
+        _logger.exception('Failed to read unlock state for %s', intcd)
+        return False
+
+
+def _open_buy_and_install_dialog(intcd, vehicle_intcd):
+    """Opens WG's buy-and-mount popup (BuyModuleDialogView) for module `intcd`.
+
+    BuyAndInstallItemAction.doAction builds BuyAndInstallItemProcessor with
+    skipConfirm=False (the IGUIItemAction default), whose confirm step is
+    showBuyModuleDialog -- the popup that lets the player buy and mount the module or
+    cancel. Nothing is spent unless they confirm there, and the action rejects
+    anything that is not a vehicle module (a second guard behind our module-only
+    gate). doAction is @adisp_process, so calling it fires the flow directly.
+
+    The factory's BUY_AND_INSTALL_ITEM constant exists but is NOT registered in its
+    action map (doAction there just logs "Action type is not found"), so build the
+    action directly -- the same object getAction would construct: (itemCD, rootCD).
+    """
+    try:
+        from gui.shared.gui_items.items_actions.actions import BuyAndInstallItemAction
+        BuyAndInstallItemAction(int(intcd), int(vehicle_intcd)).doAction()
+    except Exception:
+        _logger.exception('Failed to open buy-and-mount dialog for module %s', intcd)
 
 
 def _unlock_field_mod(step_id):
