@@ -24,6 +24,8 @@ package {
 
         private static const LABEL_COLOR:uint = 0xE6DDC8;
         private static const MARKER_ICON_GAP:Number = 2;
+        // Clear space kept between two bar icons once they have been spread apart.
+        private static const MARKER_ICON_SPREAD_GAP:Number = 2;
 
         public static function clearMarkers(container:Sprite):void {
             if (container == null) {
@@ -53,6 +55,8 @@ package {
             var markerTooltipValue:Number;
             var markerX:Number;
             var markerDisplay:Sprite;
+            var markerIcon:Bitmap;
+            var iconEntries:Array = [];
             var tooltipDataByDisplay:Dictionary = new Dictionary(true);
 
             if (container == null || activeMode == null || !(activeMode.markers is Array)) {
@@ -88,6 +92,17 @@ package {
                 markerDisplay.y = barY;
                 updateMarkerHitArea(markerDisplay);
                 container.addChild(markerDisplay);
+                markerIcon = markerIconOf(markerDisplay);
+                if (markerIcon != null) {
+                    // Wanted centre is the marker's own x: the icon is drawn centred
+                    // on it until the spread pass moves it.
+                    iconEntries.push({
+                        display: markerDisplay,
+                        icon: markerIcon,
+                        desired: markerDisplay.x,
+                        width: markerIcon.width
+                    });
+                }
                 tooltipDataByDisplay[markerDisplay] = {
                     marker: marker,
                     costXp: markerTooltipValue,
@@ -96,7 +111,119 @@ package {
                 };
             }
 
+            spreadMarkerIcons(iconEntries);
             return tooltipDataByDisplay;
+        }
+
+        // The bar icon of a marker, or null when it has none. Child 0 is always the
+        // marker dot; child 1, when present and a Bitmap, is the bar icon (a TextField
+        // there is the level label instead -- see createMarkerDisplay).
+        private static function markerIconOf(markerDisplay:Sprite):Bitmap {
+            if (markerDisplay == null || markerDisplay.numChildren < 2) {
+                return null;
+            }
+            return markerDisplay.getChildAt(1) as Bitmap;
+        }
+
+        // Spreads bar icons sideways so they stop overlapping, preserving their
+        // left-to-right order and moving them as little as possible.
+        //
+        // Fanning each cluster out on its own does not work: spreading one cluster can
+        // push it into its neighbour, and resolving that can push into a third. This
+        // is a pool-adjacent-violators pass instead -- icons are placed left to right,
+        // and whenever the block being placed still collides with the previous one the
+        // two are merged into a single block re-centred on the mean of its members'
+        // wanted positions. That re-check cascades left, so two neighbouring clusters
+        // that would collide after spreading simply become one evenly spread block.
+        // Only the icons move; the marker dots stay on their true XP positions.
+        private static function spreadMarkerIcons(entries:Array):void {
+            var blocks:Array = [];
+            var entry:Object;
+            var block:Object;
+            var rels:Array;
+            var base:Number;
+            var idx:int;
+
+            if (entries == null || entries.length < 2) {
+                return;
+            }
+
+            entries.sort(compareIconEntries);
+
+            for each (entry in entries) {
+                blocks.push({items: [entry]});
+                while (blocks.length > 1
+                        && blocksCollide(blocks[blocks.length - 2], blocks[blocks.length - 1])) {
+                    block = blocks.pop();
+                    blocks[blocks.length - 1] = {
+                        items: (blocks[blocks.length - 1].items as Array).concat(block.items)
+                    };
+                }
+            }
+
+            for each (block in blocks) {
+                rels = blockOffsets(block);
+                base = blockBase(block, rels);
+                for (idx = 0; idx < block.items.length; idx++) {
+                    entry = block.items[idx];
+                    // icon.x is local to its marker sprite and addresses the icon's
+                    // left edge, so convert the wanted absolute centre back.
+                    entry.icon.x = Math.round(base + rels[idx] - entry.display.x - entry.width / 2);
+                    // The hit area is derived from the sprite's bounds, so re-run it to
+                    // take in the icon's new position -- the icon stays hoverable where
+                    // it is actually drawn.
+                    updateMarkerHitArea(entry.display);
+                }
+            }
+        }
+
+        private static function compareIconEntries(a:Object, b:Object):Number {
+            return Number(a.desired) - Number(b.desired);
+        }
+
+        // Centre offsets of a block's icons relative to its first icon, packed edge to
+        // edge with MARKER_ICON_SPREAD_GAP between them (widths may differ).
+        private static function blockOffsets(block:Object):Array {
+            var items:Array = block.items as Array;
+            var offsets:Array = [0];
+            var idx:int;
+
+            for (idx = 1; idx < items.length; idx++) {
+                offsets.push(
+                    Number(offsets[idx - 1])
+                        + (Number(items[idx - 1].width) + Number(items[idx].width)) / 2
+                        + MARKER_ICON_SPREAD_GAP
+                );
+            }
+            return offsets;
+        }
+
+        // Where a block's first icon sits so the block as a whole deviates least from
+        // what its members wanted (the mean of each wanted centre minus its offset).
+        private static function blockBase(block:Object, offsets:Array):Number {
+            var items:Array = block.items as Array;
+            var total:Number = 0;
+            var idx:int;
+
+            for (idx = 0; idx < items.length; idx++) {
+                total += Number(items[idx].desired) - Number(offsets[idx]);
+            }
+            return total / items.length;
+        }
+
+        private static function blocksCollide(left:Object, right:Object):Boolean {
+            var leftOffsets:Array = blockOffsets(left);
+            var rightOffsets:Array = blockOffsets(right);
+            var leftItems:Array = left.items as Array;
+            var rightItems:Array = right.items as Array;
+            var leftEnd:Number = blockBase(left, leftOffsets)
+                + Number(leftOffsets[leftOffsets.length - 1])
+                + Number(leftItems[leftItems.length - 1].width) / 2;
+            var rightStart:Number = blockBase(right, rightOffsets)
+                + Number(rightOffsets[0])
+                - Number(rightItems[0].width) / 2;
+
+            return leftEnd + MARKER_ICON_SPREAD_GAP > rightStart;
         }
 
         private static function createMarkerDisplay(

@@ -270,8 +270,14 @@ Symbols verified against the decompiled EU 2.3 client; implementation in
     registered in its `_ACTION_MAP`, so `factory.doAction(BUY_AND_INSTALL_ITEM, ...)`
     just logs `Action type is not found buyAndInstallItemAction` and does nothing.
     Build the action directly instead:
-    `BuyAndInstallItemAction(moduleCD, vehicleCD).doAction()` (from
-    `gui.shared.gui_items.items_actions.actions`). Its `doAction` is `@adisp_process`,
+    `BuyAndInstallWithOptionalSellItemAction(moduleCD, vehicleCD).doAction()` (from
+    `gui.shared.gui_items.items_actions.actions`). **Use that subclass, not the plain
+    `BuyAndInstallItemAction`:** the popup carries a "sell previous module" checkbox,
+    and only the subclass acts on it — its `doAction` captures the installed module
+    first, then reads `AUTO_SELL_KEY` (`'sellPreviousModule'`) out of the dialog
+    result and runs `ModuleSeller` on the replaced module. The base class discards
+    that result, so the box silently does nothing.
+    Its `doAction` is `@adisp_process`,
     so calling it fires the flow; it runs `BuyAndInstallItemProcessor` with
     `skipConfirm=False` (the `IGUIItemAction` default), whose
     `BuyAndInstallConfirmator._gfMakeMeta` returns

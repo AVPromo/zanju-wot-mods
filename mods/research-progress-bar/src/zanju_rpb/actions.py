@@ -22,13 +22,15 @@ Symbols verified against the decompiled EU client (the game's own context-menu
     call WG's field-mods screen makes (post_progression_cfg_component
     ._onPrebattleSwitchToggleClick). Free, so it applies without any dialog.
   * Module buy-and-mount (offered after a module research lands):
-    BuyAndInstallItemAction(moduleCD, vehicleCD).doAction() -- built directly because
-    the factory's BUY_AND_INSTALL_ITEM constant is not registered in its action map.
-    Its @adisp_process doAction runs BuyAndInstallItemProcessor with skipConfirm=False
-    (the IGUIItemAction default), so its BuyAndInstallConfirmator shows
-    showBuyModuleDialog (BuyModuleDialogView) as the confirm step -- the buy-and-mount
-    popup -- and only spends if the player confirms. WG's action rejects non-modules,
-    so vehicles never reach it.
+    BuyAndInstallWithOptionalSellItemAction(moduleCD, vehicleCD).doAction() -- built
+    directly because the factory's BUY_AND_INSTALL_* constants are not registered in
+    its action map. Its @adisp_process doAction runs BuyAndInstallItemProcessor with
+    skipConfirm=False (the IGUIItemAction default), so its BuyAndInstallConfirmator
+    shows showBuyModuleDialog (BuyModuleDialogView) as the confirm step -- the
+    buy-and-mount popup -- and only spends if the player confirms. WG's action
+    rejects non-modules, so vehicles never reach it. The *WithOptionalSell* subclass
+    is required for the popup's "sell previous module" checkbox to be honoured; the
+    plain BuyAndInstallItemAction discards the dialog result and never sells.
 
 BigWorld scripting uses Python 2.7. Avoid Python-3-only syntax.
 """
@@ -325,20 +327,30 @@ def _is_item_unlocked(intcd):
 def _open_buy_and_install_dialog(intcd, vehicle_intcd):
     """Opens WG's buy-and-mount popup (BuyModuleDialogView) for module `intcd`.
 
-    BuyAndInstallItemAction.doAction builds BuyAndInstallItemProcessor with
-    skipConfirm=False (the IGUIItemAction default), whose confirm step is
-    showBuyModuleDialog -- the popup that lets the player buy and mount the module or
-    cancel. Nothing is spent unless they confirm there, and the action rejects
-    anything that is not a vehicle module (a second guard behind our module-only
-    gate). doAction is @adisp_process, so calling it fires the flow directly.
+    The action builds BuyAndInstallItemProcessor with skipConfirm=False (the
+    IGUIItemAction default), whose confirm step is showBuyModuleDialog -- the popup
+    that lets the player buy and mount the module or cancel. Nothing is spent unless
+    they confirm there, and the action rejects anything that is not a vehicle module
+    (a second guard behind our module-only gate). doAction is @adisp_process, so
+    calling it fires the flow directly.
 
-    The factory's BUY_AND_INSTALL_ITEM constant exists but is NOT registered in its
-    action map (doAction there just logs "Action type is not found"), so build the
-    action directly -- the same object getAction would construct: (itemCD, rootCD).
+    Use the *WithOptionalSell* subclass, not the plain BuyAndInstallItemAction: the
+    popup carries a "sell previous module" checkbox, and only this subclass acts on
+    it. Its doAction captures the currently installed module first, then reads the
+    dialog result for AUTO_SELL_KEY ('sellPreviousModule') and runs ModuleSeller on
+    the replaced module. The base class discards that result, so the box appears to
+    be ignored -- the old module is silently kept.
+
+    The factory's BUY_AND_INSTALL_AND_SELL_ITEM / BUY_AND_INSTALL_ITEM constants are
+    not registered in its action map (doAction there just logs "Action type is not
+    found"), so build the action directly -- the same object getAction would
+    construct: (itemCD, rootCD).
     """
     try:
-        from gui.shared.gui_items.items_actions.actions import BuyAndInstallItemAction
-        BuyAndInstallItemAction(int(intcd), int(vehicle_intcd)).doAction()
+        from gui.shared.gui_items.items_actions.actions import (
+            BuyAndInstallWithOptionalSellItemAction,
+        )
+        BuyAndInstallWithOptionalSellItemAction(int(intcd), int(vehicle_intcd)).doAction()
     except Exception:
         _logger.exception('Failed to open buy-and-mount dialog for module %s', intcd)
 
