@@ -244,12 +244,12 @@ package {
             markerBitmap.y = -Math.round((markerBitmap.height - ResearchProgressBarLayout.BAR_HEIGHT) / 2);
             markerSprite.addChild(markerBitmap);
 
-            markerIcon = createMarkerIcon(marker, markerBitmap.y);
+            markerIcon = createMarkerIcon(marker, markerBitmap.y, markerProgressValue, combatXp, freeXp);
             if (markerIcon != null) {
                 markerSprite.addChild(markerIcon);
             }
             else if (shouldShowMarkerLabel(marker)) {
-                markerLabel = makeMarkerLabelField(marker, markerBitmap.y);
+                markerLabel = makeMarkerLabelField(marker, markerBitmap.y, markerProgressValue, combatXp, freeXp);
                 markerSprite.addChild(markerLabel);
             }
 
@@ -296,33 +296,20 @@ package {
         }
 
         private static function createMarkerBitmap(marker:Object, markerProgressValue:Number, combatXp:Number, freeXp:Number):Bitmap {
-            var markerState:String = marker != null && marker.markerState !== undefined ? String(marker.markerState) : "";
-
-            if (markerState == "completed") {
-                return createBitmap(MarkerWhiteAsset);
+            // The dot and its icon share one colour state so they can never disagree.
+            switch (ResearchProgressBarIconTint.resolveState(marker, markerProgressValue, combatXp, freeXp)) {
+                case "completed":
+                    return createBitmap(MarkerWhiteAsset);
+                case "vehicle":
+                    return createBitmap(MarkerGreenAsset);
+                case "total":
+                    return createBitmap(MarkerYellowAsset);
+                default:
+                    return createBitmap(MarkerDefaultAsset);
             }
-            if (markerState == "reachable_vehicle") {
-                return createBitmap(MarkerGreenAsset);
-            }
-            if (markerState == "reachable_total") {
-                return createBitmap(MarkerYellowAsset);
-            }
-            if (markerState == "locked") {
-                return createBitmap(MarkerDefaultAsset);
-            }
-            if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable)) {
-                return createBitmap(MarkerDefaultAsset);
-            }
-            if (markerProgressValue <= combatXp) {
-                return createBitmap(MarkerGreenAsset);
-            }
-            if (markerProgressValue <= combatXp + freeXp) {
-                return createBitmap(MarkerYellowAsset);
-            }
-            return createBitmap(MarkerDefaultAsset);
         }
 
-        private static function createMarkerIcon(marker:Object, markerTopY:Number):Bitmap {
+        private static function createMarkerIcon(marker:Object, markerTopY:Number, markerProgressValue:Number, combatXp:Number, freeXp:Number):Bitmap {
             var bitmapData:BitmapData;
             var icon:Bitmap;
 
@@ -337,6 +324,14 @@ package {
 
             icon = new Bitmap(bitmapData);
             icon.smoothing = true;
+            // Recolour the greyscale icon to its marker's state, matching the dot.
+            // The prestige badges keep their own colours and pass through untinted.
+            if (ResearchProgressBarMarkerAssets.isMarkerBarIconTintable(marker)) {
+                ResearchProgressBarIconTint.applyColor(
+                    icon,
+                    ResearchProgressBarIconTint.colorForMarker(marker, markerProgressValue, combatXp, freeXp)
+                );
+            }
             icon.x = -Math.round(icon.width / 2);
             icon.y = markerTopY - MARKER_ICON_GAP - icon.height;
             return icon;
@@ -386,21 +381,24 @@ package {
             return bitmap;
         }
 
-        private static function makeMarkerLabelField(marker:Object, markerTopY:Number):TextField {
+        private static function makeMarkerLabelField(marker:Object, markerTopY:Number, markerProgressValue:Number, combatXp:Number, freeXp:Number):TextField {
             var labelHtml:String = marker != null && marker.labelHtml !== undefined && marker.labelHtml != null
                 ? String(marker.labelHtml)
                 : "";
             var labelText:String = marker != null && marker.label !== undefined && marker.label != null
                 ? String(marker.label)
                 : "";
+            // Field-mod markers show a level label instead of an icon; colour it to the
+            // marker's state, the same as the icons and the dash beneath it.
+            var labelColor:uint = ResearchProgressBarIconTint.colorForMarker(marker, markerProgressValue, combatXp, freeXp);
             var field:TextField;
 
             if (labelHtml.length > 0) {
-                field = makeTextField(LABEL_COLOR, 16, false);
+                field = makeTextField(labelColor, 16, false);
                 ResearchProgressBarFonts.setHtmlText(field, labelHtml);
             }
             else {
-                field = makeTextField(LABEL_COLOR, 16, true);
+                field = makeTextField(labelColor, 16, true);
                 ResearchProgressBarFonts.setText(field, labelText);
             }
 

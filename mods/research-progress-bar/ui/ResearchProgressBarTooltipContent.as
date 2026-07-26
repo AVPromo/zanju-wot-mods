@@ -59,7 +59,7 @@ package {
             var preProgressRow:Sprite = createTooltipBodyRow(marker, "preProgressTooltipHtml", "preProgressTooltipText");
             var detailRow:Sprite = createDetailTooltipRow(marker);
 
-            row = createTooltipTitleCostRow(marker, markerCostXp);
+            row = createTooltipTitleCostRow(marker, markerCostXp, combatXp, freeXp);
             row.y = cursorY;
             section.addChild(row);
             rowBounds = row.getBounds(row);
@@ -155,7 +155,8 @@ package {
                         TOOLTIP_BODY_SIZE,
                         TOOLTIP_TEXT_COLOR,
                         false,
-                        TOOLTIP_COMPACT_ICON_SIZE
+                        TOOLTIP_COMPACT_ICON_SIZE,
+                        int(ResearchProgressBarIconTint.colorForPrereq(prereq, combatXp, freeXp))
                     );
                     row.y = cursorY;
                     section.addChild(row);
@@ -446,7 +447,7 @@ package {
             return built;
         }
 
-        private static function createTooltipTitleCostRow(marker:Object, costXp:Number):Sprite {
+        private static function createTooltipTitleCostRow(marker:Object, costXp:Number, combatXp:Number, freeXp:Number):Sprite {
             var row:Sprite = new Sprite();
             var icon:Sprite = null;
             var tooltipIconSize:Number = resolveMarkerTooltipIconSize(marker);
@@ -462,7 +463,13 @@ package {
             var titleX:Number = 0;
 
             if (!shouldHideTooltipIcon(marker)) {
-                icon = createTooltipMarkerIconForMarker(marker, tooltipIconSize, tooltipIconLayoutWidth);
+                // Tint the title icon to the marker's state, matching its bar marker.
+                icon = createTooltipMarkerIconForMarker(
+                    marker,
+                    tooltipIconSize,
+                    tooltipIconLayoutWidth,
+                    int(ResearchProgressBarIconTint.colorForMarker(marker, costXp, combatXp, freeXp))
+                );
             }
 
             if (icon != null) {
@@ -537,9 +544,11 @@ package {
             return TOOLTIP_ICON_SIZE;
         }
 
-        private static function createTooltipIconTextRow(itemType:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite {
+        private static function createTooltipIconTextRow(itemType:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE, iconTintColor:int = -1):Sprite {
             var row:Sprite = new Sprite();
-            var icon:Sprite = createTooltipMarkerIcon(itemType, iconSize);
+            // Icon tint defaults to the row's text colour, but callers can override it
+            // (prerequisite rows tint their icons to the locked-grey state instead).
+            var icon:Sprite = createTooltipMarkerIcon(itemType, iconSize, TOOLTIP_ICON_LAYOUT_WIDTH, iconTintColor >= 0 ? iconTintColor : int(color));
             var field:TextField = makeTooltipRowField(text, size, color, bold);
             var rowHeight:Number;
 
@@ -572,7 +581,7 @@ package {
             return row;
         }
 
-        private static function createTooltipMarkerIcon(itemType:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
+        private static function createTooltipMarkerIcon(itemType:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH, tintColor:int = -1):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = ResearchProgressBarMarkerAssets.getMarkerIconBitmapData(itemType);
             var iconBitmap:Bitmap;
@@ -583,13 +592,16 @@ package {
 
             iconBitmap = new Bitmap(bitmapData);
             iconBitmap.smoothing = true;
+            if (tintColor >= 0 && ResearchProgressBarMarkerAssets.isIconTypeTintable(itemType)) {
+                ResearchProgressBarIconTint.applyColor(iconBitmap, uint(tintColor));
+            }
             iconBitmap.x = 0;
             iconBitmap.y = 0;
             iconSprite.addChild(iconBitmap);
             return iconSprite;
         }
 
-        private static function createTooltipMarkerIconForMarker(marker:Object, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
+        private static function createTooltipMarkerIconForMarker(marker:Object, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH, tintColor:int = -1):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = ResearchProgressBarMarkerAssets.getMarkerIconBitmapDataForMarker(marker);
             var iconBitmap:Bitmap;
@@ -600,6 +612,9 @@ package {
 
             iconBitmap = new Bitmap(bitmapData);
             iconBitmap.smoothing = true;
+            if (tintColor >= 0 && ResearchProgressBarMarkerAssets.isMarkerBarIconTintable(marker)) {
+                ResearchProgressBarIconTint.applyColor(iconBitmap, uint(tintColor));
+            }
             iconBitmap.x = 0;
             iconBitmap.y = 0;
             iconSprite.addChild(iconBitmap);

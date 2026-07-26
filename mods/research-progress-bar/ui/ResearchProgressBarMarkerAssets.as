@@ -115,6 +115,17 @@ package {
             "elite:t11_cosmetic": StyleFilterAsset
         };
 
+        // Icons that carry their own meaningful colours and must NOT be recoloured to
+        // the marker state -- the prestige reward badges. Everything else is authored
+        // greyscale-on-white for the runtime state tint (see ResearchProgressBarIconTint).
+        private static const NON_TINTABLE_ICON_KEYS:Object = {
+            "elite:bronze": true,
+            "elite:silver": true,
+            "elite:gold": true,
+            "elite:red_gold": true,
+            "elite:prestige_elite": true
+        };
+
         public static function resolveMarkerName(marker:Object):String {
             var explicitName:String;
             var itemType:String;
@@ -143,6 +154,21 @@ package {
             }
 
             return getMarkerIconBitmapDataForMarker(marker);
+        }
+
+        // Whether the marker's bar icon may be recoloured to its state. Resolves the
+        // same icon key getMarkerBarIconBitmapDataForMarker uses, then excludes the
+        // self-coloured prestige badges.
+        public static function isMarkerBarIconTintable(marker:Object):Boolean {
+            var barItemType:String = resolveMarkerBarItemType(marker);
+            if (barItemType.length > 0) {
+                return isIconTypeTintable(barItemType);
+            }
+            return isIconTypeTintable(resolveMarkerEmbeddedIconKey(marker));
+        }
+
+        public static function isIconTypeTintable(itemType:String):Boolean {
+            return itemType == null || !NON_TINTABLE_ICON_KEYS.hasOwnProperty(itemType);
         }
 
         public static function resolveMarkerBarItemType(marker:Object):String {

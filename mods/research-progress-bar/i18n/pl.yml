@@ -38,6 +38,7 @@ TOOLTIP_ELITE_BODY: "<b>Włączone</b>: Pokaż elitarne odznaki i elementy perso
 TOOLTIP_PREREQUISITES: "Wymagania"
 TOOLTIP_COST_WITH_PREREQS: "Koszt z wymaganiami"
 TOOLTIP_CLICK_TO_RESEARCH: "Kliknij, aby zbadać."
+TOOLTIP_CLICK_TO_RESEARCH_AND_PURCHASE: "Kliknij, aby zbadać i kupić."
 TOOLTIP_CLICK_TO_ENABLE: "Kliknij, aby włączyć."
 TOOLTIP_CLICK_TO_DISABLE: "Kliknij, aby wyłączyć."
 TOOLTIP_CLICK_TO_CHANGE_MODIFICATION: "Kliknij, aby zmienić modyfikację."
@@ -46,6 +47,7 @@ TOOLTIP_CLICK_TO_OPEN_UPGRADES: "Kliknij, aby otworzyć menu ulepszeń."
 TOOLTIP_KEY_OPTION_A: "Naciśnij 1, aby kupić."
 TOOLTIP_KEY_OPTION_B: "Naciśnij 2, aby kupić."
 TOOLTIP_KEY_TO_RESEARCH: "Naciśnij {key}, aby zbadać."
+TOOLTIP_KEY_TO_RESEARCH_AND_PURCHASE: "Naciśnij {key}, aby zbadać i kupić."
 
 # Counter captions
 CAPTION_VEHICLE_XP: "PD pojazdu"

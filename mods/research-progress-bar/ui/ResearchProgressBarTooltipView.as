@@ -35,6 +35,8 @@ package {
             var tooltipHeight:Number;
             var keyEntries:Array;
             var keyIndex:int;
+            // Content-space Y of each divider drawn between stacked sections.
+            var separatorYs:Array = [];
 
             if (tooltipContainer == null || tooltipBackground == null || tooltipContent == null) {
                 return;
@@ -59,6 +61,7 @@ package {
                 sectionBounds = section.getBounds(section);
                 cursorY += sectionBounds.height;
                 if (idx < entries.length - 1) {
+                    separatorYs.push(cursorY + ResearchProgressBarTooltipContent.SECTION_GAP / 2);
                     cursorY += ResearchProgressBarTooltipContent.SECTION_GAP;
                 }
             }
@@ -70,6 +73,8 @@ package {
             tooltipWidth = contentBounds.width + TOOLTIP_PADDING_X * 2;
             tooltipHeight = contentBounds.height + TOOLTIP_PADDING_Y + TOOLTIP_PADDING_BOTTOM;
             drawBackground(tooltipBackground, tooltipWidth, tooltipHeight);
+            // Divide stacked sections with a line in the tooltip's own border style.
+            drawSectionSeparators(tooltipBackground, separatorYs, tooltipContent.y, tooltipWidth);
 
             tooltipContainer.visible = true;
             positionContainer(tooltipContainer, stageX, stageY, tooltipWidth, tooltipHeight, stageWidth, stageHeight);
@@ -233,6 +238,27 @@ package {
             tooltipBackground.graphics.beginFill(TOOLTIP_BACKGROUND_COLOR, TOOLTIP_BACKGROUND_ALPHA);
             tooltipBackground.graphics.drawRoundRect(0, 0, width, height, 6, 6);
             tooltipBackground.graphics.endFill();
+        }
+
+        // Draws a horizontal divider between each pair of stacked sections, in the same
+        // 1px border colour as the tooltip outline so it reads as part of the frame. The
+        // separator Ys arrive in content space; contentOffsetY maps them into the
+        // background's own coordinates (the two are siblings under the container). The
+        // lines run edge to edge, meeting the side borders at their straight midsection.
+        private static function drawSectionSeparators(tooltipBackground:Shape, separatorYs:Array, contentOffsetY:Number, width:Number):void {
+            var i:int;
+            var lineY:Number;
+
+            if (separatorYs == null || separatorYs.length == 0) {
+                return;
+            }
+
+            tooltipBackground.graphics.lineStyle(1, TOOLTIP_BORDER_COLOR, 1.0);
+            for (i = 0; i < separatorYs.length; i++) {
+                lineY = Math.round(Number(separatorYs[i]) + contentOffsetY);
+                tooltipBackground.graphics.moveTo(0, lineY);
+                tooltipBackground.graphics.lineTo(width, lineY);
+            }
         }
     }
 }

@@ -1194,12 +1194,20 @@ def _resolve_unlock_display_name(intcd, items=None):
     return None
 
 
-def _build_unlock_marker_ref(intcd, items=None):
+def _build_unlock_marker_ref(intcd, items=None, prereq_state=None):
     item_type = _resolve_unlock_item_type(intcd)
-    return {
+    ref = {
         'item_type': item_type,
         'name': _resolve_unlock_display_name(intcd, items),
     }
+    # Carry the prerequisite's own reachability so the tooltip can colour its icon
+    # like any other marker, instead of a flat locked grey. Reuses the discounted
+    # cost / availability already computed for that item's own bar marker, so the
+    # two always agree.
+    if prereq_state is not None:
+        ref['xp_cost'] = prereq_state.get('xp_cost')
+        ref['is_available'] = prereq_state.get('is_available')
+    return ref
 
 
 def _resolve_unlock_display_names(intcds, items=None):
@@ -1219,16 +1227,24 @@ def _build_unlock_marker(
     is_available=True,
     missing_prereq_intcds=(),
     blueprint_info=None,
+    prereq_state_by_intcd=None,
 ):
     item_type = _resolve_unlock_item_type(intcd)
+    prereq_states = prereq_state_by_intcd or {}
     marker = {
         'xp_cost': xp_cost,
         'intcd': intcd,
         'item_type': item_type,
         'name': _resolve_unlock_display_name(intcd, items),
         'is_available': is_available,
+        # Modules get a buy-and-mount popup after research (vehicles do not), so the
+        # tooltip hint says so. Uses the same predicate that drives the popup itself.
+        'is_module': _is_vehicle_module_unlock(intcd),
         'missing_prereq_names': _resolve_unlock_display_names(missing_prereq_intcds, items),
-        'missing_prereqs': [_build_unlock_marker_ref(prereq_intcd, items) for prereq_intcd in missing_prereq_intcds],
+        'missing_prereqs': [
+            _build_unlock_marker_ref(prereq_intcd, items, prereq_state=prereq_states.get(prereq_intcd))
+            for prereq_intcd in missing_prereq_intcds
+        ],
     }
 
     if blueprint_info:
@@ -1528,7 +1544,11 @@ def _resolve_unlock_research_state(intcd, raw_xp_cost, items=None):
 
 def _collect_visible_unlocks(vehicle, unlocks_set, items=None):
     """Returns sorted unlock dicts for all not-yet-researched tech-tree items."""
-    visible = []
+    # First pass resolves every not-yet-researched item's cost and availability.
+    # A missing prerequisite is always one of these items, so the second pass can
+    # reuse the same numbers to colour its icon exactly like its own bar marker.
+    resolved = []
+    prereq_state_by_intcd = {}
     for _idx, xp_cost, intcd, prereqs in vehicle.getUnlocksDescrs():
         if intcd in unlocks_set:
             continue
@@ -1539,6 +1559,14 @@ def _collect_visible_unlocks(vehicle, unlocks_set, items=None):
         research_state = _resolve_unlock_research_state(intcd, cost, items)
         cost = research_state.get('xp_cost', cost)
         missing_prereqs = sorted([p for p in prereqs if p not in unlocks_set])
+        resolved.append((cost, intcd, missing_prereqs, research_state))
+        prereq_state_by_intcd[intcd] = {
+            'xp_cost': cost,
+            'is_available': not missing_prereqs,
+        }
+
+    visible = []
+    for cost, intcd, missing_prereqs, research_state in resolved:
         unlock_marker = _build_unlock_marker(
             cost,
             intcd,
@@ -1546,6 +1574,7 @@ def _collect_visible_unlocks(vehicle, unlocks_set, items=None):
             is_available=not missing_prereqs,
             missing_prereq_intcds=missing_prereqs,
             blueprint_info=research_state.get('blueprint_info'),
+            prereq_state_by_intcd=prereq_state_by_intcd,
         )
         unlock_marker['missing_prereq_intcds'] = missing_prereqs
         visible.append(unlock_marker)

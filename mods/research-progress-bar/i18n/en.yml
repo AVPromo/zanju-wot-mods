@@ -38,6 +38,7 @@ TOOLTIP_ELITE_BODY: "<b>On</b>: Show elite badges and tier XI customization elem
 TOOLTIP_PREREQUISITES: "Prerequisites"
 TOOLTIP_COST_WITH_PREREQS: "Cost with prerequisites"
 TOOLTIP_CLICK_TO_RESEARCH: "Click to research."
+TOOLTIP_CLICK_TO_RESEARCH_AND_PURCHASE: "Click to research and purchase."
 TOOLTIP_CLICK_TO_ENABLE: "Click to enable."
 TOOLTIP_CLICK_TO_DISABLE: "Click to disable."
 TOOLTIP_CLICK_TO_CHANGE_MODIFICATION: "Click to change modification."
@@ -46,6 +47,7 @@ TOOLTIP_CLICK_TO_OPEN_UPGRADES: "Click to open the upgrades menu."
 TOOLTIP_KEY_OPTION_A: "Press 1 to purchase."
 TOOLTIP_KEY_OPTION_B: "Press 2 to purchase."
 TOOLTIP_KEY_TO_RESEARCH: "Press {key} to research."
+TOOLTIP_KEY_TO_RESEARCH_AND_PURCHASE: "Press {key} to research and purchase."
 
 # Counter captions
 CAPTION_VEHICLE_XP: "Vehicle XP"
