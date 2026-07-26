@@ -2426,17 +2426,6 @@ def _resolve_remaining_cost_marker_state(remaining_cost, vehicle_xp, total_xp):
     return 'locked'
 
 
-def _sum_t11_bucket_costs(buckets):
-    if buckets is None:
-        return 0
-
-    return (
-        (_to_int(buckets.get('small_10k')) or 0) * 10000
-        + (_to_int(buckets.get('big_20k')) or 0) * 20000
-        + (_to_int(buckets.get('big_25k')) or 0) * 25000
-    )
-
-
 def _make_mode(
         mode_id,
         button_label,

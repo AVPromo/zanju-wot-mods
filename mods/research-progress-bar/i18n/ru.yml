@@ -5,7 +5,6 @@ MODE_UPGRADES: "Улучшение"
 MODE_ELITE: "Элитность"
 
 # Метки настроек
-SETTING_ENABLED: "Включить/отключить мод"
 SETTING_CLICK_TO_RESEARCH: ""
 SETTING_RESEARCH_REMINDER: "Показывать напоминание об исследовании"
 SETTING_ACCELERATED_CREW_TRAINING_REMINDER: "Показывать напоминание об ускоренном обучении экипажа"
@@ -93,15 +92,7 @@ UPGRADE_REMAINING: ""
 HYPOTHETICAL_T11_VEHICLE_NAME: "Гипотетическая машина XI уровня"
 
 # Строки статуса
-STATUS_COMPLETE: "Завершено"
 SEPARATE_STATUS_ACCELERATE_CREW_TRAINING: "Ускорьте обучение экипажа!"
 SEPARATE_STATUS_RESEARCH_NOW: "Исследование доступно!"
-STATUS_NO_UNLOCKS: "Нет доступных разблокировок"
 STATUS_READY_FOR_RESEARCH: "Готов к исследованию"
 STATUS_XP_LEFT_FORMAT: "Не хватает XP: {xp}"
-STATUS_TIER_UNKNOWN: "Уровень неизвестен."
-STATUS_FIELD_MODS_REQUIRES_ELITE: "Полевая модернизация требуют получение статуса элитной машины."
-STATUS_FIELD_MODS_NOT_AVAILABLE: "Полевая модернизация недоступна для этого танка."
-STATUS_FIELD_MODS_NO_STEPS: "Полевая модернизация доступна, но модификации не найдены."
-STATUS_UPGRADES_NO_STEPS: "Улучшения доступны, но их значения не найдены."
-STATUS_PHASE2_PENDING: "Подробная разбивка появится на втором этапе."

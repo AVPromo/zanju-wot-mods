@@ -5,7 +5,6 @@ MODE_UPGRADES: "Ulepszenia"
 MODE_ELITE: "Elita"
 
 # Configurator labels
-SETTING_ENABLED: "Włącz / wyłącz mod"
 SETTING_CLICK_TO_RESEARCH: "Klikanie, aby badać lub kupować"
 SETTING_SHOW_TOTAL_XP: "Pokaż Łączne PD"
 SETTING_RESEARCH_REMINDER: "Pokaż przypomnienie o badaniu"
@@ -95,15 +94,7 @@ UPGRADE_REMAINING: "Pozostałe ulepszenia: {count}"
 HYPOTHETICAL_T11_VEHICLE_NAME: "Hipotetyczny pojazd XI poziomu"
 
 # Status strings
-STATUS_COMPLETE: "Ukończono"
 SEPARATE_STATUS_ACCELERATE_CREW_TRAINING: "Przyspiesz szkolenie załogi!"
 SEPARATE_STATUS_RESEARCH_NOW: "Badaj teraz!"
-STATUS_NO_UNLOCKS: "Brak dostępnych odblokowań"
 STATUS_READY_FOR_RESEARCH: "gotowe do zbadania"
 STATUS_XP_LEFT_FORMAT: "Pozostało {xp} PD"
-STATUS_TIER_UNKNOWN: "Nieznany poziom"
-STATUS_FIELD_MODS_REQUIRES_ELITE: "Ulepszenia polowe wymagają statusu pojazdu elitarnego"
-STATUS_FIELD_MODS_NOT_AVAILABLE: "Ulepszenia polowe nie są dostępne dla tego pojazdu"
-STATUS_FIELD_MODS_NO_STEPS: "Ulepszenia polowe są dostępne, ale nie udało się określić etapów"
-STATUS_UPGRADES_NO_STEPS: "Ulepszenia są dostępne, ale nie udało się określić etapów"
-STATUS_PHASE2_PENDING: "Szczegółowe zestawienie pojawi się w etapie 2"
