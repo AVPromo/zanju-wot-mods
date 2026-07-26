@@ -1,27 +1,22 @@
 Changelog
 =========
 
-## Unreleased
+## 1.3.0 (26 July 2026)
 
-- Marker icons — and the level numbers shown in Field Mods mode — are now coloured to match their marker's state instead of being drawn in a fixed colour — green when reachable with Vehicle XP, yellow when reachable with Free XP, off-white once researched, and greyed while locked — so an icon or label always matches the marker beneath it, both on the bar and in tooltips. Prerequisite items listed in a tooltip colour their icons by their own reachability the same way, so an already-researchable prerequisite reads green or yellow while ones still blocked stay grey. The prestige reward badges keep their own colours.
-- New **"Click to research or purchase"** setting (on by default, at the top of the settings). It turns all of the bar's interactivity below on or off. Every action goes through the game's own confirmation windows, so there is no risk from a misclick.
-- The bar is interactive in the Research and Field Mods modes: clicking a marker starts the game's own research flow for that item, opening the same confirmation window as the tech tree or field modification screens — nothing is spent without confirming there.
-  - A marker is clickable exactly when one of its displayed tooltip rows reads "ready for research", so with the "Show Total XP" setting off only Vehicle XP progress arms the click, and items still blocked by prerequisites are never clickable.
-  - Clickable markers show a hand cursor on hover, and their tooltip gains a blue "Click to research." line at the bottom.
-  - Icons above markers whose XP costs sit close together no longer draw on top of each other: they are spread sideways just far enough to clear, staying centred on the group so each stays as close as possible to its own marker. The markers themselves stay on their exact XP positions.
-  - When several ready-to-research items have close enough XP costs that their markers overlap and stack in one tooltip, a single click would be ambiguous, so it is disabled and each item is numbered instead — hover the stack and press the matching number key (its tooltip shows a blue "Press N to research." line) to research that specific item.
-  - When a hover shows more than one item stacked in the same tooltip, the sections are now divided by a horizontal line in the tooltip's own border style, so it is clear where one item's details end and the next begins.
-  - Researching a **module** (by click or number key) now follows the research with the game's own "purchase and mount" popup once the research lands, so you can buy and fit it right away. Nothing is bought unless you confirm in that popup, and it is skipped if you cancel the research. Its tooltip hint says so — "Click to research and purchase." (or "Press N to research and purchase.") — while vehicles are exempt, keeping "Click to research.": they are only researched, and buying the vehicle is left to you.
-  - On field modification levels with a choice between two modifications, the click researches the level itself. Once a level is researched but its variant is still unpicked, hover the marker and press **1** or **2** to choose — each option's tooltip shows its "Press X to purchase." hint above its stats, so you can compare before choosing. On a level whose variant is already picked, a click swaps to the other modification ("Click to change modification.").
-  - On the second-slot-category level, a click opens the game's Field Modification screen to select or reassign the category (the choice is made inside that screen). Once a category is picked, the hangar's bottom loadout panel refreshes on its own, the same way it does after a loadout switch is toggled, instead of showing the previous category until a vehicle change.
-- The Tier 11 upgrades mode is interactive too: a click on a currently reachable minor, major or final upgrade node opens the game's own upgrades menu, with a blue "Click to open the upgrades menu." tooltip line. The flat bar cannot show the branching upgrade tree, so the pick and purchase are made on that screen — nothing is spent from the bar.
-  - The final upgrade node's tooltip, locked behind all the other nodes, now shows the combined "Cost with prerequisites" for the whole remaining tree and measures its progress against that total, the same way research items with prerequisites are shown.
-  - A minor or major upgrade node whose remaining upgrades are all locked behind other, not-yet-researched nodes in the tree is now grayed out (like a prerequisite-blocked research item) and its tooltip reads "Requires other upgrades" instead of showing a reachable cost or progress. Reachability comes from the game's own per-node tree state, so it respects the branching upgrade paths.
-  - The minor and major upgrade markers each stand in for every remaining node of their tier, so their tooltip now shows an "Upgrades remaining: N" line under the title with the respective (bold) count.
-- The unlocked essentials / auxiliary loadout-switch levels are clickable too: a click toggles the loadout switch on or off directly, with a blue "Click to enable." / "Click to disable." tooltip line. No confirmation window appears for these — the toggle is free, exactly like the switch in the game's Field Modification screen. Once the game confirms the toggle, the hangar's bottom loadout panel refreshes on its own, so its loadout switches and status dots no longer need a vehicle change to update.
-- Fixed the first vehicle research of a session failing with an "unlocks/vehicle/required_locked" error when the Research screen had not been opened yet. The game validates a vehicle unlock against its tech tree data, which it only loads once that screen is first opened; the bar now makes sure it is loaded before researching a vehicle.
-- The bar now follows research and purchases confirmed by the game without needing a vehicle switch: it refreshes as soon as the change lands, instead of continuing to show a just-researched item as still available until another vehicle was selected and re-selected.
-- The loadout-switch tooltips now name what each switch controls — e.g. "Essentials Loadout (shells and consumables)" — and show the switch state as "Enabled" in green or "Disabled" in red, instead of a plain "Active" / "Not active".
+- New **"Click to research or purchase"** setting (on by default) makes the bar interactive: clicking a marker performs the matching action for that item.
+  - Nothing is spent or bought without confirming it in the game's own windows first, so a misclick costs nothing.
+  - Actions are performed via mouse click. When several options are available, keyboard is used instead.
+  - In Research mode, vehicles are researched; modules are researched and then offered for purchase and mounting.
+  - In Field Mods mode, levels are unlocked, essentials / auxiliary loadout switches are toggled on or off, one of two modifications is picked, an already-picked modification is swapped to the other, and the second slot category is opened for selection.
+  - In Tier 11 Upgrades mode, a reachable node opens the game's own upgrades menu.
+- Marker icons are now coloured to match their state.
+- Overlapping icons above markers are spread sideways so they no longer draw on top of each other, while the markers stay on their exact XP positions.
+- When a tooltip stacks more than one item, the sections are divided by a horizontal line.
+- The final Tier 11 upgrade node's tooltip now shows the combined "Cost with prerequisites" for the whole remaining tree.
+- Minor and major Tier 11 upgrade nodes are greyed out with a "Requires other upgrades" note when every remaining upgrade of their tier is still blocked behind other nodes, and their tooltip shows an "Upgrades remaining: N" count.
+- Loadout-switch tooltips now name what each switch controls and show its state as "Enabled" (green) or "Disabled" (red) instead of a plain "Active" / "Not active".
+- The bar now refreshes as soon as a research, purchase, or loadout toggle is confirmed by the game, instead of waiting until the vehicle is switched away and back.
+- Fixed the first vehicle research of a session failing with an "unlocks/vehicle/required_locked" error when the Research screen had not been opened yet.
 
 ## 1.2.0 (4 July 2026)
 
