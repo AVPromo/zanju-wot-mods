@@ -13,6 +13,7 @@ package {
         private static const TOOLTIP_TEXT_COLOR:uint = 0xE6DDC8;
         private static const TOOLTIP_MUTED_TEXT_COLOR:uint = 0xB8AC97;
         private static const TOOLTIP_HIGHLIGHT_TEXT_COLOR:uint = 0xF0CF74;
+        private static const TOOLTIP_CLICK_HINT_TEXT_COLOR:uint = 0x5FB2F2;
         private static const TOOLTIP_ICON_SIZE:Number = 20;
         private static const TOOLTIP_COMPACT_ICON_SIZE:Number = TOOLTIP_ICON_SIZE;
         private static const TOOLTIP_ICON_LAYOUT_WIDTH:Number = TOOLTIP_ICON_SIZE;
@@ -25,7 +26,10 @@ package {
         private static const TOOLTIP_PROGRESS_GAP:Number = 8;
         private static const TOOLTIP_TEXT_FIELD_PADDING:Number = 8;
 
-        public static function buildTooltipSection(entry:Object):Sprite {
+        // `keyIndex` is this section's 1-based number within an ambiguous overlapping
+        // stack (0 when the stack is unambiguous). When set, the click hint reads
+        // "Press N to research." instead of "Click to research.".
+        public static function buildTooltipSection(entry:Object, keyIndex:int = 0):Sprite {
             var section:Sprite = new Sprite();
             var marker:Object = entry.marker;
             var markerCostXp:Number = Number(entry.costXp);
@@ -45,12 +49,17 @@ package {
             var costWithPrereqsXp:Number = marker != null && marker.costWithPrereqsXp !== undefined && marker.costWithPrereqsXp != null ? Number(marker.costWithPrereqsXp) : NaN;
             var costWithPrereqsLabel:String = marker != null && marker.costWithPrereqsLabel !== undefined ? String(marker.costWithPrereqsLabel) : "Cost with prerequisites";
             var prerequisitesLabel:String = marker != null && marker.prerequisitesLabel !== undefined ? String(marker.prerequisitesLabel) : "Prerequisites";
-            var hasMissingPrereqs:Boolean = marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable) && marker.missingPrereqs is Array && (marker.missingPrereqs as Array).length > 0;
-            var progressTargetXp:Number = hasMissingPrereqs && !isNaN(costWithPrereqsXp) && costWithPrereqsXp > 0 ? costWithPrereqsXp : markerCostXp;
+            var isNotAvailable:Boolean = marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable);
+            var hasCostWithPrereqs:Boolean = !isNaN(costWithPrereqsXp) && costWithPrereqsXp > 0;
+            // Measure progress against the combined cost whenever the marker is
+            // locked and a cost-with-prerequisites total is supplied: both concrete
+            // prerequisite items (research mode) and the Tier 11 final node, whose
+            // single prerequisite is the abstract "all other nodes" (no item list).
+            var progressTargetXp:Number = isNotAvailable && hasCostWithPrereqs ? costWithPrereqsXp : markerCostXp;
             var preProgressRow:Sprite = createTooltipBodyRow(marker, "preProgressTooltipHtml", "preProgressTooltipText");
             var detailRow:Sprite = createDetailTooltipRow(marker);
 
-            row = createTooltipTitleCostRow(marker, markerCostXp);
+            row = createTooltipTitleCostRow(marker, markerCostXp, combatXp, freeXp);
             row.y = cursorY;
             section.addChild(row);
             rowBounds = row.getBounds(row);
@@ -91,10 +100,42 @@ package {
                 }
                 row.y = cursorY;
                 section.addChild(row);
+                rowBounds = row.getBounds(row);
+                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+
+                cursorY = appendClickHintRows(section, marker, combatXp, freeXp, cursorY, keyIndex);
                 return section;
             }
 
+            // The description sits directly below the title/blueprint -- above the
+            // prerequisites section for a locked marker (e.g. the Tier 11 final
+            // node), and above the progress table for an available one. Keep the
+            // larger gap only when the progress table follows immediately;
+            // otherwise tighten it so the description reads as part of the head.
+            if (preProgressRow != null) {
+                preProgressRow.y = cursorY;
+                section.addChild(preProgressRow);
+                rowBounds = preProgressRow.getBounds(preProgressRow);
+                cursorY += rowBounds.height + (isNotAvailable ? TOOLTIP_ROW_GAP : TOOLTIP_PROGRESS_GAP);
+            }
+
             if (marker != null && marker.isAvailable !== undefined && !Boolean(marker.isAvailable)) {
+                // A marker blocked without a concrete prerequisite list (the Tier 11
+                // minor/major bucket, locked behind other upgrades in the branching
+                // tree) shows just a short muted line -- no "Prerequisites" heading,
+                // item list, cost or progress table.
+                if (marker.blockedText !== undefined && marker.blockedText != null && String(marker.blockedText).length > 0) {
+                    row = createTooltipTextRow(
+                        String(marker.blockedText),
+                        TOOLTIP_BODY_SIZE,
+                        TOOLTIP_MUTED_TEXT_COLOR,
+                        false
+                    );
+                    row.y = cursorY;
+                    section.addChild(row);
+                    return section;
+                }
+
                 row = createTooltipTextRow(
                     prerequisitesLabel + ":",
                     TOOLTIP_BODY_SIZE,
@@ -114,7 +155,8 @@ package {
                         TOOLTIP_BODY_SIZE,
                         TOOLTIP_TEXT_COLOR,
                         false,
-                        TOOLTIP_COMPACT_ICON_SIZE
+                        TOOLTIP_COMPACT_ICON_SIZE,
+                        int(ResearchProgressBarIconTint.colorForPrereq(prereq, combatXp, freeXp))
                     );
                     row.y = cursorY;
                     section.addChild(row);
@@ -131,7 +173,16 @@ package {
                     );
                     row.y = cursorY;
                     section.addChild(row);
-                    return section;
+                    // With no concrete prerequisite items to list (e.g. the Tier 11
+                    // final node, locked behind the abstract "all other nodes")
+                    // there is normally nothing more to show. When a combined cost
+                    // is supplied, fall through instead so the cost-with-
+                    // prerequisites row and the progress table still render.
+                    if (!hasCostWithPrereqs) {
+                        return section;
+                    }
+                    rowBounds = row.getBounds(row);
+                    cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
                 }
 
                 if (!isNaN(costWithPrereqsXp) && costWithPrereqsXp > 0) {
@@ -155,13 +206,6 @@ package {
                 progressRows.push(buildTooltipProgressRowData(totalProgressLabel, combatXp + freeXp, progressTargetXp, progressReadyText, progressXpLeftFormat));
             }
 
-            if (preProgressRow != null) {
-                preProgressRow.y = cursorY;
-                section.addChild(preProgressRow);
-                rowBounds = preProgressRow.getBounds(preProgressRow);
-                cursorY += rowBounds.height + TOOLTIP_PROGRESS_GAP;
-            }
-
             for each (row in createTooltipProgressRows(progressRows)) {
                 row.y = cursorY;
                 section.addChild(row);
@@ -173,9 +217,83 @@ package {
                 cursorY += TOOLTIP_PROGRESS_GAP - TOOLTIP_ROW_GAP;
                 detailRow.y = cursorY;
                 section.addChild(detailRow);
+                rowBounds = detailRow.getBounds(detailRow);
+                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
             }
 
+            cursorY = appendClickHintRows(section, marker, combatXp, freeXp, cursorY, keyIndex);
+
             return section;
+        }
+
+        // Appends the marker's blue click-hint line(s) to `section` starting at
+        // `cursorY`, returning the advanced cursorY. A pick marker carries
+        // `clickHintLines` (one row per line: left-click / right-click); the
+        // research/toggle markers carry a single `clickHintText`. When `keyIndex`
+        // is set (this section is a numbered entry in an ambiguous overlapping
+        // stack), the numbered `keyHintText` template replaces the plain hint.
+        private static function appendClickHintRows(section:Sprite, marker:Object, combatXp:Number, freeXp:Number, cursorY:Number, keyIndex:int = 0):Number {
+            var hintLines:Array = resolveClickHintLines(marker, keyIndex);
+            var row:Sprite;
+            var rowBounds:Object;
+            var idx:int;
+
+            if (hintLines.length == 0) {
+                return cursorY;
+            }
+            if (!ResearchProgressBarInteractions.isMarkerClickable(marker, combatXp, freeXp)) {
+                return cursorY;
+            }
+
+            cursorY += TOOLTIP_PROGRESS_GAP - TOOLTIP_ROW_GAP;
+            for (idx = 0; idx < hintLines.length; idx++) {
+                row = createTooltipTextRow(String(hintLines[idx]), TOOLTIP_BODY_SIZE, TOOLTIP_CLICK_HINT_TEXT_COLOR, false);
+                row.y = cursorY;
+                section.addChild(row);
+                rowBounds = row.getBounds(row);
+                cursorY += rowBounds.height + TOOLTIP_ROW_GAP;
+            }
+            return cursorY;
+        }
+
+        private static function resolveClickHintLines(marker:Object, keyIndex:int = 0):Array {
+            var lines:Array = [];
+            var raw:Array;
+            var idx:int;
+            var text:String;
+
+            if (marker == null) {
+                return lines;
+            }
+            // In a numbered overlapping stack, "Press N to research." (from the
+            // keyHintText template) stands in for the ambiguous single-click hint.
+            if (keyIndex > 0 && marker.keyHintText !== undefined && marker.keyHintText != null) {
+                text = String(marker.keyHintText).split("{key}").join(String(keyIndex));
+                if (text.length > 0) {
+                    lines.push(text);
+                }
+                return lines;
+            }
+            if (marker.clickHintLines is Array) {
+                raw = marker.clickHintLines as Array;
+                for (idx = 0; idx < raw.length; idx++) {
+                    if (raw[idx] == null) {
+                        continue;
+                    }
+                    text = String(raw[idx]);
+                    if (text.length > 0) {
+                        lines.push(text);
+                    }
+                }
+                return lines;
+            }
+            if (marker.clickHintText !== undefined && marker.clickHintText != null) {
+                text = String(marker.clickHintText);
+                if (text.length > 0) {
+                    lines.push(text);
+                }
+            }
+            return lines;
         }
 
         public static function buildEliteStatusCounterHtml(text:String):String {
@@ -329,7 +447,7 @@ package {
             return built;
         }
 
-        private static function createTooltipTitleCostRow(marker:Object, costXp:Number):Sprite {
+        private static function createTooltipTitleCostRow(marker:Object, costXp:Number, combatXp:Number, freeXp:Number):Sprite {
             var row:Sprite = new Sprite();
             var icon:Sprite = null;
             var tooltipIconSize:Number = resolveMarkerTooltipIconSize(marker);
@@ -345,7 +463,13 @@ package {
             var titleX:Number = 0;
 
             if (!shouldHideTooltipIcon(marker)) {
-                icon = createTooltipMarkerIconForMarker(marker, tooltipIconSize, tooltipIconLayoutWidth);
+                // Tint the title icon to the marker's state, matching its bar marker.
+                icon = createTooltipMarkerIconForMarker(
+                    marker,
+                    tooltipIconSize,
+                    tooltipIconLayoutWidth,
+                    int(ResearchProgressBarIconTint.colorForMarker(marker, costXp, combatXp, freeXp))
+                );
             }
 
             if (icon != null) {
@@ -420,9 +544,11 @@ package {
             return TOOLTIP_ICON_SIZE;
         }
 
-        private static function createTooltipIconTextRow(itemType:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE):Sprite {
+        private static function createTooltipIconTextRow(itemType:String, text:String, size:int, color:uint, bold:Boolean, iconSize:Number = TOOLTIP_ICON_SIZE, iconTintColor:int = -1):Sprite {
             var row:Sprite = new Sprite();
-            var icon:Sprite = createTooltipMarkerIcon(itemType, iconSize);
+            // Icon tint defaults to the row's text colour, but callers can override it
+            // (prerequisite rows tint their icons to the locked-grey state instead).
+            var icon:Sprite = createTooltipMarkerIcon(itemType, iconSize, TOOLTIP_ICON_LAYOUT_WIDTH, iconTintColor >= 0 ? iconTintColor : int(color));
             var field:TextField = makeTooltipRowField(text, size, color, bold);
             var rowHeight:Number;
 
@@ -455,7 +581,7 @@ package {
             return row;
         }
 
-        private static function createTooltipMarkerIcon(itemType:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
+        private static function createTooltipMarkerIcon(itemType:String, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH, tintColor:int = -1):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = ResearchProgressBarMarkerAssets.getMarkerIconBitmapData(itemType);
             var iconBitmap:Bitmap;
@@ -466,13 +592,16 @@ package {
 
             iconBitmap = new Bitmap(bitmapData);
             iconBitmap.smoothing = true;
+            if (tintColor >= 0 && ResearchProgressBarMarkerAssets.isIconTypeTintable(itemType)) {
+                ResearchProgressBarIconTint.applyColor(iconBitmap, uint(tintColor));
+            }
             iconBitmap.x = 0;
             iconBitmap.y = 0;
             iconSprite.addChild(iconBitmap);
             return iconSprite;
         }
 
-        private static function createTooltipMarkerIconForMarker(marker:Object, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH):Sprite {
+        private static function createTooltipMarkerIconForMarker(marker:Object, iconSize:Number = TOOLTIP_ICON_SIZE, layoutWidth:Number = TOOLTIP_ICON_LAYOUT_WIDTH, tintColor:int = -1):Sprite {
             var iconSprite:Sprite = new Sprite();
             var bitmapData:BitmapData = ResearchProgressBarMarkerAssets.getMarkerIconBitmapDataForMarker(marker);
             var iconBitmap:Bitmap;
@@ -483,6 +612,9 @@ package {
 
             iconBitmap = new Bitmap(bitmapData);
             iconBitmap.smoothing = true;
+            if (tintColor >= 0 && ResearchProgressBarMarkerAssets.isMarkerBarIconTintable(marker)) {
+                ResearchProgressBarIconTint.applyColor(iconBitmap, uint(tintColor));
+            }
             iconBitmap.x = 0;
             iconBitmap.y = 0;
             iconSprite.addChild(iconBitmap);

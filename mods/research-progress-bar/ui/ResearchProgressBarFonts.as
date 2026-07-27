@@ -4,10 +4,10 @@ package {
     import flash.text.TextFormat;
 
     public final class ResearchProgressBarFonts {
-        [Embed(source="assets/fonts/RobotoMono-Regular.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", unicodeRange="U+0020-U+007E,U+00A0-U+017F,U+0400-U+04FF")]
+        [Embed(source="assets/fonts/RobotoMono-Regular.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", unicodeRange="U+0020-U+007E,U+00A0-U+017F,U+0400-U+04FF,U+2013-U+2014")]
         private static const ROBOTO_MONO_REGULAR:Class;
 
-        [Embed(source="assets/fonts/RobotoMono-Bold.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", fontWeight="bold", unicodeRange="U+0020-U+007E,U+00A0-U+017F,U+0400-U+04FF")]
+        [Embed(source="assets/fonts/RobotoMono-Bold.ttf", fontName="ResearchProgressBarFont", mimeType="application/x-font-truetype", embedAsCFF="false", fontWeight="bold", unicodeRange="U+0020-U+007E,U+00A0-U+017F,U+0400-U+04FF,U+2013-U+2014")]
         private static const ROBOTO_MONO_BOLD:Class;
 
         public static const FONT_NAME:String = "ResearchProgressBarFont";
@@ -63,7 +63,8 @@ package {
 
         // Returns true if any character in text falls outside the ranges embedded in ROBOTO_MONO_*.
         // Embedded ranges: U+0020-U+007E (Basic Latin), U+00A0-U+017F (Latin-1 + Latin Extended-A),
-        // U+0400-U+04FF (Cyrillic). Keep in sync with the [Embed] unicodeRange attributes above.
+        // U+0400-U+04FF (Cyrillic), U+2013-U+2014 (en/em dash). Keep in sync with the [Embed]
+        // unicodeRange attributes above.
         private static function containsNonEmbeddedChars(text:String):Boolean {
             if (text == null || text.length == 0) {
                 return false;
@@ -89,6 +90,12 @@ package {
                     return true;
                 }
                 if (code <= 0x04FF) {
+                    continue;
+                }
+                if (code < 0x2013) {
+                    return true;
+                }
+                if (code <= 0x2014) {
                     continue;
                 }
                 return true;
@@ -123,7 +130,9 @@ package {
                     break;
                 }
                 code = parseInt(html.substring(eIdx + 3, semiIdx), 16);
-                if (code > 0x017F && !(code >= 0x0400 && code <= 0x04FF)) {
+                if (code > 0x017F
+                        && !(code >= 0x0400 && code <= 0x04FF)
+                        && !(code >= 0x2013 && code <= 0x2014)) {
                     return true;
                 }
                 idx = semiIdx + 1;

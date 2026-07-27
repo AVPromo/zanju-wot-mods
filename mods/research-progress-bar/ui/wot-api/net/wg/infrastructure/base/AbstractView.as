@@ -1,4 +1,5 @@
 package net.wg.infrastructure.base {
+    import flash.display.InteractiveObject;
     import flash.display.MovieClip;
 
     public class AbstractView extends MovieClip {
@@ -13,6 +14,11 @@ package net.wg.infrastructure.base {
         }
 
         protected function nextFrameAfterPopulateHandler():void {
+        }
+
+        // Compile-time stub of WG's AbstractView.setFocus. At runtime the real
+        // AbstractView (which manages modal focus and _lastFocusedElement) runs.
+        protected function setFocus(target:InteractiveObject):void {
         }
     }
 }

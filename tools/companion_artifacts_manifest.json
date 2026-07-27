@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-06-26T00:00:00Z",
+  "updatedAt": "2026-07-17T15:52:47Z",
   "bundles": {
     "research-progress-bar": {
       "description": "Standalone configurator companion chain for Research Progress Bar.",
@@ -16,11 +16,11 @@
       "displayName": "Aslain's ModsSettings API",
       "provider": "github-release-api",
       "project": "Aslain/modssettingsapi",
-      "releaseTag": "v1.3.3",
-      "version": "1.3.3",
-      "filename": "aslain.modssettingsapi_1.3.3.wotmod",
-      "downloadUrl": "https://github.com/Aslain/modssettingsapi/releases/download/v1.3.3/aslain.modssettingsapi_1.3.3.wotmod",
-      "sha256": "5b7c5682c3e8b7b445081179828e111ab466423d685f8babdee9da8ea0a03b10",
+      "releaseTag": "v1.6.4",
+      "version": "1.6.4",
+      "filename": "aslain.modssettingsapi_1.6.4.wotmod",
+      "downloadUrl": "https://github.com/Aslain/modssettingsapi/releases/download/v1.6.4/aslain.modssettingsapi_1.6.4.wotmod",
+      "sha256": "aa474af8d17b4cec4df282cc7b9927e461211102f5fac1e1a8db7f00dd5a1a29",
       "notes": "Aslain's fork of izeberg's in-game settings API, used by research-progress-bar."
     },
     "modslistapi": {
@@ -37,13 +37,13 @@
     "openwg_gameface": {
       "displayName": "OpenWG Gameface",
       "provider": "gitlab-release-description",
-      "project": "wot-public-mods/mods-list",
-      "releaseTag": "v1.7.8",
-      "version": "1.1.5",
-      "filename": "net.openwg.gameface_1.1.5.wotmod",
-      "downloadUrl": "https://gitlab.com/-/project/26509092/uploads/eb8c900e29727227318b6f847395e5d8/net.openwg.gameface_1.1.5.wotmod",
-      "sha256": "09feaf0332505acf7e9829d92f8389eea7aa2e8a6a4c8fd19e015c36770328e0",
-      "notes": "Transitive Gameface runtime paired with the pinned ModsList API release."
+      "project": "openwg/wot.gameface",
+      "releaseTag": "v1.1.6",
+      "version": "1.1.6",
+      "filename": "net.openwg.gameface_1.1.6.wotmod",
+      "downloadUrl": "https://gitlab.com/-/project/68695173/uploads/6e88b411d6fd764448943d0c929bc074/net.openwg.gameface_1.1.6.wotmod",
+      "sha256": "26b190d216c758ccffa824766cbd6bb7cbfc9dfa041e530b99b0d1f02129d5e1",
+      "notes": "Gameface runtime for the configurator, tracked from OpenWG upstream."
     }
   }
 }

@@ -25,6 +25,9 @@ _GITHUB_MODSSETTINGSAPI_RELEASE_URL = "https://api.github.com/repos/Aslain/modss
 _GITLAB_MODS_LIST_RELEASE_URL = (
     "https://gitlab.com/api/v4/projects/wot-public-mods%2Fmods-list/releases/permalink/latest"
 )
+_GITLAB_OPENWG_GAMEFACE_RELEASE_URL = (
+    "https://gitlab.com/api/v4/projects/openwg%2Fwot.gameface/releases/permalink/latest"
+)
 _GITLAB_DESCRIPTION_LINK_RE = re.compile(r"\[(?P<name>[^\]]+)\]\((?P<url>[^)]+)\)")
 
 
@@ -94,15 +97,26 @@ def _build_candidate_manifest():
         project="wot-public-mods/mods-list",
         notes="Standalone configurator list/popup dependency.",
     )
+
+    # Gameface is tracked from its own OpenWG upstream, not the copy the mods-list
+    # release happens to bundle, so a new OpenWG release is picked up as soon as it
+    # ships rather than waiting for mods-list to re-bundle it. The release
+    # description carries both a .wotmod (WoT) and a .mtmod (Lesta) upload link;
+    # _parse_gitlab_description_assets keeps only the .wotmod.
+    openwg_gameface_project_id = _fetch_gitlab_project_id("openwg/wot.gameface")
+    openwg_gameface_release = fetch_json(_GITLAB_OPENWG_GAMEFACE_RELEASE_URL)
+    openwg_gameface_assets = _parse_gitlab_description_assets(
+        openwg_gameface_release, openwg_gameface_project_id
+    )
     openwg_gameface = _resolve_gitlab_description_artifact(
         artifact_id="openwg_gameface",
         display_name="OpenWG Gameface",
-        release_data=mods_list_release,
-        assets=mods_list_assets,
+        release_data=openwg_gameface_release,
+        assets=openwg_gameface_assets,
         filename_prefix="net.openwg.gameface_",
         provider="gitlab-release-description",
-        project="wot-public-mods/mods-list",
-        notes="Transitive Gameface runtime paired with the pinned ModsList API release.",
+        project="openwg/wot.gameface",
+        notes="Gameface runtime for the configurator, tracked from OpenWG upstream.",
     )
 
     return {

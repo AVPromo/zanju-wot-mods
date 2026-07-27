@@ -33,6 +33,10 @@ package {
             var idx:int;
             var tooltipWidth:Number;
             var tooltipHeight:Number;
+            var keyEntries:Array;
+            var keyIndex:int;
+            // Content-space Y of each divider drawn between stacked sections.
+            var separatorYs:Array = [];
 
             if (tooltipContainer == null || tooltipBackground == null || tooltipContent == null) {
                 return;
@@ -40,14 +44,24 @@ package {
 
             clearContent(tooltipContent);
 
+            // Number the stack only when a plain click would be ambiguous -- two or
+            // more keyboard-pickable markers overlapping here. A lone clickable
+            // marker keeps its plain "Click to research." hint.
+            keyEntries = ResearchProgressBarInteractions.keyboardStackEntries(entries);
+            if (keyEntries.length < 2) {
+                keyEntries = null;
+            }
+
             for (idx = 0; idx < entries.length; idx++) {
                 entry = entries[idx];
-                section = ResearchProgressBarTooltipContent.buildTooltipSection(entry);
+                keyIndex = keyEntries != null ? keyEntries.indexOf(entry) + 1 : 0;
+                section = ResearchProgressBarTooltipContent.buildTooltipSection(entry, keyIndex);
                 section.y = cursorY;
                 tooltipContent.addChild(section);
                 sectionBounds = section.getBounds(section);
                 cursorY += sectionBounds.height;
                 if (idx < entries.length - 1) {
+                    separatorYs.push(cursorY + ResearchProgressBarTooltipContent.SECTION_GAP / 2);
                     cursorY += ResearchProgressBarTooltipContent.SECTION_GAP;
                 }
             }
@@ -59,6 +73,8 @@ package {
             tooltipWidth = contentBounds.width + TOOLTIP_PADDING_X * 2;
             tooltipHeight = contentBounds.height + TOOLTIP_PADDING_Y + TOOLTIP_PADDING_BOTTOM;
             drawBackground(tooltipBackground, tooltipWidth, tooltipHeight);
+            // Divide stacked sections with a line in the tooltip's own border style.
+            drawSectionSeparators(tooltipBackground, separatorYs, tooltipContent.y, tooltipWidth);
 
             tooltipContainer.visible = true;
             positionContainer(tooltipContainer, stageX, stageY, tooltipWidth, tooltipHeight, stageWidth, stageHeight);
@@ -70,6 +86,9 @@ package {
             }
         }
 
+        // Returns the ordered tooltip-stack entries under the point (empty when the
+        // tooltip is hidden), so the host can derive the same keyboard-pick stack the
+        // rendered sections are numbered from.
         public static function refreshAtStagePoint(
             hostVisible:Boolean,
             markersContainer:Sprite,
@@ -80,14 +99,14 @@ package {
             stageSpace:Stage,
             stageX:Number,
             stageY:Number
-        ):void {
+        ):Array {
             var tooltipEntries:Array;
             var localPoint:Point;
             var localExtent:Point;
 
             if (!hostVisible || markersContainer == null) {
                 hideTooltip(tooltipContainer);
-                return;
+                return [];
             }
 
             // The mouse point arrives in global stage pixels, but markers and the
@@ -105,7 +124,7 @@ package {
 
             if (tooltipEntries.length == 0) {
                 hideTooltip(tooltipContainer);
-                return;
+                return [];
             }
 
             localExtent = stageSpace != null
@@ -122,6 +141,7 @@ package {
                 localExtent.x,
                 localExtent.y
             );
+            return tooltipEntries;
         }
 
         public static function resolveEntriesAtLocalPoint(
@@ -218,6 +238,27 @@ package {
             tooltipBackground.graphics.beginFill(TOOLTIP_BACKGROUND_COLOR, TOOLTIP_BACKGROUND_ALPHA);
             tooltipBackground.graphics.drawRoundRect(0, 0, width, height, 6, 6);
             tooltipBackground.graphics.endFill();
+        }
+
+        // Draws a horizontal divider between each pair of stacked sections, in the same
+        // 1px border colour as the tooltip outline so it reads as part of the frame. The
+        // separator Ys arrive in content space; contentOffsetY maps them into the
+        // background's own coordinates (the two are siblings under the container). The
+        // lines run edge to edge, meeting the side borders at their straight midsection.
+        private static function drawSectionSeparators(tooltipBackground:Shape, separatorYs:Array, contentOffsetY:Number, width:Number):void {
+            var i:int;
+            var lineY:Number;
+
+            if (separatorYs == null || separatorYs.length == 0) {
+                return;
+            }
+
+            tooltipBackground.graphics.lineStyle(1, TOOLTIP_BORDER_COLOR, 1.0);
+            for (i = 0; i < separatorYs.length; i++) {
+                lineY = Math.round(Number(separatorYs[i]) + contentOffsetY);
+                tooltipBackground.graphics.moveTo(0, lineY);
+                tooltipBackground.graphics.lineTo(width, lineY);
+            }
         }
     }
 }

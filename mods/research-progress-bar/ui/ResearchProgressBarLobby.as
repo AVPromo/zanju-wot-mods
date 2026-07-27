@@ -3,6 +3,7 @@ package {
     import flash.display.Shape;
     import flash.display.Sprite;
     import flash.events.Event;
+    import flash.events.KeyboardEvent;
     import flash.events.MouseEvent;
     import flash.geom.Matrix;
     import flash.text.TextField;
@@ -48,6 +49,16 @@ package {
         private var tooltipContainer:Sprite;
         private var tooltipBackground:Shape;
         private var tooltipContent:Sprite;
+        // Reverse DAAPI channel: when the Python view binds flashObject.script,
+        // GFx injects the same-named Python method into this declared slot (the
+        // same pattern WG's own meta classes use, e.g. ServerStatsMeta.relogin).
+        public var onMarkerClickAction:Function;
+        // The marker sprite currently under the cursor (for keyboard picking).
+        private var _hoveredMarkerDisplay:Sprite = null;
+        // The keyboard-pickable entries of the tooltip stack under the cursor, in the
+        // order the tooltip numbers them. Two or more means a plain click is
+        // ambiguous, so it is suppressed and 1..N keys drive the choice instead.
+        private var _hoveredStackEntries:Array = [];
         private var _context:Object;
         private var _selectedModeId:String;
         private var _selectedVehicleIntCD:String;
@@ -80,6 +91,7 @@ package {
                 onStageMouseMove,
                 onStageMouseLeave
             );
+            attachKeyListener();
         }
 
         override protected function onDispose():void {
@@ -92,7 +104,22 @@ package {
                 onStageMouseMove,
                 onStageMouseLeave
             );
+            detachKeyListener();
+            _hoveredMarkerDisplay = null;
+            _hoveredStackEntries = [];
             super.onDispose();
+        }
+
+        private function attachKeyListener():void {
+            if (stage != null) {
+                stage.addEventListener(KeyboardEvent.KEY_DOWN, onStageKeyDown, false, 0, true);
+            }
+        }
+
+        private function detachKeyListener():void {
+            if (stage != null) {
+                stage.removeEventListener(KeyboardEvent.KEY_DOWN, onStageKeyDown);
+            }
         }
 
         override protected function nextFrameAfterPopulateHandler():void {
@@ -106,6 +133,7 @@ package {
                 onStageMouseMove,
                 onStageMouseLeave
             );
+            attachKeyListener();
             layoutFromStage();
             stageState = ResearchProgressBarStageSupport.updateTrackedStageSize(stage, _lastStageWidth, _lastStageHeight);
             _lastStageWidth = Number(stageState.stageWidth);
@@ -177,21 +205,15 @@ package {
         }
 
         private function onStageMouseMove(event:MouseEvent):void {
-            ResearchProgressBarTooltipView.refreshAtStagePoint(
-                visible,
-                markersContainer,
-                _markerTooltipDataByDisplay,
-                tooltipContainer,
-                tooltipBackground,
-                tooltipContent,
-                stage,
-                event.stageX,
-                event.stageY
-            );
+            // Mouse-move keeps the tooltip live as the cursor crosses the stack, so it
+            // must keep the keyboard-pick stack live too -- route through the shared
+            // helper rather than refreshing the tooltip alone.
+            refreshTooltipAndStack(event.stageX, event.stageY);
         }
 
         private function onStageMouseLeave(event:Event):void {
             ResearchProgressBarTooltipView.hideTooltip(tooltipContainer);
+            _hoveredStackEntries = [];
         }
 
         public function as_setContext(data:Object):void {
@@ -399,7 +421,8 @@ package {
                 _barX,
                 _barY,
                 onMarkerMouseOver,
-                onMarkerMouseOut
+                onMarkerMouseOut,
+                onMarkerClick
             );
         }
 
@@ -408,24 +431,29 @@ package {
                 markersContainer,
                 tooltipContainer
             );
+            // The rebuilt markers create fresh entry objects; drop references to the
+            // old ones so a key press cannot act on a destroyed marker.
+            _hoveredMarkerDisplay = null;
+            _hoveredStackEntries = [];
         }
 
         private function onMarkerMouseOver(event:MouseEvent):void {
-            ResearchProgressBarTooltipView.refreshAtStagePoint(
-                visible,
-                markersContainer,
-                _markerTooltipDataByDisplay,
-                tooltipContainer,
-                tooltipBackground,
-                tooltipContent,
-                stage,
-                event.stageX,
-                event.stageY
-            );
+            _hoveredMarkerDisplay = event != null ? event.currentTarget as Sprite : null;
+            refreshTooltipAndStack(event.stageX, event.stageY);
         }
 
         private function onMarkerMouseOut(event:MouseEvent):void {
-            ResearchProgressBarTooltipView.refreshAtStagePoint(
+            if (_hoveredMarkerDisplay == (event != null ? event.currentTarget as Sprite : null)) {
+                _hoveredMarkerDisplay = null;
+            }
+            refreshTooltipAndStack(event.stageX, event.stageY);
+        }
+
+        // Refresh the tooltip and, from the same entries it renders, the ordered
+        // keyboard-pick stack -- so the numbers the tooltip shows and the keys that
+        // act always agree (both derive from keyboardStackEntries).
+        private function refreshTooltipAndStack(stageX:Number, stageY:Number):void {
+            var entries:Array = ResearchProgressBarTooltipView.refreshAtStagePoint(
                 visible,
                 markersContainer,
                 _markerTooltipDataByDisplay,
@@ -433,9 +461,134 @@ package {
                 tooltipBackground,
                 tooltipContent,
                 stage,
-                event.stageX,
-                event.stageY
+                stageX,
+                stageY
             );
+            _hoveredStackEntries = ResearchProgressBarInteractions.keyboardStackEntries(entries);
+        }
+
+        // Keyboard picking. Two cases share the number keys:
+        //  - An ambiguous overlapping stack (two or more clickable markers under the
+        //    cursor): 1..N run the action of the item the tooltip numbers the same.
+        //  - A single hovered dual marker: WoT's hangar GFx exposes no usable
+        //    right-click, so 1 (or A) picks Option A and 2 (or B) picks Option B.
+        // The stack takes precedence, since it is the ambiguous one that disabled the
+        // plain click.
+        private function onStageKeyDown(event:KeyboardEvent):void {
+            var entry:Object;
+            var clickAction:Object;
+            var code:int;
+            var modId:Number;
+            var digit:int;
+
+            if (event == null || onMarkerClickAction == null) {
+                return;
+            }
+
+            code = event.keyCode;
+
+            if (_hoveredStackEntries.length >= 2) {
+                digit = keyCodeToDigit(code);
+                if (digit >= 1 && digit <= _hoveredStackEntries.length) {
+                    entry = _hoveredStackEntries[digit - 1];
+                    if (entry != null && entry.marker != null && entry.marker.clickAction != null) {
+                        clickAction = entry.marker.clickAction;
+                        moveFocusToSelf();
+                        if (clickAction.extra !== undefined) {
+                            onMarkerClickAction(String(clickAction.kind), Number(clickAction.id), Number(clickAction.extra));
+                        }
+                        else {
+                            onMarkerClickAction(String(clickAction.kind), Number(clickAction.id));
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (_hoveredMarkerDisplay == null) {
+                return;
+            }
+            entry = _markerTooltipDataByDisplay[_hoveredMarkerDisplay];
+            if (entry == null || entry.marker == null) {
+                return;
+            }
+            clickAction = entry.marker.clickAction;
+            if (clickAction == null || clickAction.leftId === undefined || clickAction.rightId === undefined) {
+                return;
+            }
+
+            modId = Number.NaN;
+            if (code == 49 || code == 97 || code == 65) {
+                modId = Number(clickAction.leftId);
+            }
+            else if (code == 50 || code == 98 || code == 66) {
+                modId = Number(clickAction.rightId);
+            }
+            if (!isNaN(modId)) {
+                moveFocusToSelf();
+                onMarkerClickAction(String(clickAction.kind), Number(clickAction.id), modId);
+            }
+        }
+
+        // Digit 1..9 from a top-row (49..57) or numpad (97..105) key, else 0.
+        private function keyCodeToDigit(code:int):int {
+            if (code >= 49 && code <= 57) {
+                return code - 48;
+            }
+            if (code >= 97 && code <= 105) {
+                return code - 96;
+            }
+            return 0;
+        }
+
+        // Move focus off any marker to the (persistent) view before an action's
+        // modal dialog opens. WG's AbstractView remembers the focused element to
+        // restore focus to when the modal resolves; our bar destroys the clicked
+        // marker on the post-action sync, so a marker left as the focused element
+        // makes AbstractView.onSetModalFocus assert ("Last focused element is not
+        // on display list") and corrupts modal focus, taking the hangar's loadout
+        // bar down with it. Focusing the view (what AbstractView.draw does itself)
+        // keeps _lastFocusedElement valid across the rebuild.
+        private function moveFocusToSelf():void {
+            try {
+                setFocus(this);
+            }
+            catch (error:Error) {
+            }
+        }
+
+        private function onMarkerClick(event:MouseEvent):void {
+            var markerDisplay:Sprite = event != null ? event.currentTarget as Sprite : null;
+            var entry:Object = markerDisplay != null ? _markerTooltipDataByDisplay[markerDisplay] : null;
+            var clickAction:Object;
+
+            if (entry == null || entry.marker == null || onMarkerClickAction == null) {
+                return;
+            }
+            // With two or more clickable markers overlapping here a single click can
+            // only ever hit the topmost, which is ambiguous. Suppress it and let the
+            // player press the number the tooltip shows against the item they mean.
+            if (_hoveredStackEntries.length >= 2) {
+                return;
+            }
+            if (!ResearchProgressBarInteractions.isMarkerClickable(
+                entry.marker,
+                Number(entry.combatXp),
+                Number(entry.freeXp)
+            )) {
+                return;
+            }
+
+            clickAction = entry.marker.clickAction;
+            moveFocusToSelf();
+            // Some single-click actions carry a second id (e.g. the modification to
+            // switch a picked dual level to); pass it through when present.
+            if (clickAction.extra !== undefined) {
+                onMarkerClickAction(String(clickAction.kind), Number(clickAction.id), Number(clickAction.extra));
+            }
+            else {
+                onMarkerClickAction(String(clickAction.kind), Number(clickAction.id));
+            }
         }
 
         private function layoutFromStage():void {

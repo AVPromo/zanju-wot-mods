@@ -10,6 +10,15 @@ from ._mod_meta import MOD_ID, MOD_NAME  # noqa: F401
 MOD_CONFIG_DIR_NAME = 'research-progress-bar'
 SCALEFORM_VIEW_ALIAS = 'ResearchProgressBarLobby'
 SCALEFORM_FILE_NAME = 'research-progress-bar-lobby.swf'
+
+# Marker click action kinds, shared between the Scaleform marker payload
+# (scaleform/modes.py) and the write-side dispatcher (actions.py).
+MARKER_CLICK_ACTION_RESEARCH = 'research'
+MARKER_CLICK_ACTION_FIELD_MOD = 'field_mod'
+MARKER_CLICK_ACTION_FIELD_MOD_TOGGLE = 'field_mod_toggle'
+MARKER_CLICK_ACTION_FIELD_MOD_PICK = 'field_mod_pick'
+MARKER_CLICK_ACTION_FIELD_MOD_SELECT = 'field_mod_select'
+MARKER_CLICK_ACTION_UPGRADES = 'upgrades'
 _VISIBILITY_PROBE_DELAY = 0.25
 _VISIBLE_ROUTE_PREFIX = 'Visible route changed to: '
 _NAVIGATING_ROUTE_PREFIX = 'Navigating to '
