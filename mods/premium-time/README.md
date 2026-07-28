@@ -2,36 +2,33 @@
 
 ### Shows exactly how much premium time you have left, right on the lobby header.
 
-The game's own header buttons only show a coarse day count for Premium Account and an
-"Activate" / "Manage" label for WoT Plus. This mod integrates into that existing UI
-instead of adding its own window:
+The game's own Premium Account header button only shows a coarse day count — "3 d" tells
+you nothing about whether that means three days or three days and 23 hours. This mod
+integrates into that existing UI instead of adding its own window:
 
-- **Header counters** — while a subscription is running, its header button shows a live
-  `NNd NNh NNm` countdown. Inactive subscriptions keep the game's default label.
-- **Tooltip end time** — the hover tooltips of both buttons gain the exact end date and
-  time (to the second, with the UTC offset) of the subscription.
-
-Covers the two independent premium subscriptions:
-
-- **Premium Account** — the classic WoT premium time.
-- **WoT Plus / WoT Plus Pro** — the renewable subscription.
+- **Header counter** — while Premium Account is running, its header button shows a live
+  countdown that gets more precise as time runs out: it keeps the two largest units still
+  worth showing, so `3d 05h` with days to go and `5m 12s` in the final hour. When premium
+  is not running, the button keeps the game's default label.
+- **Tooltip end time** — the button's hover tooltip gains the exact end date and time, to
+  the second, with the UTC offset.
 
 There is nothing to configure: the mod has no settings and keeps no config file.
 
 ### Requirements
 
-The header counters and the WoT Plus tooltip line need the
+The header counter needs the
 [OpenWG Gameface](https://gitlab.com/openwg/wot.gameface) library
 (`net.openwg.gameface`, bundled with popular modpacks such as Aslain's). Without it the
-mod still works, but only the Premium Account tooltip line is shown.
+mod still works, but only the tooltip end time is shown.
 
 ## Translations
 
-Reference language `en` defines 4 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+Reference language `en` defines 5 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
 
 | Language | Coverage | Missing |
 | --- | --- | --- |
-| `pl` | 100% (4/4) | 0 |
+| `pl` | 100% (5/5) | 0 |
 
 ## Install And Use
 
@@ -53,30 +50,36 @@ For the wider repository workflow, see:
 
 ### How it hooks the game UI
 
-The lobby header and its tooltips are Gameface (HTML/JS) views; their texts are rendered
-by the game's JS bundles, not by Python. The mod therefore works on both sides:
+The lobby header is a Gameface (HTML/JS) view whose text is rendered by the game's JS
+bundle, not by Python, while its tooltip is a classic Python-built one. The mod therefore
+works on both sides:
 
-- **Header counters** — `UserAccountModel._initialize` is wrapped to attach an OpenWG
+- **Header counter** — `UserAccountModel._initialize` is wrapped to attach an OpenWG
   `ModInjectModel` (which makes the OpenWG bootstrap load `header_patch.js` into the
   header document) plus a small `zanjuPtHeader` data model with localized unit labels
-  and the client↔server clock offset. The injected JS computes the countdowns from the
-  game's own `subscriptions.*.expiryTime` and rewrites the button labels, restoring the
-  originals when a subscription is inactive.
-- **WoT Plus tooltip** — the hover tooltip is a param tooltip (`ParamTooltipModel`)
-  rendering the `wot_plus_header_widget` template. Its content view is the tooltip
-  document's root (`window.model`, not a subview), which the OpenWG injector never
-  scans — so the mod ships a shadowed copy of the document shell
-  (`res/gui/gameface/_dist/.../tooltips/tooltips.html`, refresh it from the game
-  package on client updates) that loads `tooltip_patch.js` directly. The wrapped model
-  carries a pre-formatted, localized "Ends on: …" line (computed fresh on every hover)
-  that the script appends to the tooltip content.
-- **Premium Account tooltip** — a classic Python blocks tooltip
+  and the client↔server clock offset. The injected JS computes the countdown from the
+  game's own `subscriptions.premiumAccount.expiryTime` and rewrites the button label.
+- **Tooltip end time** — a classic Python blocks tooltip
   (`AmmunitionEmptyBlockTooltipData` with the `#tooltips:header/premium_buy` alias);
   `_packBlocks` is wrapped to append the end-time text block for that alias only.
 
-### Data sources
+Two things the JS side has to respect, both of which caused visible bugs before they were
+understood:
 
-- **Premium Account** — `itemsCache.items.stats` (`isPremium`,
-  `activePremiumExpiryTime`), the same fields the game's header presenter uses.
-- **WoT Plus** — `IWotPlusController.getExpiryTime()`; the header counter reads
-  `expiryTime`/`state` straight from the game's own header view model.
+- The label lives in a `<span>` inside `div[class*="Premiums_text"]`. Writing
+  `textContent` on the div deletes that span, and React — still holding a reference to the
+  detached node — writes every later update off-screen, freezing the label.
+- The client only learns that premium ended when the server pushes a new premium mask, so
+  the view model can still report `Active` after the expiry timestamp has passed. The
+  counter holds at zero rather than handing the button back early, which would repaint the
+  label captured while the subscription was still running.
+
+### Data source
+
+`itemsCache.items.stats` (`isPremium`, `activePremiumExpiryTime`) — the same fields the
+game's own header presenter uses. The header counter reads `expiryTime` / `state` straight
+from the game's header view model.
+
+WoT Plus is deliberately not covered; see
+[WoT Plus Subscriptions](../../docs/reference/wot-plus-subscriptions.md) for its data model
+and what re-adding it would involve.

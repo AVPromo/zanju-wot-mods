@@ -9,28 +9,12 @@ Account time is actually running.
 """
 from __future__ import print_function, unicode_literals
 
-from .formatting import end_datetime_text, ends_on_label, server_now
+from .formatting import ends_on_label
+from .subscriptions import premium_ends_on
 
 _PREMIUM_BUY_ALIAS = '#tooltips:header/premium_buy'
 
 _original_pack_blocks = None
-
-
-def _premium_ends_on(logger):
-    """'<date> <time> UTC+X' end-time value for the current Premium Account, or ''."""
-    try:
-        from helpers import dependency
-        from skeletons.gui.shared import IItemsCache
-        stats = dependency.instance(IItemsCache).items.stats
-        if not stats.isPremium:
-            return ''
-        expiry = int(stats.activePremiumExpiryTime or 0)
-    except Exception:
-        logger.exception('Failed to read premium account expiry time')
-        return ''
-    if expiry <= server_now():
-        return ''
-    return end_datetime_text(expiry)
 
 
 def install(logger):
@@ -53,7 +37,7 @@ def install(logger):
         if not args or args[0] != _PREMIUM_BUY_ALIAS:
             return items
         try:
-            value = _premium_ends_on(logger)
+            value = premium_ends_on(logger)
             if value:
                 from gui.Scaleform.genConsts.BLOCKS_TOOLTIP_TYPES import BLOCKS_TOOLTIP_TYPES
                 from gui.shared.formatters import text_styles

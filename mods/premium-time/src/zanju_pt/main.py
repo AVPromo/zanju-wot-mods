@@ -1,10 +1,10 @@
 """
 zanju_pt.main
 
-Integrates remaining premium time into the lobby header: the Premium Account and
-WoT Plus buttons show live countdowns instead of their static labels, and both
-buttons' hover tooltips gain the exact end date and time. There is nothing to
-configure, so the mod keeps no config file and registers no settings menu.
+Integrates remaining premium time into the lobby header: the Premium Account button
+shows a live countdown instead of its static day count, and its hover tooltip gains
+the exact end date and time. There is nothing to configure, so the mod keeps no
+config file and registers no settings menu.
 
 BigWorld scripting uses Python 2.7. Avoid Python-3-only syntax.
 """
@@ -14,7 +14,7 @@ import logging
 
 from . import tooltip_blocks
 from .constants import MOD_ID
-from .gameface import header_inject, tooltip_inject
+from .gameface import header_inject
 
 _logger = logging.getLogger('zanju.premiumtime')
 
@@ -23,7 +23,6 @@ def init():
     _logger.info('%s initializing', MOD_ID)
     try:
         header_inject.install(_logger)
-        tooltip_inject.install(_logger)
         tooltip_blocks.install(_logger)
         _logger.info('%s initialized', MOD_ID)
     except Exception:
@@ -33,7 +32,6 @@ def init():
 def fini():
     try:
         tooltip_blocks.uninstall(_logger)
-        tooltip_inject.uninstall(_logger)
         header_inject.uninstall(_logger)
     except Exception:
         _logger.exception('%s error in fini', MOD_ID)

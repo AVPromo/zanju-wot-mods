@@ -24,6 +24,15 @@ Planned; do it on the mainline as its own change (not on `premium-time`) once th
 - Accepted consequences: IDE shows unresolved `.localization` imports in callers (cosmetic; flake8 does not resolve imports — verified green); `python.log` tracebacks cite `mods/<pkg>/localization.py`, a path with no matching file under `src/`; a one-time modify/delete merge conflict with `premium-time`'s copy (resolve by taking the delete); future per-mod divergence requires parameterizing the shared file or an explicit opt-out (defer until needed).
 - Verified non-issues: nothing outside the game imports the mod packages (no py3 probes/tests reach into `src/`); deploy ships the built `.wotmod`, untouched.
 
+## Testing Backlog
+
+Scaffolding is in place (`zwm test`, `testing/`, see [Testing](docs/testing.md)); only
+`premium-time` declares tests so far.
+
+- Add `mods/research-progress-bar/tests/`. Its runtime does not import standalone the way premium-time's does — `constants.py` pulls in `gui.Scaleform.daapi.settings.views` at module scope — so the first test needs client stub modules added to `GAME_STUB_MODULES` in `testing/zwm_test_env.py`. Good first targets: the `config.py` normalizers (mode/bool coercion, legacy-key migration), `mode_state.py`, and the percent/label formatting in `scaleform/modes.py`. Skip `collector.py`: faking enough of the client to reach it would encode more assumptions than the tests verify.
+- Switch the CI step to `zwm test --all --strict` once a toolchain image containing Node has been published to `:latest`, so a missing Node fails the run instead of silently skipping the JavaScript suites.
+- When the shared `localization.py` lands (see above), move its tests to the canonical copy so the parser is covered once rather than per mod.
+
 ## CI / Toolchain Backlog
 
 - Restore a "WoT is running" guard for deploy/cleanup/cycle. It was removed in the Docker migration because a Linux container can't enumerate Windows host processes (`tasklist`). Viable options: (a) a host **PowerShell** wrapper that runs the `tasklist` check before invoking the container (no install needed — PowerShell is built in); (b) a file-lock probe on a known WoT-held file; (c) a `--force`/`--skip-running-check` opt-out if a host check is reintroduced. Until then, deploy relies on file-lock `PermissionError` handling (in-use files are skipped) — close WoT manually.

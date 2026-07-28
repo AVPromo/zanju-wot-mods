@@ -1,6 +1,6 @@
 """Live remaining-time counters on the lobby header's subscription buttons.
 
-The lobby top bar is a Gameface (HTML/JS) view: the WoT Plus and Premium Account button
+The lobby top bar is a Gameface (HTML/JS) view: the Premium Account button
 labels are rendered client-side by the header's JS bundle from localization strings and
 `expiryTime` on `UserAccountModel.subscriptions`, so neither the Python presenter nor the
 view model exposes the text itself. To change those labels we inject JS into the header
@@ -18,8 +18,7 @@ from __future__ import print_function, unicode_literals
 
 from frameworks.wulf import ViewModel
 
-from ..formatting import server_time_offset
-from ..localization import get_text as _loc
+from ..formatting import build_header_payload
 
 _MODULE_URL = 'coui://gui/gameface/mods/zanju_premiumtime/header_patch.js'
 _INJECT_NAME = 'zanju_pt_header'
@@ -29,32 +28,20 @@ _original_initialize = None
 
 
 class _HeaderDataModel(ViewModel):
-    """Formatting data consumed by header_patch.js."""
+    """Formatting data consumed by header_patch.js (payload built in formatting.py)."""
 
-    def __init__(self, time_offset, units):
-        self._initial = (time_offset, units)
-        super(_HeaderDataModel, self).__init__(properties=4, commands=0)
+    def __init__(self, payload):
+        self._payload = payload
+        # `properties` must match the number added below, or wulf drops the extras.
+        super(_HeaderDataModel, self).__init__(properties=5, commands=0)
 
     def _initialize(self):
         super(_HeaderDataModel, self)._initialize()
-        time_offset, units = self._initial
-        day_unit, hour_unit, minute_unit = units
-        self._addNumberProperty('timeOffset', time_offset)
-        self._addStringProperty('dayUnit', day_unit)
-        self._addStringProperty('hourUnit', hour_unit)
-        self._addStringProperty('minuteUnit', minute_unit)
-
-
-def _build_data_model():
-    # wulf number properties only accept ints; sub-second offset precision is irrelevant.
-    return _HeaderDataModel(
-        int(round(server_time_offset())),
-        (
-            _loc('UNIT_DAY_SHORT'),
-            _loc('UNIT_HOUR_SHORT'),
-            _loc('UNIT_MINUTE_SHORT'),
-        ),
-    )
+        self._addNumberProperty('timeOffset', self._payload['timeOffset'])
+        self._addStringProperty('dayUnit', self._payload['dayUnit'])
+        self._addStringProperty('hourUnit', self._payload['hourUnit'])
+        self._addStringProperty('minuteUnit', self._payload['minuteUnit'])
+        self._addStringProperty('secondUnit', self._payload['secondUnit'])
 
 
 def install(logger):
@@ -87,7 +74,7 @@ def install(logger):
         original(self)
         try:
             gf_mod_inject(self, str(_INJECT_NAME), modules=[str(_MODULE_URL)])
-            self._addViewModelProperty(str(_DATA_PROPERTY), _build_data_model())
+            self._addViewModelProperty(str(_DATA_PROPERTY), _HeaderDataModel(build_header_payload()))
         except Exception:
             logger.exception('Failed to attach header inject model')
 

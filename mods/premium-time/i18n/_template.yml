@@ -12,6 +12,8 @@ UNIT_DAY_SHORT: ""
 UNIT_HOUR_SHORT: ""
 # en: "m"
 UNIT_MINUTE_SHORT: ""
+# en: "s"
+UNIT_SECOND_SHORT: ""
 
 # Tooltips
 # en: "Ends on:"

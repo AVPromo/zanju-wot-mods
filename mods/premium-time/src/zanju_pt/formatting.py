@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Time helpers shared by the header and tooltip integrations.
 
 Pure-ish helpers: the only WoT imports are done lazily so failures degrade to
@@ -78,3 +79,39 @@ def end_datetime_text(expiry_timestamp):
 def ends_on_label():
     """Localized "Ends on:" label preceding the end-time value in tooltips."""
     return _loc('TOOLTIP_ENDS_ON')
+
+
+def end_text_if_running(expiry, now, is_active=True):
+    """End-time text for a subscription that is still running, or '' when it is not.
+
+    The single rule behind both tooltips: a subscription counts as running only while the
+    client reports it active *and* its expiry is still ahead. An expiry that has already
+    passed reads as not running even though the client may still advertise the
+    subscription, because the server confirming the end can lag by seconds — the same
+    reasoning the header countdown applies (see header_patch.js).
+    """
+    if not is_active:
+        return ''
+    try:
+        expiry = int(expiry or 0)
+    except (TypeError, ValueError):
+        return ''
+    if expiry <= now:
+        return ''
+    return end_datetime_text(expiry)
+
+
+def build_header_payload():
+    """Values header_patch.js cannot work out on its own: clock offset and unit labels.
+
+    The offset is rounded to whole seconds because wulf number properties are integer
+    only — handing `addNumberField` a float raises TypeError and the whole model fails
+    to attach, which shows up in-game as the button silently keeping its default label.
+    """
+    return {
+        'timeOffset': int(round(server_time_offset())),
+        'dayUnit': _loc('UNIT_DAY_SHORT'),
+        'hourUnit': _loc('UNIT_HOUR_SHORT'),
+        'minuteUnit': _loc('UNIT_MINUTE_SHORT'),
+        'secondUnit': _loc('UNIT_SECOND_SHORT'),
+    }
