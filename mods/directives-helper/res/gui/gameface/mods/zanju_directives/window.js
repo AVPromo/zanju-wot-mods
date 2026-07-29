@@ -1,0 +1,522 @@
+// Zanju Directives Helper — movable garage window listing the player's directives.
+//
+// Loaded into the persistent `mono/hangar/main` document by net.openwg.gameface (see
+// src/zanju_dh/gameface/window_inject.py), which also attaches the `zanjuDhWindow` data
+// model this reads: a JSON snapshot of the depot plus the remembered window position and
+// folded state.
+//
+// The window is our own DOM subtree appended to the document body. It never modifies any
+// element the game renders — sharing a node with the game's React tree means React keeps
+// its own reference and either overwrites us or strands our markup on screen.
+//
+// Pointer events are the important constraint here: the root stays `pointer-events: none`
+// so the window can never swallow the garage's drag-to-rotate, and exactly one child (the
+// header bar) re-enables them. In this Coherent build, elements nested under a
+// pointer-events:none root do not reliably receive events even when they set
+// pointer-events:auto themselves, so all interaction is routed through that one element.
+//
+// See docs/reference/gameface-mod-widgets.md.
+
+const ROOT_ID = 'zanju-dh-root';
+const DATA_PROPERTY = 'zanjuDhWindow';
+const POLL_INTERVAL_MS = 1000;
+// Flag on the document so the document-level drag listener is registered once, even if this
+// module is evaluated again for another sub-view.
+const DRAG_BOUND_FLAG = '__zanjuDhDragBound';
+const CLICK_BOUND_FLAG = '__zanjuDhClickBound';
+const DEFAULT_MARGIN_PX = 24;
+// Pointer travel before a press counts as a drag rather than a click on the header.
+const DRAG_THRESHOLD_PX = 4;
+
+let lastSnapshotJson = null;
+
+function log(message) {
+    // console.log is not forwarded to python.log by the Gameface host; console.error is.
+    console.error('[zanju.directiveshelper] ' + message);
+}
+
+function unwrap(value) {
+    return value && typeof value === 'object' && 'value' in value ? value.value : value;
+}
+
+function findDataModel() {
+    // The inject lands on whichever hangar sub-view was free, so locate it by scanning
+    // rather than assuming one.
+    if (typeof window === 'undefined' || !window.subViews) {
+        return null;
+    }
+    const ids = window.subViews.ids();
+    for (const id of ids) {
+        const view = window.subViews.get(id);
+        const model = view && view.model;
+        if (model && model[DATA_PROPERTY]) {
+            return model[DATA_PROPERTY];
+        }
+    }
+    return null;
+}
+
+function invokeCommand(data, name, arg) {
+    // Wulf exposes a command as a callable on the model; which of the wrapped proxy or its
+    // unwrapped value carries it differs across builds, so try both. The argument must be a
+    // map — a bare scalar is rejected by Gameface as "not a map".
+    try {
+        let host = null;
+        if (data && typeof data[name] === 'function') {
+            host = data;
+        } else {
+            const inner = unwrap(data);
+            if (inner && typeof inner[name] === 'function') {
+                host = inner;
+            }
+        }
+        if (!host) {
+            log('command missing: ' + name);
+            return;
+        }
+        host[name](arg || {});
+    } catch (e) {
+        log('command failed: ' + name + ' (' + e + ')');
+    }
+}
+
+function parseSnapshot(raw) {
+    if (!raw) {
+        return null;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        log('could not parse the snapshot: ' + e);
+        return null;
+    }
+}
+
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) {
+        node.className = className;
+    }
+    if (text !== undefined && text !== null) {
+        node.textContent = text;
+    }
+    return node;
+}
+
+function buildRoot() {
+    const root = el('div', 'zanju-dh-root');
+    root.id = ROOT_ID;
+
+    // The only element with pointer events: dragging and folding both happen here.
+    const header = el('div', 'zanju-dh-header zanju-dh-hot');
+    header.appendChild(el('span', 'zanju-dh-fold', '−'));
+    header.appendChild(el('span', 'zanju-dh-title', 'Directives'));
+    // Only ever shown while folded, when the title bar is all there is to see: without it a
+    // folded window would hide the fact that the next battle is about to cost something.
+    header.appendChild(el('span', 'zanju-dh-warn-mark zanju-dh-header-warn', '!'));
+    root.appendChild(header);
+
+    root.appendChild(el('div', 'zanju-dh-body'));
+    document.body.appendChild(root);
+    return root;
+}
+
+function getRoot() {
+    return document.getElementById(ROOT_ID);
+}
+
+function iconUrl(iconName) {
+    // Gameface resolves the game's own resource paths in a url(), which is how the client's
+    // stylesheets reference its images. Directive icons live under the artefact folder.
+    return iconName ? "url('R.images.gui.maps.icons.artefact." + iconName + "')" : '';
+}
+
+function buildTile(directive) {
+    // Only directives that fit the selected tank reach this point, so every tile is shown
+    // at full strength; the fitted one is outlined.
+    let className = 'zanju-dh-tile';
+    if (directive.equipped) {
+        className += ' zanju-dh-tile-equipped';
+    }
+    const tile = el('div', className);
+
+    const icon = el('div', 'zanju-dh-icon');
+    const url = iconUrl(directive.icon);
+    if (url) {
+        icon.style.backgroundImage = url;
+    } else {
+        // No icon shipped for this directive: fall back to its initial so the tile is not blank.
+        icon.textContent = (directive.name || '?').charAt(0);
+    }
+    tile.appendChild(icon);
+
+    tile.appendChild(el('span', 'zanju-dh-badge', String(directive.count)));
+    // The name only shows on hover, so a full depot stays a compact grid of icons.
+    tile.appendChild(el('span', 'zanju-dh-tip', directive.name));
+    // Read back by the click handler; the event may land on any child of the tile.
+    tile._zanjuDhIntCD = directive.intCD;
+    return tile;
+}
+
+
+function buildAutoResupplyRow(snapshot, texts) {
+    const row = el('div', 'zanju-dh-auto');
+    if (typeof snapshot.autoResupply !== 'boolean') {
+        // No tank in the garage, or the setting could not be read: state it plainly and offer
+        // no toggle rather than show a guess the click would then act on.
+        row.appendChild(el('span', 'zanju-dh-muted', texts.noVehicle));
+        return row;
+    }
+
+    // The tick is a box that fills when checked rather than a check glyph: the game's font is
+    // not guaranteed to carry one, and a missing glyph renders as an empty box — which reads
+    // as exactly the opposite state.
+    row.appendChild(el('div', 'zanju-dh-check' + (snapshot.autoResupply ? ' zanju-dh-check-on' : '')));
+    row.appendChild(el('span', 'zanju-dh-check-label', texts.autoResupply));
+
+    if (snapshot.resupplyWarning) {
+        // Lives inside this row, which is present whatever the state, so the warning coming
+        // and going never moves the sections below it.
+        const warning = el('div', 'zanju-dh-warning');
+        warning.appendChild(el('span', 'zanju-dh-warn-mark', '!'));
+        warning.appendChild(el('span', 'zanju-dh-warn-tip', texts.resupplyWarning));
+        row.appendChild(warning);
+    }
+
+    // Read back by the click handler, the same way a tile carries its intCD. Clicking the
+    // warning marker toggles too, which is the fix it is pointing at.
+    row._zanjuDhAutoToggle = true;
+    row.className = 'zanju-dh-auto zanju-dh-clickable';
+    return row;
+}
+
+
+function renderBody(body, snapshot, texts) {
+    body.textContent = '';
+
+    body.appendChild(buildAutoResupplyRow(snapshot, texts));
+
+    const groups = snapshot.categories || [];
+    for (const group of groups) {
+        const directives = group.directives || [];
+        const heading = el('div', 'zanju-dh-category');
+        heading.appendChild(el('span', 'zanju-dh-category-name', texts.categories[group.category] || group.category));
+        body.appendChild(heading);
+
+        if (!directives.length) {
+            // Kept visible so the three sections stay in the same order and place, whatever
+            // the selected tank can take.
+            body.appendChild(el('div', 'zanju-dh-empty', texts.noneAvailable));
+            continue;
+        }
+
+        const grid = el('div', 'zanju-dh-grid');
+        for (const directive of directives) {
+            grid.appendChild(buildTile(directive));
+        }
+        body.appendChild(grid);
+    }
+
+    if (!groups.length) {
+        body.appendChild(el('div', 'zanju-dh-muted', texts.empty));
+    }
+}
+
+function applyPosition(root, state) {
+    if (root._zanjuDhDragging) {
+        return; // never fight an in-progress drag
+    }
+    // Applied once, when the window is first built. The stored position is pushed to Python
+    // on release but the view model keeps its original values, so re-applying every tick
+    // would drag the window back to where it started a moment after each drop.
+    if (root._zanjuDhPositioned) {
+        return;
+    }
+    root._zanjuDhPositioned = true;
+    const x = Number(unwrap(state.x));
+    const y = Number(unwrap(state.y));
+    if (!(x >= 0) || !(y >= 0)) {
+        // Never positioned: park it in the top-left corner, clear of the header strip.
+        root.style.left = DEFAULT_MARGIN_PX + 'px';
+        root.style.top = (DEFAULT_MARGIN_PX * 4) + 'px';
+        return;
+    }
+
+    // Rescale a position captured at a different resolution: WoT's UI scale is quantized per
+    // resolution bucket, so raw pixels would strand the window off-screen otherwise.
+    const capturedW = Number(unwrap(state.viewportWidth)) || 0;
+    const capturedH = Number(unwrap(state.viewportHeight)) || 0;
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    let left = x;
+    let top = y;
+    if (capturedW > 0 && capturedH > 0 && w > 0 && h > 0) {
+        left = Math.round((x / capturedW) * w);
+        top = Math.round((y / capturedH) * h);
+    }
+    if (w) {
+        left = Math.max(0, Math.min(w - 40, left));
+    }
+    if (h) {
+        top = Math.max(0, Math.min(h - 20, top));
+    }
+    root.style.left = left + 'px';
+    root.style.top = top + 'px';
+}
+
+function applyHeaderWarning(root, warn) {
+    // Marks the element; the stylesheet decides it is only actually shown while folded, so
+    // the unfolded window is not carrying the same warning twice.
+    const mark = root.querySelector('.zanju-dh-header-warn');
+    if (mark) {
+        mark.className = 'zanju-dh-warn-mark zanju-dh-header-warn'
+            + (warn ? ' zanju-dh-header-warn-on' : '');
+    }
+}
+
+function applyFolded(root, folded) {
+    if (folded) {
+        root.className = 'zanju-dh-root zanju-dh-folded';
+    } else {
+        root.className = 'zanju-dh-root';
+    }
+    const toggle = root.querySelector('.zanju-dh-fold');
+    if (toggle) {
+        toggle.textContent = folded ? '+' : '−';
+    }
+}
+
+function clickTargetFrom(node) {
+    // A click lands on whatever is under the cursor — a tile's icon, its badge or its
+    // tooltip, or one of the two spans in the auto-resupply row — so walk up to the element
+    // that says what the click means.
+    let current = node;
+    for (let depth = 0; current && depth < 4; depth += 1) {
+        if (current._zanjuDhIntCD !== undefined || current._zanjuDhAutoToggle) {
+            return current;
+        }
+        current = current.parentNode;
+    }
+    return null;
+}
+
+function bindTileClicks(data) {
+    // Bound at document level in the capture phase, the same path the drag uses. A plain
+    // `click` listener on our own element did not fire in this renderer, whereas the
+    // document-capture mouse events demonstrably reach us.
+    if (document[CLICK_BOUND_FLAG]) {
+        return;
+    }
+    document[CLICK_BOUND_FLAG] = true;
+
+    document.addEventListener('mouseup', function (event) {
+        const root = getRoot();
+        if (!root || root._zanjuDhDidDrag) {
+            return; // the press that ended a drag is not a click on a tile
+        }
+        const target = clickTargetFrom(event.target);
+        if (!target || !root.contains(target)) {
+            return;
+        }
+        // Both actions go through the game's own processors on the Python side, which push a
+        // fresh snapshot when they finish; the window renders that rather than guessing here.
+        if (target._zanjuDhAutoToggle) {
+            invokeCommand(data, 'toggleAutoResupply', {});
+            return;
+        }
+        invokeCommand(data, 'equip', { intCD: target._zanjuDhIntCD });
+    }, true);
+}
+
+function bindHeader(root, data) {
+    const header = root.querySelector('.zanju-dh-header');
+    if (!header || header._zanjuDhBound) {
+        return;
+    }
+    header._zanjuDhBound = true;
+
+    header.addEventListener('click', function (event) {
+        // A click that ended a drag must not also toggle the fold.
+        if (root._zanjuDhDidDrag) {
+            return;
+        }
+        const folded = root.className.indexOf('zanju-dh-folded') === -1;
+        applyFolded(root, folded);
+        invokeCommand(data, 'setFolded', { folded: folded });
+        event.stopPropagation();
+    });
+}
+
+function bindDrag(data) {
+    if (document[DRAG_BOUND_FLAG]) {
+        return;
+    }
+    document[DRAG_BOUND_FLAG] = true;
+
+    // The listener sits at document level in the CAPTURE phase and claims the drag only when
+    // the press landed
+    // inside our own subtree: OpenWG drops several mods into this document as body siblings
+    // at similar z-index, any of which may also be draggable. Deciding ownership by subtree
+    // rather than by hit-testing rectangles is what lets us coexist with them — two
+    // overlapping widgets' rectangles can both contain the point, and then whichever
+    // listener registered first wins nondeterministically.
+    const onDragStart = function (event) {
+        const root = getRoot();
+        if (!root) {
+            return;
+        }
+        // Only the title bar is a drag handle; a press on the body is for the tiles.
+        const header = root.querySelector('.zanju-dh-header');
+        if (!header || !header.contains(event.target)) {
+            return; // not ours: never stop an event belonging to another mod
+        }
+        event.stopImmediatePropagation();
+        event.preventDefault();
+
+        const rect = root.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        root._zanjuDhDragging = true;
+        // Only counts as a drag once the pointer actually travels: a press that never moves
+        // is a click, and must still fold the window.
+        root._zanjuDhDidDrag = false;
+        const startX = event.clientX;
+        const startY = event.clientY;
+
+        const onMove = function (moveEvent) {
+            if (!root._zanjuDhDidDrag) {
+                const travelled = Math.abs(moveEvent.clientX - startX) + Math.abs(moveEvent.clientY - startY);
+                if (travelled < DRAG_THRESHOLD_PX) {
+                    return;
+                }
+                root._zanjuDhDidDrag = true;
+            }
+            const w = window.innerWidth || 0;
+            const h = window.innerHeight || 0;
+            let left = moveEvent.clientX - offsetX;
+            let top = moveEvent.clientY - offsetY;
+            if (w) {
+                left = Math.max(0, Math.min(w - 40, left));
+            }
+            if (h) {
+                top = Math.max(0, Math.min(h - 20, top));
+            }
+            root.style.left = Math.round(left) + 'px';
+            root.style.top = Math.round(top) + 'px';
+        };
+
+        const onUp = function () {
+            document.removeEventListener('mousemove', onMove, true);
+            document.removeEventListener('mouseup', onUp, true);
+            root._zanjuDhDragging = false;
+            if (!root._zanjuDhDidDrag) {
+                return; // a click, not a drag: leave the position alone and let it fold
+            }
+            const finalRect = root.getBoundingClientRect();
+            invokeCommand(data, 'setPosition', {
+                x: Math.round(finalRect.left),
+                y: Math.round(finalRect.top),
+                // Recorded so a later resolution change can rescale proportionally.
+                w: window.innerWidth || 0,
+                h: window.innerHeight || 0,
+            });
+            // Let the click that follows this mouseup see the flag, then clear it.
+            setTimeout(function () {
+                root._zanjuDhDidDrag = false;
+            }, 0);
+        };
+
+        document.addEventListener('mousemove', onMove, true);
+        document.addEventListener('mouseup', onUp, true);
+    };
+
+    document.addEventListener('mousedown', onDragStart, true);
+}
+
+function texts(snapshot) {
+    // Labels ride along in the snapshot so the Python side owns translation.
+    const labels = (snapshot && snapshot.labels) || {};
+    return {
+        title: labels.title || 'Directives',
+        autoResupply: labels.autoResupply || 'Auto-resupply',
+        resupplyWarning: labels.resupplyWarning
+            || 'Your last one. Auto-resupply will buy a replacement after the battle.',
+        noVehicle: labels.noVehicle || 'No vehicle selected',
+        empty: labels.empty || 'No directives owned',
+        noneAvailable: labels.noneAvailable || 'None available for this tank',
+        categories: {
+            equipment: labels.equipment || 'Equipment',
+            crewImprove: labels.crewImprove || 'Improve perk effect',
+            crewGrant: labels.crewGrant || 'Grant perk at 100%',
+        },
+    };
+}
+
+function tick() {
+    const data = findDataModel();
+    if (!data) {
+        return;
+    }
+
+    let root = getRoot();
+    if (!root) {
+        root = buildRoot();
+        applyFolded(root, Boolean(unwrap(data.folded)));
+        bindHeader(root, data);
+        bindTileClicks(data);
+        bindDrag(data);
+    }
+
+    applyPosition(root, data);
+
+    // Only shown on the default garage view, the same rule the research progress bar uses.
+    const visible = unwrap(data.visible);
+    root.style.display = visible === false ? 'none' : 'flex';
+
+    const raw = unwrap(data.snapshot);
+    if (raw === lastSnapshotJson) {
+        return; // nothing changed since the last render
+    }
+    lastSnapshotJson = raw;
+
+    const snapshot = parseSnapshot(raw);
+    if (!snapshot) {
+        return;
+    }
+    const labels = texts(snapshot);
+    const title = root.querySelector('.zanju-dh-title');
+    if (title) {
+        title.textContent = labels.title;
+    }
+    applyHeaderWarning(root, Boolean(snapshot.resupplyWarning));
+    renderBody(root.querySelector('.zanju-dh-body'), snapshot, labels);
+}
+
+function start() {
+    log('window.js loaded');
+    tick();
+    setInterval(tick, POLL_INTERVAL_MS);
+}
+
+// Auto-start only inside the game document; under the test runner there is no Gameface view
+// registry, so importing this module stays free of side effects.
+if (typeof window !== 'undefined' && window.subViews) {
+    start();
+}
+
+export {
+    applyFolded,
+    applyHeaderWarning,
+    buildAutoResupplyRow,
+    buildTile,
+    clickTargetFrom,
+    applyPosition,
+    buildRoot,
+    findDataModel,
+    parseSnapshot,
+    renderBody,
+    start,
+    texts,
+    tick,
+    ROOT_ID,
+};

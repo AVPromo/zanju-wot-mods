@@ -1,0 +1,262 @@
+/* Zanju Directives Helper — garage window styling.
+ *
+ * Only CSS this renderer is known to support is used: flex, min-width, text-align and
+ * plain box properties. Gameface ignores font-variant-numeric / font-feature-settings and
+ * rejects `align-items: baseline`; `display: inline-block` and `ch` units appear nowhere in
+ * the game's own stylesheets. See docs/reference/gameface-mod-widgets.md.
+ *
+ * Sizes are in rem, which the game's own UI uses and which its interface-scale setting
+ * follows, so the window scales with the rest of the UI.
+ */
+
+.zanju-dh-root {
+    position: fixed;
+    /* The garage listens for drag-to-rotate on the scene. An overlay that accepted pointer
+       events across its whole area would swallow that, so the root stays transparent to
+       input and only the header re-enables it. */
+    pointer-events: none;
+    z-index: 900;
+    min-width: 240rem;
+    max-width: 340rem;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1rem solid rgba(255, 221, 153, 0.25);
+    border-radius: 4rem;
+    font-size: 15rem;
+    line-height: 1.35em;
+    color: #e8e2d8;
+}
+
+/* The single element that takes input: drag handle and fold toggle in one. */
+.zanju-dh-hot {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.zanju-dh-header {
+    display: flex;
+    align-items: center;
+    padding: 6rem 10rem;
+    background: rgba(255, 221, 153, 0.08);
+    border-radius: 4rem 4rem 0 0;
+    color: #ffdd99;
+    letter-spacing: 0.02em;
+}
+
+.zanju-dh-fold {
+    min-width: 16rem;
+    text-align: center;
+    margin-right: 6rem;
+    opacity: 0.85;
+}
+
+.zanju-dh-title {
+    flex: 1 1 auto;
+    font-weight: 500;
+}
+
+/* The body opts back into pointer events so the tiles can show their name on hover. The
+   cost is that the garage's drag-to-rotate is not available over the window's own area,
+   which is how a UI panel is expected to behave; the root stays transparent to input so
+   everything outside the window keeps working. */
+.zanju-dh-body {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 6rem 10rem 8rem 10rem;
+}
+
+/* Folded: the header alone remains, so the window collapses to a title bar. */
+.zanju-dh-folded .zanju-dh-body {
+    display: none;
+}
+
+.zanju-dh-folded .zanju-dh-header {
+    border-radius: 4rem;
+}
+
+/* Auto-resupply checkbox, and the warning that shares its row. */
+.zanju-dh-auto {
+    display: flex;
+    align-items: center;
+    padding-bottom: 4rem;
+    margin-bottom: 4rem;
+    border-bottom: 1rem solid rgba(255, 255, 255, 0.12);
+}
+
+.zanju-dh-clickable {
+    cursor: pointer;
+}
+
+/* A box that fills when checked. No check glyph is used: the game's font is not guaranteed
+   to carry one, and a missing glyph draws an empty box, which reads as the opposite state. */
+.zanju-dh-check {
+    flex: 0 0 auto;
+    width: 13rem;
+    height: 13rem;
+    margin-right: 7rem;
+    border: 1rem solid rgba(255, 221, 153, 0.65);
+    border-radius: 2rem;
+}
+
+.zanju-dh-check-on {
+    background: #ffdd99;
+}
+
+.zanju-dh-check-label {
+    flex: 1 1 auto;
+}
+
+.zanju-dh-warning {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+}
+
+/* Round badge, centred the way the tile icons are: a flex item so width/height apply, with
+   line-height doing the vertical centring. */
+.zanju-dh-warn-mark {
+    width: 16rem;
+    height: 16rem;
+    border-radius: 8rem;
+    background: #e8a33d;
+    color: #241a08;
+    font-size: 12rem;
+    line-height: 16rem;
+    text-align: center;
+}
+
+/* Opens downward, into the window: the row sits at the top, so a tooltip above it would run
+   off over the header. Wraps, unlike the tile tips, because this is a sentence. */
+.zanju-dh-warn-tip {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 20rem;
+    width: 190rem;
+    padding: 4rem 6rem;
+    font-size: 12rem;
+    line-height: 1.3em;
+    color: #f2d9a8;
+    background: rgba(0, 0, 0, 0.95);
+    border: 1rem solid rgba(232, 163, 61, 0.6);
+    border-radius: 3rem;
+}
+
+.zanju-dh-warning:hover .zanju-dh-warn-tip {
+    display: block;
+}
+
+/* The same badge in the title bar, shown only while folded -- then the bar is all there is
+   to see, and the warning would otherwise be hidden with the body. */
+.zanju-dh-header-warn {
+    display: none;
+}
+
+.zanju-dh-folded .zanju-dh-header-warn-on {
+    display: block;
+}
+
+.zanju-dh-category {
+    display: flex;
+    align-items: center;
+    margin-top: 6rem;
+    color: #ffdd99;
+    opacity: 0.9;
+}
+
+.zanju-dh-category-name {
+    flex: 1 1 auto;
+}
+
+/* Icon grid: a full depot stays compact because names are only shown on hover. */
+.zanju-dh-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.zanju-dh-tile {
+    position: relative;
+    width: 44rem;
+    height: 44rem;
+    margin: 2rem;
+    /* Every tile carries the border, transparent until it is the fitted one. Adding the
+       border only when fitted would grow the box and shove the icon and count around. */
+    border: 2rem solid transparent;
+    border-radius: 3rem;
+}
+
+.zanju-dh-icon {
+    width: 44rem;
+    height: 44rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    /* `contain` keeps the game's own artefact art from being cropped at this size. */
+    background-size: contain;
+    text-align: center;
+    line-height: 44rem;
+    color: #ffdd99;
+}
+
+/* Count sits in the corner of the tile, like the game's own stack counters. */
+.zanju-dh-badge {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    min-width: 16rem;
+    padding: 0 3rem;
+    text-align: right;
+    font-size: 13rem;
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.75);
+    border-radius: 3rem;
+}
+
+/* Name shown only while the cursor is over the tile. Hidden by `display` rather than
+   opacity so it never intercepts anything: it sits under the root's pointer-events: none,
+   but a stray visible element would still overlap neighbouring tiles. */
+.zanju-dh-tip {
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: 46rem;
+    transform: translateX(-50%);
+    padding: 2rem 6rem;
+    white-space: nowrap;
+    font-size: 13rem;
+    color: #ffdd99;
+    background: rgba(0, 0, 0, 0.92);
+    border: 1rem solid rgba(255, 221, 153, 0.3);
+    border-radius: 3rem;
+}
+
+.zanju-dh-tile:hover .zanju-dh-tip {
+    display: block;
+}
+
+.zanju-dh-tile-equipped {
+    border-color: #ffdd99;
+    background: rgba(255, 221, 153, 0.12);
+}
+
+/* Placeholder for a section with nothing usable on the current tank. */
+.zanju-dh-empty {
+    opacity: 0.5;
+    font-size: 13rem;
+    padding: 2rem 0 2rem 2rem;
+}
+
+/* Clicking a tile fits that directive. */
+.zanju-dh-tile {
+    cursor: pointer;
+}
+
+.zanju-dh-tile:hover .zanju-dh-icon {
+    opacity: 1;
+}
+
+.zanju-dh-muted {
+    opacity: 0.6;
+}

@@ -1,0 +1,30 @@
+# Auto-generated translation template -- regenerate with `zwm lint i18n`; do not edit by hand.
+#
+# To start a new language, copy this file to `<language-code>.yml` (the code the WoT client
+# uses: `pl`, `de`, `fr`, `ru`, ...) and fill in the values. Each key's English source text is
+# in the `# en:` comment above it. Keys left empty ("") simply fall back to English in-game,
+# so partial translations are fine.
+
+# Window
+# en: "Directives"
+WINDOW_TITLE: ""
+
+# Categories
+# en: "Improve perk effect"
+CATEGORY_CREW_IMPROVE: ""
+# en: "Grant perk at 100%"
+CATEGORY_CREW_GRANT: ""
+# en: "Equipment"
+CATEGORY_EQUIPMENT: ""
+
+# Labels
+# en: "Auto-resupply"
+LABEL_AUTO_RESUPPLY: ""
+# en: "Your last one. Auto-resupply will buy a replacement after the battle."
+LABEL_RESUPPLY_WARNING: ""
+# en: "No vehicle selected"
+LABEL_NO_VEHICLE: ""
+# en: "No directives owned"
+LABEL_EMPTY: ""
+# en: "None available for this tank"
+LABEL_NONE_AVAILABLE: ""

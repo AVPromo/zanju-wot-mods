@@ -1,0 +1,14 @@
+# Window
+WINDOW_TITLE: "Directives"
+
+# Categories
+CATEGORY_CREW_IMPROVE: "Improve perk effect"
+CATEGORY_CREW_GRANT: "Grant perk at 100%"
+CATEGORY_EQUIPMENT: "Equipment"
+
+# Labels
+LABEL_AUTO_RESUPPLY: "Auto-resupply"
+LABEL_RESUPPLY_WARNING: "Your last one. Auto-resupply will buy a replacement after the battle."
+LABEL_NO_VEHICLE: "No vehicle selected"
+LABEL_EMPTY: "No directives owned"
+LABEL_NONE_AVAILABLE: "None available for this tank"
