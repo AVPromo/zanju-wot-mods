@@ -1,0 +1,19 @@
+# Widget states
+# Also shown when there is no vehicle in the garage at all, so keep the wording general.
+LABEL_NO_MISSION: "Нет задачи для этой техники"
+LABEL_PAUSED: "Задача на паузе"
+
+# Tooltip
+# "Locked" means the vehicle already completed this mission and cannot repeat it.
+LABEL_LOCKED_VEHICLES: "Заблокированная техника:"
+LABEL_VEHICLE_LOCKED: "Техника заблокирована"
+# An order is the game item that completes a primary condition. Stays singular for any number.
+LABEL_PAWNED: "Возврат бланка приказа"
+# {percent} of the average the mission needs per battle, not of the total. 100 is on target.
+LABEL_PACE: "{percent}% от целевого среднего показателя за бой"
+
+# Click hints, at the foot of the tooltip
+LABEL_HINT_OPEN: "ЛКМ — открыть задачу"
+LABEL_HINT_PAUSE: "Shift + ЛКМ — поставить задачу на паузу"
+LABEL_HINT_RESUME: "Shift + ЛКМ — возобновить задачу"
+LABEL_HINT_RESET: "Ctrl + ЛКМ — сбросить прогресс задачи"
