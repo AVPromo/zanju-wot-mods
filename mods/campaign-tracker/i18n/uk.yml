@@ -15,5 +15,5 @@ LABEL_PACE: "{percent}% від цільового середнього пока�
 # Click hints, at the foot of the tooltip
 LABEL_HINT_OPEN: "ЛКМ — відкрити завдання"
 LABEL_HINT_PAUSE: "Shift + ЛКМ — поставити завдання на паузу"
-LABEL_HINT_RESUME: "Shift + ЛКМ — відновити виконання завдання"
-LABEL_HINT_RESET: "Ctrl + ЛКМ — очистити прогрес завдання"
+LABEL_HINT_RESUME: "Shift + ЛКМ — продовжити завдання"
+LABEL_HINT_RESET: "Ctrl + ЛКМ — скинути прогрес завдання"
