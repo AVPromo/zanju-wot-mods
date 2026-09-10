@@ -313,6 +313,12 @@ def _int(value):
 
 
 def _apply_held_keys(logger):
+    if not _widgets_visible():
+        # The player is in battle, or on a screen drawn over the garage. No banner is on show,
+        # and in battle every entry in `_models` belongs to a lobby the client destroyed long
+        # ago. This runs inside the client's key dispatch on every modifier key of the session,
+        # so it does as little as it can -- see held_keys for what that dispatch costs.
+        return
     text = held_keys.text()
     _push(lambda model: model.setHeldKeys(text), logger)
     # The card draws its own hint lines now, so it needs the keys too.
@@ -331,10 +337,15 @@ def _widgets_visible():
 def _apply_visibility(logger):
     visible = _widgets_visible()
     _push(lambda model: model.setVisible(visible), logger)
-    if not visible:
-        # Leaving the garage does not move the pointer, so no banner reports a leave. Without
-        # this the card would stay on screen over whatever replaced the garage.
-        card_window.hide(logger)
+    if visible:
+        # The player kept pressing keys while the widgets were off screen, and `_apply_held_keys`
+        # dropped every one of those changes. Push the current keys before the banners are seen
+        # again, or the first hint line they light is the one held when the garage went away.
+        _apply_held_keys(logger)
+        return
+    # Leaving the garage does not move the pointer, so no banner reports a leave. Without
+    # this the card would stay on screen over whatever replaced the garage.
+    card_window.hide(logger)
 
 
 def _push(action, logger):

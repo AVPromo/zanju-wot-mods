@@ -12,6 +12,15 @@ game's tooltip manager subscribes to exactly these two events to do exactly this
 how "hold Alt for more detail" knows the key went down. Following it means the mod hears about a
 key the moment the game does, with no polling and no focus to win first.
 
+Two properties of that bus set the rules for this module. `onKeyDown` and `onKeyUp` are class
+attributes of `_InputHandler`, built once at import and never cleared, so a subscription lasts
+the whole session and fires in battle as well as in the garage. And `game.handleKeyEvent` calls
+the dispatch with no guard, ahead of `GUI.handleKeyEvent`, the messenger and the avatar's own
+input handler. `Event` raises the fault of a delegate again after it logs it, so an exception
+that escapes this module takes Escape, Tab, the radial menu and every battle command with it for
+that key. Nothing here may raise, and the consumer decides what is worth doing -- see
+`widgets_inject._apply_held_keys`, which does nothing while the widgets are off screen.
+
 A click is still read from the click event itself, which was always reliable. This is only for
 what the card says before the click.
 
@@ -28,6 +37,10 @@ _callback = None
 _installed = False
 _shift = False
 _ctrl = False
+# Kept from `install`, because `_on_key` is handed an event and nothing else.
+_logger = None
+# Whether the callback already failed once. Its fault is reported one time and no more.
+_reported_failure = False
 
 
 def text():
@@ -47,8 +60,10 @@ def install(logger, on_change):
     costs nothing -- but unlike the lobby's own events, this one belongs to a module-level
     singleton that outlives every lobby teardown, so the subscription is made once and kept.
     """
-    global _callback, _installed
+    global _callback, _installed, _logger, _reported_failure
     _callback = on_change
+    _logger = logger
+    _reported_failure = False
     if _installed:
         return True
 
@@ -86,8 +101,8 @@ def _on_key(event):
     try:
         held = _read_key(event)
     except Exception:
-        # No logging: this runs on every key the player presses anywhere in the garage, so a
-        # broken read would fill the log rather than report once.
+        # No logging: this runs on every key the player presses anywhere in the client, in
+        # battle as well as in the garage, so a broken read would fill the log.
         return
     if held is None:
         return
@@ -103,8 +118,30 @@ def _on_key(event):
             return
         _ctrl = down
 
-    if _callback is not None:
+    if _callback is None:
+        return
+    try:
         _callback()
+    except Exception:
+        _report_failure()
+
+
+def _report_failure():
+    """Report the first fault the callback raises, then stay quiet.
+
+    The guard around the call is the point, not this line. See the module docstring for what an
+    exception leaving `_on_key` costs the player. Only the first fault reaches the log, because
+    a fault that repeats writes on every modifier key for the rest of the session.
+    """
+    global _reported_failure
+    if _reported_failure or _logger is None:
+        return
+    _reported_failure = True
+    try:
+        _logger.exception('The modifier key callback failed; the card cannot light a line')
+    except Exception:
+        # Even the report has to be unable to raise into the client's key dispatch.
+        pass
 
 
 def _read_key(event):

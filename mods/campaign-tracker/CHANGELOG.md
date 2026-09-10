@@ -3,6 +3,7 @@ Changelog
 
 ## 1.1.2 (10 September 2026)
 
+- Fixed the mod being able to interrupt the game's own keys. Escape, Tab and the radial menu commands could stop working. The mod now watches Shift and Ctrl only while its banners are on screen.
 - New Russian and Ukrainian translations. Thank you [@ICELUV0x](https://github.com/ICELUV0x)!
 
 ## 1.1.1 (2 September 2026)
