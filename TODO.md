@@ -112,7 +112,7 @@ conversion at each end.
 
 A player reported two faults on 1.1.1 over Discord, on 10 September 2026. They named `campaign-tracker` after they disabled every other mod one at a time. No GitHub issue carries this yet. Ask them to open one before it goes cold. Nothing ties the two faults to one cause, so treat them apart.
 
-1. A notification about a newly researched vehicle that never clears, on the garage menu.
+1. A notification about a newly researched vehicle that never clears. The wording fits both the garage menu badge and the achievements popup. Closed below as the client's own, but see the open question.
 2. After about an hour of play, the radial menu quick commands stop working. Escape and Tab sometimes stop as well.
 
 **Fault 2 has a proven mechanism, and 1.1.2 closes it.** `held_keys` subscribed to `gui.InputHandler.g_instance`, a process-global bus that fires in battle. It called its consumer with no guard. `game.handleKeyEvent` runs `GUI.handleKeyEvent`, the messenger and the avatar's own input handler after that dispatch. One exception therefore costs the whole key press. See [Events And Callbacks](docs/reference/events-and-callbacks.md#guiinputhandler-is-the-worst-event-to-raise-in). The mod now guards the callback and does the work only while its banners are on screen.
@@ -121,23 +121,32 @@ A player reported two faults on 1.1.1 over Discord, on 10 September 2026. They n
 
 **Two more suspects for fault 2, if it survives 1.1.2.**
 
-- `_models` in `widgets_inject` never shrinks. Every garage build appends a view model, and each entry from a destroyed lobby still takes a native property write. The 1.1.2 gate stops those writes outside the garage, but not inside it. The list still climbs for the whole session.
+- `_models` in `widgets_inject` grew with no bound. A 2.4.0 game.log shows 50 entries after a few minutes of walking in and out of the garage, and every entry took a full `setSnapshot` write per refresh. 1.1.2 trims the list to the newest four. `ViewModel` carries no liveness test, so the trim goes by age. `directives-helper` shares the pattern and the same log shows it at 50 as well, so it needs the same trim.
 - The hover card window may accumulate. `card_window.install` builds a new window per garage build when the old one is not alive. It trusts the client to destroy the old one with the lobby. A stale window on `TOP_WINDOW` is a hit-test rectangle on the band that also holds `ingameMenu`. The reporter's log answers this. It carries `The hover card window was destroyed with the lobby; rebuilding` on each rebuild. Count those lines against the garages they visited.
 
-**Fault 1 has a suspect and no proof.** The mod attached to `MainMenuModel`, confirmed in the log. That model owns `menuItems`, an array of `MenuItemModel` that each carry a `notification` child model, and it owns `hasTechTreeEvents`. Those are the garage menu badges the reporter describes. The mod adds two child models to it, `ModInjectModel` and `zanjuCtWidgets`, past the five properties the class declares. Whether that is what sticks a badge is untested.
+**Fault 1 is not ours. Closed.** The popup is the achievements 2.0 notification, `3 Achievements Unlocked! France: Fauteur and more`, with the trophy score beside it. `AchievementsEarningController` builds it as a `NotificationCommand` when `AchievementsController.onNewAchievementsEarned` fires. That event comes from `__dossierUpdateCallBack`, and its input comes from `__onChatMessageReceived`, which reads service channel messages of type `achievementReceived`.
 
-**Fault 1 is testable here, without the reporter.** This notification appears on our own account as well, which the Discord thread records. So the theory can be settled in one session rather than waited on. The test costs one line:
+The loop is in the client. `__dossierUpdateCallBack` calls `__addUnseenAdvancedAchievements` on the same pass that fires the popup, so the popup path puts the achievement back in the unseen set every time it runs. A click in the achievements menu clears that set, but the set is not what gates the popup. The service channel message is. The seen state also only reaches disk in `AdvancedAchievementsSettingsManager.stop()`, on `onAccountBecomeNonPlayer`.
 
-1. Remove `MainMenuModel` from `_CANDIDATE_MODELS` in `widgets_inject.py`.
-2. Build the mod and install it.
-3. Play one session, with `directives-helper` installed as well.
-4. Examine the garage menu for the notification that does not clear.
+Our side is clear. A grep over all five mods for `AccountSettings`, dossier, achievement and the account lifecycle hooks returns one hit, and it is a comment in `campaigns.py` about campaign numbering. We neither read nor write that state, and we subscribe to nothing on the account teardown path. Reproduced on our own account on 10 September 2026, and a clean quit at 19:46:52 did not stop it.
 
-`campaign-tracker` then takes `ModeStateModel` or `VehicleMenuModel`, and `directives-helper` takes `MainMenuModel`. A notification that stops proves the view is the cause. It also proves the fault follows the view rather than the mod, so `directives-helper` users inherit it. A notification that stays clears `MainMenuModel`, and the search moves elsewhere.
+**One question stays open.** The `MainMenuModel` badge, `MenuItemModel.notification`, is a different component from this popup. The Discord wording covers both. Ask the reporter which one they saw. Only the badge could ever have been ours, and even that was never more than a suspicion.
 
-**The 1.1.2 release decision waits on this.** Ship the input fix on its own and keep this entry open. Or hold 1.1.2 until fault 1 is settled, and give users one update rather than two. Do not write a changelog line for fault 1 until a test result backs it. Nothing in 1.1.2 touches the view claim, so a line that claims a fix there is false.
+**1.1.2 is free to ship.** Fault 1 no longer holds it. The changelog carries the input fix and the trimmed model list, and neither mentions fault 1, which is correct.
 
-**Dropping `MainMenuModel` moves the risk rather than removing it.** `directives-helper` lists it first and `campaign-tracker` lists it last. The preference decides nothing, because the client's build order does. Take it off `campaign-tracker` and two candidates remain. Any third mod that injects into the hangar can then leave the banners with no view. The player sees no reason for it. Take it off both and two sub-views serve two mods with no spare. Find more injectable sub-views in `mono/hangar/main` before trading this one away.
+**If the candidate list is ever changed, keep the headroom in mind.** `directives-helper` lists it first and `campaign-tracker` lists it last. The preference decides nothing, because the client's build order does. Take `MainMenuModel` off `campaign-tracker` and two candidates remain. Any third mod that injects into the hangar can then leave the banners with no view. The player sees no reason for it. Take it off both and two sub-views serve two mods with no spare. Find more injectable sub-views in `mono/hangar/main` before trading any of them away.
+
+## Campaign Tracker: No Back Button To The Campaign Map
+
+Held, not started. A click on a banner opens the campaign screen with no back button to the campaign map. The game's own PM4 hangar banner has the same gap. This is an improvement on the client, not a repair of the mod.
+
+**Why the button is missing.** The lobby back stack is not a history of screens. `recorded_states.pushRecordedTransitionSource` pushes the source state of a transition. It does so only when that transition declares `record=True`. `gui/impl/lobby/personal_missions_30/state.py` declares those on `CampaignSelectorState`, for `ProgressionState`, `MissionsState`, `AssemblingState` and `PersonalMissionsPageState`. So the button appears only when the machine took a transition out of the campaign selector. A jump straight from the garage records nothing, and `backNavigationDescription` stays None. Note that `addNavigationTransition(..., record=True)` also installs the return path, so the route back is already in the graph. Only the stack entry is missing.
+
+**Rejected: route through the selector.** A navigation to the selector, then on to the campaign, records the right source and uses only public API. It also walks the player through each screen in turn. That experience is worse than a missing button, so it is not worth the trade.
+
+**To try: push the recorded state.** Call `machine._LobbyStateMachine__recordedStates.push(machine.getStateByCls(CampaignSelectorState))` before the navigation the mod already makes. `push` fills its own params. The label comes from the client's own string, so every language is covered with no new translation. The attribute is private and name-mangled, so guard the call. A rename upstream then costs the button and nothing else, which is where we stand today.
+
+**Settle these before shipping it.** `clearCycles` and `_ViewKillingObserver` both prune that stack, so test that the entry survives until the player presses back. Campaigns 1 and 2 open a mission page. Campaign 3 opens a filtered list. Their screen order can differ, so test each branch. `route_gate._get_machine` already reaches the state machine.
 
 ## Testing Backlog
 
