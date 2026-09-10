@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.1.2 (10 September 2026)
+
+- New Russian and Ukrainian translations. Thank you [@ICELUV0x](https://github.com/ICELUV0x)!
+
 ## 1.1.1 (2 September 2026)
 
 - Fixed the banner not working for the Fossa operation.
