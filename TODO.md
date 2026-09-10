@@ -136,17 +136,21 @@ Our side is clear. A grep over all five mods for `AccountSettings`, dossier, ach
 
 **If the candidate list is ever changed, keep the headroom in mind.** `directives-helper` lists it first and `campaign-tracker` lists it last. The preference decides nothing, because the client's build order does. Take `MainMenuModel` off `campaign-tracker` and two candidates remain. Any third mod that injects into the hangar can then leave the banners with no view. The player sees no reason for it. Take it off both and two sub-views serve two mods with no spare. Find more injectable sub-views in `mono/hangar/main` before trading any of them away.
 
-## Campaign Tracker: No Back Button To The Campaign Map
+## Campaign Tracker: Back Button To The Campaign Map (done)
 
-Held, not started. A click on a banner opens the campaign screen with no back button to the campaign map. The game's own PM4 hangar banner has the same gap. This is an improvement on the client, not a repair of the mod.
+Shipping in 1.1.2. `mods/campaign-tracker/src/zanju_ct/back_navigation.py` records the states the client's own path records. It does so right after a banner click opens a campaign screen. The reasoning behind every line of it is in [The Lobby Back Stack](docs/reference/ui-and-scaleform.md#the-lobby-back-stack).
 
-**Why the button is missing.** The lobby back stack is not a history of screens. `recorded_states.pushRecordedTransitionSource` pushes the source state of a transition. It does so only when that transition declares `record=True`. `gui/impl/lobby/personal_missions_30/state.py` declares those on `CampaignSelectorState`, for `ProgressionState`, `MissionsState`, `AssemblingState` and `PersonalMissionsPageState`. So the button appears only when the machine took a transition out of the campaign selector. A jump straight from the garage records nothing, and `backNavigationDescription` stays None. Note that `addNavigationTransition(..., record=True)` also installs the return path, so the route back is already in the graph. Only the stack entry is missing.
+**Tested in game on 10 September 2026.** It works in both campaign styles. The first build recorded the campaign map alone, and one press then skipped a screen in campaign 3. The `game.log` of the natural path settled it. A back press out of a line list navigates to `subScope/subLayer/personalMissions3Entry/personalMissions3` first. A second press reaches `subScope/subLayer/campaignSelector`. The mod records both.
 
-**Rejected: route through the selector.** A navigation to the selector, then on to the campaign, records the right source and uses only public API. It also walks the player through each screen in turn. That experience is worse than a missing button, so it is not worth the trade.
+Nothing here is open. What follows is what a later client version can break, and how to see it.
 
-**To try: push the recorded state.** Call `machine._LobbyStateMachine__recordedStates.push(machine.getStateByCls(CampaignSelectorState))` before the navigation the mod already makes. `push` fills its own params. The label comes from the client's own string, so every language is covered with no new translation. The attribute is private and name-mangled, so guard the call. A rename upstream then costs the button and nothing else, which is where we stand today.
+**Watch `game.log` for `Recorded the way back from`.** One line per click, naming each state it wrote. A warning about the back stack instead means the client renamed a private name. The button is then off and nothing else breaks, which is the failure this was built for.
 
-**Settle these before shipping it.** `clearCycles` and `_ViewKillingObserver` both prune that stack, so test that the entry survives until the player presses back. Campaigns 1 and 2 open a mission page. Campaign 3 opens a filtered list. Their screen order can differ, so test each branch. `route_gate._get_machine` already reaches the state machine.
+**Escape reads the same stack.** It walks the same path, so the garage costs a press per step recorded. That is the client's own cost on its own path, and the changelog says so.
+
+**A refused click writes nothing.** Both client dispatchers refuse a navigation quietly. `_steps_back` therefore reads where the player actually landed before it writes anything. Without that, a refused click leaves the garage carrying a back button to the campaign map. Re-check this after a client update, because it rests on two route names.
+
+**Not covered.** The mod records the path the client's own route records, and nothing beyond it. A player can walk deeper into the client's own screens from there. The client's own stack takes over at that point.
 
 ## Testing Backlog
 

@@ -7,11 +7,14 @@ is built from. Both entry points are the client's own dispatchers and both refus
 navigation themselves when the page cannot be opened, so that check is left to them. See
 docs/reference/personal-missions.md.
 
+A screen opened this way is given the same way back the client's own path gives it -- see
+back_navigation for why the client does not give it one by itself.
+
 Every client import stays inside a function, so this module is importable outside the game.
 """
 from __future__ import absolute_import, print_function, unicode_literals
 
-from . import campaigns, collector
+from . import back_navigation, campaigns, collector
 
 
 def open_mission(branch_name, logger):
@@ -25,11 +28,18 @@ def open_mission(branch_name, logger):
 
     try:
         if branch_name in campaigns.BRANCHES_WITHOUT_MISSION_PAGE:
-            return _open_mission_list(quest, logger)
-        return _open_mission_page(quest, logger)
+            opened = _open_mission_list(quest, logger)
+        else:
+            opened = _open_mission_page(quest, logger)
     except Exception:
         logger.exception('Failed to open the mission screen for campaign %s', branch_name)
         return False
+
+    if opened:
+        # After the navigation, never before it. The reason is in back_navigation, and it is
+        # the whole design of that module.
+        back_navigation.record_path_back(logger)
+    return opened
 
 
 def _open_mission_page(quest, logger):

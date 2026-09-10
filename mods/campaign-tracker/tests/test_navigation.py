@@ -9,12 +9,15 @@ all.
 The client dispatchers themselves are imported inside `navigation`'s own functions, so the
 tests below only reach as far as the decision. What each dispatcher then does is the client's
 business and is not restated here.
+
+The back step is stood in for as well. What it writes is checked in test_back_navigation. What
+is checked here is that a screen which opened gets one, and a screen which did not does not.
 """
 from __future__ import absolute_import, print_function, unicode_literals
 
 import unittest
 
-from zanju_ct import collector, navigation
+from zanju_ct import back_navigation, collector, navigation
 
 
 class _Logger(object):
@@ -65,10 +68,15 @@ class OpenMissionTest(unittest.TestCase):
         navigation._open_mission_page = _fake_page
         navigation._open_mission_list = _fake_list
 
+        self.back_steps = []
+        self._real_record = back_navigation.record_path_back
+        back_navigation.record_path_back = self.back_steps.append
+
     def tearDown(self):
         collector.find_active_mission = self._real_finder
         navigation._open_mission_page = self._real_page
         navigation._open_mission_list = self._real_list
+        back_navigation.record_path_back = self._real_record
 
     def _with_mission(self, quest):
         collector.find_active_mission = lambda branch, logger: quest
@@ -77,6 +85,24 @@ class OpenMissionTest(unittest.TestCase):
         self._with_mission(_Quest())
         self.assertTrue(navigation.open_mission('regular', _Logger()))
         self.assertEqual(self.opened, [('page', 4207)])
+
+    def test_a_screen_that_opened_gets_a_step_back_to_the_campaign_map(self):
+        self._with_mission(_Quest())
+        logger = _Logger()
+        navigation.open_mission('regular', logger)
+        self.assertEqual(self.back_steps, [logger])
+
+    def test_a_screen_that_did_not_open_gets_no_step_back(self):
+        # The mission went away between the render and the click, so nothing was navigated to.
+        self._with_mission(None)
+        navigation.open_mission('regular', _Logger())
+        self.assertEqual(self.back_steps, [])
+
+    def test_a_dispatcher_that_refused_gets_no_step_back(self):
+        self._with_mission(_Quest())
+        navigation._open_mission_page = lambda quest, logger: False
+        self.assertFalse(navigation.open_mission('regular', _Logger()))
+        self.assertEqual(self.back_steps, [])
 
     def test_campaign_2_opens_the_missions_own_screen(self):
         self._with_mission(_Quest())

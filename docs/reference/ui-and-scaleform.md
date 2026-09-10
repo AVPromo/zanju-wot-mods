@@ -203,6 +203,30 @@ For deciding *when* a garage overlay belongs on screen, read the lobby's visible
 a container alias. See `route_gate.py` in `directives-helper` and the route table in
 [Directives And Battle Boosters](directives-and-battle-boosters.md#when-the-window-shows).
 
+## The Lobby Back Stack
+
+**The back button is not a history of screens.** One stack holds it. It lives in `gui/lobby_state_machine/recorded_states.py`. `pushRecordedTransitionSource` records the *source* state of the transition the machine just took. It records that state only when the transition declares `record=True`. Nothing else writes to the stack. A transition without that flag therefore leaves its screen with no way back, and the header draws no button.
+
+That is what costs a garage banner its back button. It costs the game's own banners the same. `addNavigationTransitionFromParent` hangs a state's transition off the subtree root, `subScope/subLayer`, and gives it `record=False`.
+
+**An entry does not survive the jump it goes before.** `pushRecordedTransitionSource` first drops every recorded state under the transition source. The source here is the subtree root, so the whole stack goes. Write the entry after the navigation instead.
+
+**Write the whole path, not one entry.** A screen two steps in records two states on the way in. The player then expects two presses back out. Read the client's own path off `game.log` first. Every `Navigating to` line of a back press names one entry the natural route left behind.
+
+**Record the transition source, not the screen.** A back press navigates to the state that owns the `record=True` transition. That is often a parent, not the screen on display. Entering the parent lands on its initial child, which is that screen. The `Navigating to` line names it exactly.
+
+**Write the entries under what the stack already holds, not on top.** A screen that needs a space to build enters a loading state first. That step records itself. It then takes itself back off with `goBack` once the build finishes. An entry on top is the entry `goBack` takes, which drops the player on the wrong screen. Underneath, the stack matches what the natural path builds, step for step.
+
+**A route change draws the button.** `NavigationPresenter` reads `routeInfo.backDescription` on `onVisibleRouteChanged`. That event fires before a late entry exists, so recompute the route by hand afterwards. The client does the same whenever a closed window prunes the stack.
+
+**The label costs no translation.** Each state answers `getBackNavigationDescription` with the client's own string. That covers every language the game ships.
+
+**Escape reads this stack too.** An entry changes what Escape does as much as what the button does. Both walk the recorded path first. That puts the garage one press further away for each entry written, and the client's own path costs the same.
+
+**Know what prunes the stack before you trust an entry to stay.** `clearCycles` drops a repeat of the state it enters. `_ViewKillingObserver` and `_RecordedStates.__onWindowStatusChanged` drop entries whose view died. Back navigation pops. At 2.4.0.0 only crew states register a removable-state selector, so that window path reaches nothing else.
+
+`_RecordedStates` and `__updateVisibleRoute` are both private and name-mangled, so guard every call. A rename upstream then costs the button and nothing else. `back_navigation.py` in `campaign-tracker` is the worked example. [Personal Missions](personal-missions.md#pausing-resetting-and-opening) names the states it writes.
+
 ## Appending To A Classic Blocks Tooltip
 
 Some lobby tooltips are still built in Python as *blocks* rather than rendered by Gameface,
