@@ -5,6 +5,7 @@
 // only the calls the widgets make are implemented.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 class FakeNode {
@@ -399,6 +400,109 @@ test('a mission with no battle limit draws no battles row at all', () => {
 
     widgets.renderBattles(node, null);
     assert.ok(node.className.includes('zanju-ct-battles-empty'));
+});
+
+// The banner's icons and the hover card's notes say the same things in two places, and each
+// pair has to agree on its colour. Nothing in either document can check that at runtime -- the
+// banner lives in the garage document and the card in the mod's own window, with a stylesheet
+// each -- so the pairing is pinned here, against the stylesheets themselves.
+function styleSheet(name) {
+    const css = readFileSync(new URL('../res/gui/gameface/mods/zanju_campaigns/' + name,
+        import.meta.url), 'utf8');
+    // Comments first: these stylesheets carry long ones, and a comma or a brace inside one
+    // would be read as part of a selector by the split below.
+    return css.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+// Every declaration that reaches one selector, however many rules it is spread over.
+function declarationsFor(css, selector) {
+    return css.split('}')
+        .filter((rule) => rule.split('{')[0].split(',')
+            .some((part) => part.trim() === selector))
+        .map((rule) => (rule.split('{')[1] || '').trim())
+        .join(' ');
+}
+
+function declaredValue(declarations, property) {
+    const match = declarations.match(new RegExp(property + '\\s*:\\s*([^;]+);'));
+    return match ? match[1].trim() : null;
+}
+
+test('every banner icon is tinted, and cut from a mask rather than shipped in colour', () => {
+    const css = styleSheet('widgets.css');
+    // The four states the banner can flag. A fifth added to `bannerFlags` or to STAGES without
+    // a rule of its own would draw an untinted, unmasked box.
+    for (const name of ['paused', 'locked', 'improving', 'pawned']) {
+        const declarations = declarationsFor(css, '.zanju-ct-flag-' + name);
+        assert.ok(declaredValue(declarations, 'mask-image'), name + ' has no mask');
+        assert.ok(declaredValue(declarations, 'background-color'), name + ' has no colour');
+    }
+    // One white file per icon, never a coloured copy per state.
+    assert.equal(css.includes('background-image'), false);
+});
+
+test('a banner icon takes the colour of the card note that says the same thing', () => {
+    const widgetsCss = styleSheet('widgets.css');
+    const cardCss = styleSheet('card.css');
+    const warning = declaredValue(declarationsFor(cardCss, '.zanju-ct-note-warning'), 'color');
+    const good = declaredValue(declarationsFor(cardCss, '.zanju-ct-note-good'), 'color');
+    assert.ok(warning && good && warning !== good);
+
+    const colourOf = (name) => declaredValue(
+        declarationsFor(widgetsCss, '.zanju-ct-flag-' + name), 'background-color');
+    // Paused and locked both cost the player battles, and the card warns about both.
+    assert.equal(colourOf('paused'), warning);
+    assert.equal(colourOf('locked'), warning);
+    // Both stages are good news, and the card says so in the same green.
+    assert.equal(colourOf('improving'), good);
+    assert.equal(colourOf('pawned'), good);
+});
+
+test('a mission asking for several vehicles counts the ones already spent on it', () => {
+    // The one number that says how much of the mission is behind the player. The rows above it
+    // count the battle in progress, which starts over in the next vehicle.
+    assert.deepEqual(widgets.bannerVehicles(entry({
+        vehicles: { completed: 2, required: 5, locked: ['T-62A'], currentLocked: false },
+    })), { completed: 2, required: 5 });
+});
+
+test('a mission that asks for no particular vehicles counts none', () => {
+    assert.equal(widgets.bannerVehicles(entry({})), null);
+    assert.equal(widgets.bannerVehicles(entry({ vehicles: null })), null);
+    assert.equal(widgets.bannerVehicles(null), null);
+});
+
+test('the vehicles get a row of their own, spent out of wanted', () => {
+    const node = document.createElement('div');
+    widgets.renderVehicles(node, { completed: 2, required: 5 });
+    // The same three columns as the rows above, so the slashes line up. Nothing labels the
+    // row: no banner carries more than two of these counters at once.
+    assert.deepEqual(node.children.map((child) => child.textContent), ['2', '/', '5']);
+    assert.equal(node.querySelector('.zanju-ct-vehicles-used').textContent, '2');
+    assert.equal(node.querySelector('.zanju-ct-vehicles-total').textContent, '5');
+});
+
+test('a mission with no vehicle requirement draws no vehicles row at all', () => {
+    const node = document.createElement('div');
+    widgets.renderVehicles(node, null);
+    assert.ok(node.className.includes('zanju-ct-vehicles-empty'));
+    assert.equal(node.children.length, 0);
+});
+
+test('the vehicle row reaches the banner alongside the rows it lines up with', () => {
+    const widget = widgets.buildWidget(entry({}));
+    widgets.renderWidget(widget, entry({
+        attempts: [attempt({ type: 'limited', battles: [], current: 3, goal: 10 })],
+        conditions: [condition('Modules', { counted: true, current: 7, goal: 25 })],
+        vehicles: { completed: 2, required: 5, locked: [], currentLocked: false },
+    }), LABELS);
+    assert.equal(widget.querySelector('.zanju-ct-vehicles-used').textContent, '2');
+    assert.equal(widget.querySelector('.zanju-ct-vehicles-total').textContent, '5');
+
+    // And it goes away again when the next tank's mission asks for no particular vehicles.
+    widgets.renderWidget(widget, entry({}), LABELS);
+    assert.ok(widget.querySelector('.zanju-ct-vehicles').className
+        .includes('zanju-ct-vehicles-empty'));
 });
 
 test('the banner score is tinted from the pace Python worked out', () => {

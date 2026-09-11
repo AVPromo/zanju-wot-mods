@@ -75,16 +75,24 @@ _KEY_IMPROVING = '#ingame_gui:statistics/tab/quests/status/increaseResult'
 _claimed_class = None
 
 _patched = []
+# How many data models to keep, newest last. The client builds one hangar document at a time,
+# so only the last entry is ever on screen. The others cover the frame or two that a rebuild
+# can overlap in, and leave a margin for a mode that builds two.
+_MAX_LIVE_MODELS = 4
+# Every model this session ever attached. Only the log reads it. It is the number that made
+# the growth below visible, so the trim must not hide it.
+_attached_total = 0
 # Live data models, so a change of tank or of mission progress can be pushed to whichever
 # hangar views are currently carrying one.
 #
-# Entries accumulate, and that is left alone deliberately. Nothing here can tell when a view
-# dies: a torn-down view model accepts updates and ignores them rather than refusing them, so
-# the drop path in `_push` never runs. Holding them weakly does not help either, because the
-# client keeps every model it built for the whole session, so the count climbs either way.
-# Measured on EU 2.3.1.3 across this mod and the sibling directives mod, which shares the
-# pattern. The cost is one ignored property set per dead entry, since the payload is built
-# once per refresh whatever this list holds.
+# Nothing here can tell when a view dies. A torn-down view model takes an update and ignores
+# it rather than refusing it, so the drop path in `_push` never runs, and `ViewModel` is not a
+# `PyObjectEntity`, so it carries no `isBound` to ask instead. Measured on EU 2.3.1.3.
+#
+# The list is therefore trimmed by age, not by liveness. It used to grow with no bound at all,
+# which cost one property set per dead entry on every refresh. A game.log from 2.4.0 shows 50
+# entries after a few minutes of walking in and out of the garage, and `setSnapshot` carries
+# the whole campaign snapshot as JSON. The sibling directives mod shares the pattern.
 _models = []
 
 
@@ -313,6 +321,12 @@ def _int(value):
 
 
 def _apply_held_keys(logger):
+    if not _widgets_visible():
+        # The player is in battle, or on a screen drawn over the garage. No banner is on show,
+        # and in battle every entry in `_models` belongs to a lobby the client destroyed long
+        # ago. This runs inside the client's key dispatch on every modifier key of the session,
+        # so it does as little as it can -- see held_keys for what that dispatch costs.
+        return
     text = held_keys.text()
     _push(lambda model: model.setHeldKeys(text), logger)
     # The card draws its own hint lines now, so it needs the keys too.
@@ -331,10 +345,15 @@ def _widgets_visible():
 def _apply_visibility(logger):
     visible = _widgets_visible()
     _push(lambda model: model.setVisible(visible), logger)
-    if not visible:
-        # Leaving the garage does not move the pointer, so no banner reports a leave. Without
-        # this the card would stay on screen over whatever replaced the garage.
-        card_window.hide(logger)
+    if visible:
+        # The player kept pressing keys while the widgets were off screen, and `_apply_held_keys`
+        # dropped every one of those changes. Push the current keys before the banners are seen
+        # again, or the first hint line they light is the one held when the garage went away.
+        _apply_held_keys(logger)
+        return
+    # Leaving the garage does not move the pointer, so no banner reports a leave. Without
+    # this the card would stay on screen over whatever replaced the garage.
+    card_window.hide(logger)
 
 
 def _push(action, logger):
@@ -395,10 +414,6 @@ def _bind_events(logger):
         logger.exception('Failed to subscribe to vehicle changes')
 
     _bind_missions(logger)
-    # Built here rather than at load: the card needs the lobby's main window as its parent, and
-    # that window does not exist until a hangar view is being built. `install` is a no-op once
-    # the window stands, and the window is destroyed on teardown with everything else.
-    card_window.install(logger)
     # The lobby state machine belongs to the lobby app, so it is a different object after every
     # teardown; `install` compares identity and only re-subscribes when it actually changed.
     route_gate.install(logger, _on_route_visibility)
@@ -505,7 +520,7 @@ def _patch(model_class, gf_mod_inject, logger):
     original = model_class._initialize
 
     def _initialize_with_widgets(self):
-        global _claimed_class
+        global _claimed_class, _attached_total
         original(self)
         try:
             claim, _claimed_class = view_claim.decide(
@@ -525,8 +540,10 @@ def _patch(model_class, gf_mod_inject, logger):
             data_model = _WidgetsDataModel(_build_payload(logger))
             self._addViewModelProperty(str(_DATA_PROPERTY), data_model)
             _models.append(data_model)
-            logger.info('Campaign widgets attached to %s (%d live)',
-                        model_class.__name__, len(_models))
+            del _models[:-_MAX_LIVE_MODELS]
+            _attached_total += 1
+            logger.info('Campaign widgets attached to %s (%d built, %d kept)',
+                        model_class.__name__, _attached_total, len(_models))
         except Exception:
             _claimed_class = None
             logger.exception('Failed to attach the campaign widgets model')

@@ -416,7 +416,44 @@ function renderBattles(node, tally) {
         String(tally.allowed)));
 }
 
-// The banner's fifth row: the states that change what the player should do with this tank,
+// The banner's fifth row, on the missions that ask to be completed in several different
+// vehicles: how many are already spent on it out of how many it wants.
+//
+// A vehicle that completes such a mission is locked out of it afterwards, so this counter only
+// ever climbs, and it is the one number saying how much of the mission is behind the player.
+// The rows above it cannot say that: they count the battle in progress, which starts over in
+// the next vehicle.
+//
+// The same shape as the battles row above, and nothing labels either. A banner never carries
+// more than two of these counters at once, so the pair is never ambiguous. Missions without
+// the requirement report no vehicles at all, and the row disappears rather than holding a line
+// of height open on every other banner. Only campaign 3 asks for it today.
+function bannerVehicles(entry) {
+    const vehicles = entry && entry.vehicles;
+    if (!vehicles || !vehicles.required) {
+        return null;
+    }
+    return { completed: vehicles.completed, required: vehicles.required };
+}
+
+function renderVehicles(node, vehicles) {
+    if (!node) {
+        return;
+    }
+    node.textContent = '';
+    if (!vehicles) {
+        node.className = 'zanju-ct-vehicles zanju-ct-vehicles-empty';
+        return;
+    }
+    node.className = 'zanju-ct-vehicles';
+    node.appendChild(el('div', 'zanju-ct-half zanju-ct-half-left zanju-ct-vehicles-used',
+        String(vehicles.completed)));
+    node.appendChild(el('div', 'zanju-ct-vehicles-sep', '/'));
+    node.appendChild(el('div', 'zanju-ct-half zanju-ct-half-right zanju-ct-vehicles-total',
+        String(vehicles.required)));
+}
+
+// The banner's sixth row: the states that change what the player should do with this tank,
 // said with an icon rather than a word because the banner has no room for a word.
 //
 // - **paused** — the mission is on pause, so nothing played in it counts.
@@ -475,6 +512,7 @@ function buildWidget(entry) {
     face.appendChild(el('div', 'zanju-ct-id', ''));
     face.appendChild(el('div', 'zanju-ct-tally'));
     face.appendChild(el('div', 'zanju-ct-battles'));
+    face.appendChild(el('div', 'zanju-ct-vehicles'));
     face.appendChild(el('div', 'zanju-ct-flags'));
     widget.appendChild(face);
 
@@ -508,6 +546,7 @@ function renderWidget(widget, entry, labels) {
     const tally = bannerTally(entry);
     renderTally(widget.querySelector('.zanju-ct-tally'), tally);
     renderBattles(widget.querySelector('.zanju-ct-battles'), tally);
+    renderVehicles(widget.querySelector('.zanju-ct-vehicles'), bannerVehicles(entry));
     renderFlags(widget.querySelector('.zanju-ct-flags'), bannerFlags(entry));
     bindHover(widget);
 }
@@ -959,6 +998,7 @@ export {
     applyLayout,
     bannerFlags,
     bannerTally,
+    bannerVehicles,
     bindHover,
     bindModelPush,
     buildWidget,
@@ -977,6 +1017,7 @@ export {
     renderBattles,
     renderFlags,
     renderTally,
+    renderVehicles,
     renderWidget,
     renderWidgets,
     reportHover,

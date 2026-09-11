@@ -77,6 +77,30 @@ unsubscribe order, handler identity and teardown are in
 [hooks-events](https://modding.wot-tools.dev/hooks-events.html). See
 [The Upstream Modding Guide](upstream-guide.md).
 
+### `gui.InputHandler` Is The Worst Event To Raise In
+
+`_InputHandler.onKeyDown` and `onKeyUp` are class attributes of the singleton, built once when `gui/InputHandler.py` imports and never cleared. A subscription therefore lasts the whole client session and fires in battle as well as in the garage. No lobby teardown takes it away, so a mod that subscribes in the garage keeps hearing keys through every battle after it.
+
+`game.handleKeyEvent` makes that dispatch call with no guard, and everything that owns a key runs after it:
+
+```python
+if not isRepeat:
+    InputHandler.g_instance.handleKeyEvent(event)          # no try/except, result ignored
+    if not guiHandled and GUI.handleKeyEvent(event):       # Escape, Tab
+        return True
+if not isRepeat:
+    if MessengerEntry.g_instance.gui.handleKey(event):     # chat
+        return True
+inputHandler = getattr(BigWorld.player(), 'inputHandler', None)
+if inputHandler is not None:
+    if inputHandler.handleKeyEvent(event):                 # radial menu, every battle command
+        return True
+```
+
+One exception from one handler therefore costs the player that whole key press, not one skipped listener. `campaign-tracker` 1.2.0 fixed exactly this. It watched Shift and Ctrl for its hover card, it watched them in battle as well, and it called its consumer with no guard.
+
+Two rules follow. Guard the handler body so nothing can leave it. Then do the work only while the mod has something on screen to change. The second rule earns its place on its own: a handler that pushes to the view models of a lobby the client destroyed makes native writes on every key press for the rest of the session.
+
 ## Notes
 
 - **`g_currentVehicle` throws your subscription away on every lobby teardown.** It extends

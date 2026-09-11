@@ -202,6 +202,12 @@ another, and no amount of tuning the text properties fixes the broken one.
 
 **Text wraps by flex line, not by inline flow.** There is no usable inline layout here. The game's own stylesheets carry `display: flex` 7821 times, `display: block` 114 times, and `display: inline` 3 times. None of those three uses puts two inline boxes on one line. A paragraph with one coloured word in it cannot be a block with a `<span>` inside: the span stacks above the text and reads as a heading above it. The game's own answer is to split the string on spaces, give every word its own element, and wrap the row with `display: flex; flex-wrap: wrap` — its formatted-text component does exactly this, and `.FormatText_base` carries those two properties. Supply the gap between words yourself with `margin-right`, because the split threw the real space away. Measure it rather than guess it: PFDINMax, the family `body` sets, gives its space an advance of 0.195 em, and the inherited `letter-spacing: 0.02em` supplies the rest. See `buildRestriction` and `appendWords` in `campaign-tracker`.
 
+**Tint an icon with a mask, never with a coloured copy of the file.** `mask-image` works here. The game's own stylesheets use it 339 times. Ship one white PNG with the shape in its alpha channel. Give the box `background-color` for the colour and `mask-image` for the shape. One file then serves every colour a state needs, and the colour sits in the stylesheet beside the palette rather than baked into an asset.
+
+Copy the client's spelling exactly. It writes `mask-image`, `mask-repeat`, `mask-size`, `mask-position` and `mask-mode: alpha`, all unprefixed. `-webkit-mask-image` appears in none of its stylesheets. `MentorAssignmentDialog.css` in `gui-part1.pkg` is the worked example. `campaign-tracker` tints its banner icons the same way.
+
+Know the failure mode before trying it, because it is loud rather than silent. A mask the renderer will not load leaves the `background-color` filling the whole box. A broken icon therefore appears as a solid rectangle rather than as nothing at all.
+
 **Prefer drawing a small mark to typing it.** `text-align: center` centres a glyph's *advance
 width*, not its ink, so a character with uneven side bearings (`!` is the classic) sits visibly
 off inside a round badge. Two positioned boxes are centred by arithmetic, come out identical

@@ -33,12 +33,27 @@ Band choice, from measurements on 2.3.1.3:
 * `OVERLAY` (11) is above the lobby menu. The upstream guide reports that a panel there stops
   the second Escape press from closing that menu, so it is deliberately not used.
 
-The window is rebuilt rather than kept. The client destroys it along with the lobby's main
-window, and the Python object survives that: it keeps answering attribute access and raises only
+The window exists only while a card is on screen. It is built when the pointer enters a banner
+and destroyed when it leaves, rather than built once and hidden between hovers.
+
+That is not a tidiness choice, it is the whole reason this lifetime is written down. The client
+refuses to open any queued notification window while another window on `FULLSCREEN_WINDOW`,
+`TOP_WINDOW` or `OVERLAY` is loaded -- see `__overlappingWindowsPredicate` in
+`gui/impl/pub/notification_window_controller.py`. Hiding does not help: `Window.hide` changes the
+showing status and leaves `windowStatus` at `LOADED`, which is what that predicate reads. A card
+window kept for the garage session therefore held every reward and event window back, and the
+player got a "you missed events" notice whose button did nothing. Reported on 1.1.1 and fixed by
+destroying the window instead. Nothing here may go back to keeping it.
+
+Building it is therefore on the hover path, and everything on that path is synchronous. A build
+that finished later would put a window on screen after the pointer had gone, which is the fault
+above with extra steps.
+
+The Python object survives the native window: it keeps answering attribute access and raises only
 when a call reaches through to `proxy`. So a stored reference is not evidence that a window
-exists, and `install` checks liveness rather than checking for None. Without that the card
-worked until the first lobby rebuild and then failed for the rest of the session, once per hover,
-with `AttributeError: 'NoneType' object has no attribute 'show'`.
+exists, and `is_alive` is asked rather than `is not None`. Without that the card worked until the
+first lobby rebuild and then failed for the rest of the session, once per hover, with
+`AttributeError: 'NoneType' object has no attribute 'show'`.
 
 See docs/reference/ui-and-scaleform.md#window-layers.
 """
@@ -53,11 +68,11 @@ _state = {
     'window': None,
     'model': None,
     'view': None,
-    'generation': 0,
-    'retry_id': None,
     'branch': '',
     'rect': None,
     'size': None,
+    # Whether `_show_window` already had work to do for this window. `_onReady` shows a window
+    # built for a hover, so this stays False through the life of most of them.
     'shown': False,
     # The payload as a dictionary, so a re-push for one changed field does not rebuild it.
     'payload': None,
@@ -67,8 +82,9 @@ _state = {
 # occupies the space above this.
 _GAP_PX = 6
 
-_MAX_PARENT_RETRIES = 60
-_PARENT_RETRY_DELAY = 0.1
+# Whether the two reasons a build can fail were already reported. Each is reported once: both
+# stay true for the rest of the session, and a hover is cheap to repeat.
+_reported = set()
 
 # The stable key the resource map entry declares; see res/mods/configs/res_map/.
 LAYOUT_KEY = 'mods/zanju/CampaignTracker/cardLayoutID'
@@ -145,9 +161,11 @@ def build_window_class(layer):
         def _onReady(self):
             # `show(False)` on the window, not on the view: the argument means "do not take
             # focus". The card is never interactive, so it must never take focus from the
-            # garage, and it starts hidden until a banner is hovered anyway.
+            # garage.
+            #
+            # Shown and not hidden again. This window is built on the hover that wants it, so
+            # ready always means wanted. It paints nothing until `_place` reveals the card.
             self.show(False)
-            self.hide()
 
     return _CardWindow
 
@@ -171,7 +189,7 @@ def is_alive():
 
 
 def _discard():
-    """Drop a window the client already destroyed, without reaching into the dead native side."""
+    """Forget the window, without reaching into a native side that may already be gone."""
     _state['window'] = None
     _state['view'] = None
     _state['model'] = None
@@ -182,78 +200,83 @@ def _discard():
     _state['payload'] = None
 
 
-def install(logger):
-    """Build the card window once the resource map, the lobby and the main window are ready.
+def _ensure_window(logger, payload):
+    """Build the card window if it is not standing. False when it cannot be built right now.
 
-    Called on every hangar build. It returns at once while the window is alive, and rebuilds
-    after the client has destroyed it with the lobby it was parented to.
+    Synchronous throughout, and deliberately so. The resource map and the lobby's main window
+    are both ready long before a player can reach a banner, so waiting for either would buy
+    nothing -- and a build that completed after the pointer left would leave a window standing
+    with no card in it, which is the fault this module's lifetime exists to avoid.
+
+    The payload is handed to the model at construction rather than pushed afterwards, because
+    the view has not bound its properties yet at this point.
     """
     if is_alive():
-        return
-    if _state['window'] is not None:
-        logger.info('The hover card window was destroyed with the lobby; rebuilding')
-        _discard()
-    _state['generation'] += 1
-    generation = _state['generation']
+        return True
+    _discard()
+
     try:
-        from openwg_gameface import manager, on_ready
+        from openwg_gameface import manager
     except ImportError:
-        logger.info('net.openwg.gameface is not installed; the hover card is disabled')
-        return
-    if manager.isResMapValidated:
-        _wait_for_parent(logger, generation, 0)
-    else:
-        on_ready(lambda: _wait_for_parent(logger, generation, 0))
+        _report_once(logger, 'gameface',
+                     'net.openwg.gameface is not installed; the hover card is disabled')
+        return False
+    if not manager.isResMapValidated:
+        # The bootstrap validates the map once, long before the garage is reachable, so this
+        # is close to unreachable. No card this hover, and the next one tries again.
+        return False
+
+    parent = _main_window()
+    if parent is None:
+        return False
+    return _build(logger, parent, payload)
 
 
-def _wait_for_parent(logger, generation, attempt):
-    """Retry until the current main window is loaded, then build against that exact window."""
-    _state['retry_id'] = None
-    if generation != _state['generation'] or _state['window'] is not None:
-        return
+def _main_window():
+    """The lobby's main window, or None while it is not loaded.
 
-    import BigWorld
+    Re-resolved on every build: a window reference kept across a lobby teardown names an object
+    the client already destroyed.
+    """
     from frameworks.wulf import WindowStatus
     from helpers import dependency
     from skeletons.gui.impl import IGuiLoader
 
-    # Re-resolved on every attempt: a window reference kept across a lobby teardown names an
-    # object the client already destroyed.
     parent = dependency.instance(IGuiLoader).windowsManager.getMainWindow()
     if parent is None or parent.proxy is None or parent.windowStatus != WindowStatus.LOADED:
-        if attempt < _MAX_PARENT_RETRIES:
-            _state['retry_id'] = BigWorld.callback(
-                _PARENT_RETRY_DELAY,
-                lambda: _wait_for_parent(logger, generation, attempt + 1))
-        else:
-            logger.warning('The main window never loaded; the hover card is disabled')
+        return None
+    return parent
+
+
+def _report_once(logger, key, message):
+    if key in _reported:
         return
-    _build(logger, parent)
+    _reported.add(key)
+    logger.warning(message)
 
 
-def _build(logger, parent):
+def _build(logger, parent, payload):
     from openwg_gameface import res_id_by_key
 
     layout_id = res_id_by_key(LAYOUT_KEY)
     if not layout_id or layout_id < 0:
-        logger.warning(
-            'The resource map has no entry for %s; the hover card is disabled. '
-            'The client restarts once after this mod is installed, which is when the map is '
-            'rebuilt.', LAYOUT_KEY)
-        return
+        _report_once(
+            logger, 'res_map',
+            'The resource map has no entry for {0}; the hover card is disabled. The client '
+            'restarts once after this mod is installed, which is when the map is '
+            'rebuilt.'.format(LAYOUT_KEY))
+        return False
 
-    model = build_model_class()(_empty_payload(), lambda *args: _on_sized(logger, *args))
+    model = build_model_class()(json.dumps(payload), lambda *args: _on_sized(logger, *args))
     view = build_view_class()(layout_id, model)
     window = build_window_class(_layer())(view, parent)
     _state['model'] = model
     _state['view'] = view
     _state['window'] = window
+    _state['payload'] = payload
     window.load()
-    logger.info('Hover card window built on layer %s', _layer())
-
-
-def _empty_payload():
-    return json.dumps({'entry': None, 'labels': {}, 'heldKeys': '', 'token': '', 'reveal': False})
+    logger.debug('Hover card window built on layer %s', _layer())
+    return is_alive()
 
 
 def _push(payload, logger):
@@ -273,22 +296,8 @@ def _push(payload, logger):
 def show(branch, rect, entry, labels, held, logger):
     """Point the card at one banner. `rect` is (x, y, w, h) in the garage document's pixels."""
     global _token
-    if not is_alive():
-        # The lobby was rebuilt under us. Put the window back now rather than waiting for the
-        # next hangar build, so the card returns within the session it was lost in.
-        _discard()
-        install(logger)
-        if not is_alive():
-            # The parent is not loaded yet, so `install` left a retry running. The next hover
-            # finds the window and this one is dropped, which is the right trade for a hover.
-            return
     _token += 1
-    _state['branch'] = branch
-    _state['rect'] = rect
-    # The size belongs to the card that is about to be built, not the one on screen. Cleared so
-    # a stale measurement cannot place the new card.
-    _state['size'] = None
-    _push({
+    payload = {
         'entry': entry,
         'labels': labels,
         'heldKeys': held,
@@ -296,42 +305,64 @@ def show(branch, rect, entry, labels, held, logger):
         # Painted only once the window has been moved. Until then the window is on screen and
         # empty, which is what lets the card's own frames run at all.
         'reveal': False,
-    }, logger)
+    }
+
+    existed = is_alive()
+    if not _ensure_window(logger, payload):
+        return
+
+    # Set after the build, never before it: building forgets the window that was there, and
+    # forgetting a window clears the banner and rectangle that belong with it.
+    _state['branch'] = branch
+    _state['rect'] = rect
+    # The size belongs to the card about to be drawn, not to the one that just left. Cleared so
+    # a stale measurement cannot place the new card.
+    _state['size'] = None
+
+    if existed:
+        # A window carried over from the banner the pointer just left. A window built above
+        # already holds this payload, so pushing it again would be a wasted round trip.
+        _push(payload, logger)
     _show_window(logger)
 
 
 def _show_window(logger):
     """Put the window on screen so the card inside it starts receiving frames.
 
-    Nothing is painted yet: the card is transparent until `_place` reveals it. The window does
-    sit over its old position for the frame or two this takes, so it is kept as short as
-    possible rather than being made conditional on anything.
+    A window still loading is left alone: `_onReady` shows it the moment it can, and reaching
+    through to a native side that is not there yet would report a fault on every hover. So this
+    only has work to do for a window carried over from the banner the pointer just left.
+
+    Nothing is painted either way. The card stays transparent until `_place` reveals it.
     """
     if _state['shown'] or not is_alive():
         return
+    from frameworks.wulf import WindowStatus
     try:
-        _state['window'].show(False)
+        window = _state['window']
+        if window.windowStatus != WindowStatus.LOADED:
+            return
+        window.show(False)
         _state['shown'] = True
     except Exception:
         logger.exception('Failed to show the hover card')
 
 
 def hide(logger):
-    """Take the card off screen. Cheap enough to call when nothing is showing."""
-    _state['branch'] = ''
-    _state['rect'] = None
-    _state['size'] = None
-    if not _state['shown']:
-        return
-    _state['shown'] = False
-    if not is_alive():
-        # Destroyed with the lobby. Nothing to hide, and the next hover rebuilds it.
-        _discard()
+    """Take the card off screen by destroying its window. Cheap to call with nothing showing.
+
+    Destroyed rather than hidden. A hidden window is still a loaded one, and a loaded window on
+    this band stops the client opening its own queued notification windows -- see the module
+    docstring for what that cost a player. The next hover builds a fresh one.
+    """
+    window = _state['window'] if is_alive() else None
+    _discard()
+    if window is None:
         return
     try:
-        _state['window'].hide()
+        window.destroy()
     except Exception:
-        logger.exception('Failed to hide the hover card')
+        logger.exception('Failed to destroy the hover card window')
 
 
 def set_held_keys(text, logger):
@@ -407,21 +438,5 @@ def _read(arg, key):
 
 
 def uninstall(logger):
-    """Destroy the window and make any callback still in flight a no-op."""
-    _state['generation'] += 1
-    retry_id = _state['retry_id']
-    if retry_id is not None:
-        try:
-            import BigWorld
-            BigWorld.cancelCallback(retry_id)
-        except Exception:
-            pass
-        _state['retry_id'] = None
-
-    window = _state['window'] if is_alive() else None
-    _discard()
-    if window is not None:
-        try:
-            window.destroy()
-        except Exception:
-            logger.exception('Failed to destroy the hover card window')
+    """Destroy the window on teardown. The same work a hover-out does, under another name."""
+    hide(logger)

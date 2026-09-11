@@ -219,7 +219,8 @@
    rounded differently in each -- which put one row's left number a pixel nearer its slash.
    Its own font size for the same reason: the glyph is centred in this box. */
 .zanju-ct-tally-sep,
-.zanju-ct-battles-sep {
+.zanju-ct-battles-sep,
+.zanju-ct-vehicles-sep {
     display: block;
     flex: 0 0 8rem;
     font-size: 12rem;
@@ -251,11 +252,17 @@
     color: #cc6b5a;
 }
 
-/* The banner's fourth row: the battles this mission has spent out of the battles it allows.
-   Its own row rather than a third number beside the score, where it read as another score and
-   pushed the line off the banner as soon as a mission counted in thousands. Quieter and
-   smaller than the score, because it is the allowance the score is being spent out of. */
-.zanju-ct-battles {
+/* The banner's fourth and fifth rows: the battles this mission has spent out of the battles it
+   allows, and the vehicles spent on it out of the vehicles it wants. Their own rows rather than
+   third numbers beside the score, where they read as another score and pushed the line off the
+   banner as soon as a mission counted in thousands. Quieter and smaller than the score, because
+   both are allowances the score is being spent out of.
+
+   One rule for the two, because they are one shape: a fixed allowance and how much of it has
+   gone. Only their sources differ. Neither is labelled, and neither needs to be -- a banner
+   never carries more than two of these counters at once. */
+.zanju-ct-battles,
+.zanju-ct-vehicles {
     display: flex;
     justify-content: center;
     width: 100%;
@@ -264,25 +271,28 @@
     line-height: 1.2em;
 }
 
-.zanju-ct-battles-empty {
+.zanju-ct-battles-empty,
+.zanju-ct-vehicles-empty {
     display: none;
 }
 
-/* The battles spent are a live value and the allowance is a fixed reference, so they take the
+/* What has been spent is a live value and the allowance is a fixed reference, so they take the
    two greys the palette gives those jobs -- the same lead-and-reference shape as the score
-   above. The row stays subordinate through its size, not by flattening both numbers. */
-.zanju-ct-battles-used {
+   above. The rows stay subordinate through their size, not by flattening both numbers. */
+.zanju-ct-battles-used,
+.zanju-ct-vehicles-used {
     display: block;
     color: #d7dbe0;
 }
 
-.zanju-ct-battles-total {
+.zanju-ct-battles-total,
+.zanju-ct-vehicles-total {
     display: block;
     color: #9ca4ab;
 }
 
 
-/* The banner's fifth row: one small icon per state worth flagging. Shares the tally's shape --
+/* The banner's sixth row: one small icon per state worth flagging. Shares the tally's shape --
    a centred flex row that disappears entirely when there is nothing to say, rather than holding
    a line of height open on every banner that has neither. */
 .zanju-ct-flags {
@@ -296,35 +306,56 @@
     display: none;
 }
 
-/* The icons are white with the shape in their alpha channel, so they take the colour of
-   whatever is set here rather than carrying one of their own. Drawn as a background rather
-   than as an <img> so the box keeps its size whatever the file turns out to be. */
+/* Each icon is a solid rectangle of its state's colour, cut to the shape of a PNG. The files
+   are pure white with the shape in their alpha channel, which is what makes them mask sources
+   rather than pictures: `background-color` supplies the colour and `mask-image` supplies the
+   shape, so one file serves any colour and no coloured copy of it is ever shipped.
+
+   The client's own UI tints this way, unprefixed, and `mask-mode: alpha` with it -- see
+   MentorAssignmentDialog.css in gui-part1.pkg. The prefixed spelling appears nowhere in its
+   stylesheets, so it is not used here either.
+
+   A box rather than an <img>, so its size does not depend on what the file turns out to be. */
 .zanju-ct-flag {
     display: block;
     width: 20rem;
     height: 20rem;
     margin-left: 1rem;
     margin-right: 1rem;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    opacity: 0.75;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-mode: alpha;
+}
+
+/* The colour table, one rule per meaning rather than one per icon. Every icon on a banner has a
+   note of its own at the top of the hover card, in the palette colour for what it means, and an
+   icon of another colour would read as a second fact. Keep these two in step with
+   `.zanju-ct-note-warning` and `.zanju-ct-note-good` in card.css. */
+.zanju-ct-flag-paused,
+.zanju-ct-flag-locked {
+    background-color: #f0cf74;
+}
+
+.zanju-ct-flag-improving,
+.zanju-ct-flag-pawned {
+    background-color: #9ccb68;
 }
 
 .zanju-ct-flag-paused {
-    background-image: url('coui://gui/gameface/mods/zanju_campaigns/pause.png');
+    mask-image: url('coui://gui/gameface/mods/zanju_campaigns/pause.png');
 }
 
 .zanju-ct-flag-locked {
-    background-image: url('coui://gui/gameface/mods/zanju_campaigns/lock.png');
+    mask-image: url('coui://gui/gameface/mods/zanju_campaigns/lock.png');
 }
 
 .zanju-ct-flag-improving {
-    background-image: url('coui://gui/gameface/mods/zanju_campaigns/improvement.png');
+    mask-image: url('coui://gui/gameface/mods/zanju_campaigns/improvement.png');
 }
 
 .zanju-ct-flag-pawned {
-    background-image: url('coui://gui/gameface/mods/zanju_campaigns/order.png');
+    mask-image: url('coui://gui/gameface/mods/zanju_campaigns/order.png');
 }
 
 /* No mission running for this tank: the whole widget drops back to grey. */

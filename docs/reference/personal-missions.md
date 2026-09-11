@@ -150,3 +150,10 @@ Opening a mission's screen differs by campaign, because campaign 3 has no per-mi
 - **Campaign 3, both branches** — `events_dispatcher.showPersonalMissionsChain(operationID, chainID, category)`, which opens the filtered list. The chain id is accepted and ignored for this campaign. The dispatcher reads the operation's own branch to pick the screen. A `pm4` operation therefore needs nothing extra.
 
 Both refuse the navigation themselves when the page cannot be opened (`canOpenPMPage`), so that check does not need reproducing.
+
+A screen opened this way arrives with no back button, because the jump records nothing. The game's own Fossa banner in the garage has the same gap. The path back differs by campaign, and both were read off a 2.4.0.0 client:
+
+- **Campaigns 1 and 2** — one step, `CampaignSelectorState`. Their whole operation is one screen.
+- **Campaign 3, both branches** — two steps, `CampaignSelectorState` and then `PersonalMissions3State`. The map opens the campaign, and the campaign opens the line. Record the parent state, not `ProgressionState`: the parent owns the `record=True` transition into the line list, and entering it lands on progression anyway.
+
+See [The Lobby Back Stack](ui-and-scaleform.md#the-lobby-back-stack) for how to write the entries. `back_navigation.py` in `campaign-tracker` holds the code.

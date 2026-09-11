@@ -86,6 +86,19 @@ unzip -j res/packages/scripts.pkg scripts/client/frameworks/wulf/gui_constants.p
 python2.7 -c "import marshal; f=open('gui_constants.pyc','rb'); f.read(8); c=marshal.load(f); print [(x.co_names, x.co_consts) for x in c.co_consts if getattr(x,'co_name','')=='WindowLayer']"
 ```
 
+**A loaded window on band 8, 10 or 11 stops the client showing its own notifications.** `__overlappingWindowsPredicate` in `gui/impl/pub/notification_window_controller.py` is the whole rule:
+
+```python
+return window.windowStatus in (WindowStatus.LOADING, WindowStatus.LOADED) and window.layer in (
+ WindowLayer.OVERLAY, WindowLayer.TOP_WINDOW, WindowLayer.FULLSCREEN_WINDOW)
+```
+
+While anything matches it, `__processNextCallback` refuses to run the next queued window. It does not take that window off the queue either, and it logs nothing when it refuses. Reward and event windows then pile up. The player gets a "you missed events" notice, and its button does nothing: releasing the queue runs straight back into the same test.
+
+Read `windowStatus`, not visibility. `Window.hide` changes the showing status. It leaves `windowStatus` at `LOADED`, so a window hidden between uses blocks notifications for as long as it is kept. A mod window on one of these bands has to be destroyed when nothing wants it. `campaign-tracker` had this reported on 1.1.1. It now builds its hover card per hover and destroys it on leave.
+
+Band 9, `SYSTEM_MESSAGE`, is the gap in that list. A window there draws over the platoon window on band 7 and blocks no notification. That makes it the band to reach for when a view has to be kept.
+
 **A mod view belongs on `WINDOW` or above.** `VIEW` and `SUB_VIEW` belong to the client. A mod view on `VIEW` takes the place of the lobby view. That lobby view owns the container the garage document needs, so the garage container never appears and the client shows an empty garage:
 
 ```
@@ -202,6 +215,30 @@ The general rule that a view instance must never be permanent module state is up
 For deciding *when* a garage overlay belongs on screen, read the lobby's visible route rather than
 a container alias. See `route_gate.py` in `directives-helper` and the route table in
 [Directives And Battle Boosters](directives-and-battle-boosters.md#when-the-window-shows).
+
+## The Lobby Back Stack
+
+**The back button is not a history of screens.** One stack holds it. It lives in `gui/lobby_state_machine/recorded_states.py`. `pushRecordedTransitionSource` records the *source* state of the transition the machine just took. It records that state only when the transition declares `record=True`. Nothing else writes to the stack. A transition without that flag therefore leaves its screen with no way back, and the header draws no button.
+
+That is what costs a garage banner its back button. It costs the game's own banners the same. `addNavigationTransitionFromParent` hangs a state's transition off the subtree root, `subScope/subLayer`, and gives it `record=False`.
+
+**An entry does not survive the jump it goes before.** `pushRecordedTransitionSource` first drops every recorded state under the transition source. The source here is the subtree root, so the whole stack goes. Write the entry after the navigation instead.
+
+**Write the whole path, not one entry.** A screen two steps in records two states on the way in. The player then expects two presses back out. Read the client's own path off `game.log` first. Every `Navigating to` line of a back press names one entry the natural route left behind.
+
+**Record the transition source, not the screen.** A back press navigates to the state that owns the `record=True` transition. That is often a parent, not the screen on display. Entering the parent lands on its initial child, which is that screen. The `Navigating to` line names it exactly.
+
+**Write the entries under what the stack already holds, not on top.** A screen that needs a space to build enters a loading state first. That step records itself. It then takes itself back off with `goBack` once the build finishes. An entry on top is the entry `goBack` takes, which drops the player on the wrong screen. Underneath, the stack matches what the natural path builds, step for step.
+
+**A route change draws the button.** `NavigationPresenter` reads `routeInfo.backDescription` on `onVisibleRouteChanged`. That event fires before a late entry exists, so recompute the route by hand afterwards. The client does the same whenever a closed window prunes the stack.
+
+**The label costs no translation.** Each state answers `getBackNavigationDescription` with the client's own string. That covers every language the game ships.
+
+**Escape reads this stack too.** An entry changes what Escape does as much as what the button does. Both walk the recorded path first. That puts the garage one press further away for each entry written, and the client's own path costs the same.
+
+**Know what prunes the stack before you trust an entry to stay.** `clearCycles` drops a repeat of the state it enters. `_ViewKillingObserver` and `_RecordedStates.__onWindowStatusChanged` drop entries whose view died. Back navigation pops. At 2.4.0.0 only crew states register a removable-state selector, so that window path reaches nothing else.
+
+`_RecordedStates` and `__updateVisibleRoute` are both private and name-mangled, so guard every call. A rename upstream then costs the button and nothing else. `back_navigation.py` in `campaign-tracker` is the worked example. [Personal Missions](personal-missions.md#pausing-resetting-and-opening) names the states it writes.
 
 ## Appending To A Classic Blocks Tooltip
 
