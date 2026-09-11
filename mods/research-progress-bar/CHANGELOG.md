@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.4.3 (11 September 2026)
+
+- The download now ships Aslain's Mod Menu 2.0.11, in place of 2.0.3.
+
 ## 1.4.2 (4 September 2026)
 
 - Fixed the marker tooltips in Elite mode. A level not yet reached always reported 0%.
