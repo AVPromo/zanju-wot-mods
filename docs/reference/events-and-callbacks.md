@@ -97,7 +97,7 @@ if inputHandler is not None:
         return True
 ```
 
-One exception from one handler therefore costs the player that whole key press, not one skipped listener. `campaign-tracker` 1.1.2 fixed exactly this. It watched Shift and Ctrl for its hover card, it watched them in battle as well, and it called its consumer with no guard.
+One exception from one handler therefore costs the player that whole key press, not one skipped listener. `campaign-tracker` 1.2.0 fixed exactly this. It watched Shift and Ctrl for its hover card, it watched them in battle as well, and it called its consumer with no guard.
 
 Two rules follow. Guard the handler body so nothing can leave it. Then do the work only while the mod has something on screen to change. The second rule earns its place on its own: a handler that pushes to the view models of a lobby the client destroyed makes native writes on every key press for the rest of the session.
 

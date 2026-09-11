@@ -414,10 +414,6 @@ def _bind_events(logger):
         logger.exception('Failed to subscribe to vehicle changes')
 
     _bind_missions(logger)
-    # Built here rather than at load: the card needs the lobby's main window as its parent, and
-    # that window does not exist until a hangar view is being built. `install` is a no-op once
-    # the window stands, and the window is destroyed on teardown with everything else.
-    card_window.install(logger)
     # The lobby state machine belongs to the lobby app, so it is a different object after every
     # teardown; `install` compares identity and only re-subscribes when it actually changed.
     route_gate.install(logger, _on_route_visibility)

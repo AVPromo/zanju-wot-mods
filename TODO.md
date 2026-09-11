@@ -35,78 +35,17 @@ Move `view_claim.py` first. Its copies are already identical, so it needs no gen
 - Accepted consequences: IDE shows unresolved `.localization` imports in callers (cosmetic; flake8 does not resolve imports — verified green); `game.log` tracebacks cite `mods/<pkg>/localization.py`, a path with no matching file under `src/`; one-time modify/delete merge conflicts with any branch still carrying a copy (resolve by taking the delete); future per-mod divergence requires parameterizing the shared file or an explicit opt-out (defer until needed).
 - Verified non-issues: nothing outside the game imports the mod packages (no py3 probes/tests reach into `src/`); deploy ships the built `.wotmod`, untouched.
 
-## Campaign Tracker: Hover Card On Its Own Window Band
+## Campaign Tracker: Hover Card On Its Own Window Band (done)
 
-Planned, not started. The mod's banners are injected into `mono/hangar/main`, so the card they
-open lives in that document and inherits its window band, `SUB_VIEW` (5). Every native window
-draws over it. The shipped answer is to hide the card while something covers it, which was the
-cheapest of three bad options at the time.
+Shipped in 1.1.0. The banners stay injected in `mono/hangar/main`, because only an injected widget can measure the element they sit beside. The card moved into a standalone Gameface view in a window the mod owns, on `WindowLayer.TOP_WINDOW` (10), which draws over the platoon window at all times. `card_window.py` holds it, and its docstring carries the reasoning.
 
-A fourth option is now proven, though its band is not settled. A mod that builds its own Wulf
-window chooses its own band, and a mod-owned Gameface view on `WindowLayer.TOP_WINDOW` (10)
-stayed above the platoon window at all times, with clicking unable to raise the native window
-past it. Band 7 does not do this: it is shared with the platoon window and ordered by activation.
-Band 10 also holds `lobbyMenu`, `settingsWindow` and the client's dialogs. Band 11, above them,
-is reported upstream to stop the second Escape press from closing the menu. Settle the band
-against the native menus, not only against the platoon window. A Python model push reached the
-panel's JavaScript in about 2 ms, three times running, so a card driven across Python is fast
-enough to follow a pointer. See [Choosing A UI Approach](docs/reference/choosing-a-ui-approach.md)
-and [Window Layers](docs/reference/ui-and-scaleform.md#window-layers).
+This entry used to be the plan for that work. It is cut back to the outcome, because it told a reader to build the window behind a bounded retry and a generation token. That was the right shape while the window was built once at hangar time. It is the wrong shape now, and following it would undo the notification fix below.
 
-**Shape.** Keep the banners injected, because only an injected widget can measure the anchor
-element they sit beside. Move *only* the card into a standalone view in a mod-owned window. Both
-halves stay the same renderer at the same `rem` scale, so the card's markup and CSS move over
-unchanged. That is the whole reason this beats the Scaleform version, which needed a unit
-conversion at each end.
+Three behaviours were accepted rather than solved, and none has drawn a complaint:
 
-### Work
-
-- Add `res/mods/configs/res_map/zanju_campaigns.json` with one `Layout` entry for the card
-  document. Shipping it inside the `.wotmod` is enough; OpenWG reads that directory from the
-  game VFS. Changing that file restarts the client once.
-- Split the card out of `widgets.js` and `widgets.css` into its own HTML, CSS and module. The
-  builders move as they are: `renderCard`, `cardTitle`, `cardNotes`, `appendConditions`,
-  `appendGroup`, `buildCondition`, `appendAttempt`, `buildPace`. They are pure DOM, with no tie
-  to the host document.
-- Add the Python side: a view model with hand-written setters, a `ViewImpl`, and a `WindowImpl`
-  on `WindowLayer.TOP_WINDOW`. Call `show(False)` from the window's `_onReady`, not from the
-  view. Resolve the parent through `windowsManager.getMainWindow()` with a bounded retry and a
-  generation token, re-reading the parent on every attempt.
-- Replace the CSS `:hover` channel. The banner reports hover and its anchor rectangle to Python
-  through a view-model command, and Python moves the card window and pushes the card payload.
-- Convert coordinates once, at the Python boundary. The banner reports CSS pixels inside the
-  garage document at the current `viewEnv.getScale()`. `window.move` wants the loaded main
-  window's coordinate space. Do not compare the two directly.
-- Publish the card's real size from the card's own JavaScript with `resizeViewPx`, after two
-  layout frames, then tell Python so it can clamp the position against the screen edge.
-- Push the held modifier keys into the card model as well. `held_keys.py` currently feeds the
-  widgets model, and the card is the consumer of that data.
-- Destroy the card window on lobby teardown, on a route change that hides the widgets, and when
-  the banner subtree goes. One owner, one teardown path.
-- Split the card's tests out of `widgets.test.js` into their own `node --test` file.
-- Delete the hide-while-covered behaviour once the card no longer needs it.
-
-### Risks, worth settling before writing much
-
-- **Variable height against a fixed native surface.** The card's height depends on how many
-  conditions a mission has. A standalone panel is happiest at a fixed size, and measuring an
-  auto-sized panel inside an unsized surface reports the wrapped width rather than the wanted
-  one. Measure after two frames and publish, or pick a fixed size per card shape.
-- **The card window is a hit-test rectangle.** While it is open it blocks clicks and pauses
-  drag-to-rotate over its own area, exactly as a native window does. That is acceptable for a
-  card that shows for a moment, and it is a behaviour change worth seeing before committing.
-- **Hover cannot move onto the card.** The card is a separate native surface, so the banner
-  loses `:hover` as the pointer leaves it. Keep the card informational, or have Python hold it
-  open while the pointer is inside the card's rectangle.
-- **Band 10 is shared with the native menus.** `lobbyMenu`, `ingameMenu`, `settingsWindow` and
-  the client's dialogs all load there, so a card on band 10 ties with them on activation. Band 10
-  also sits above `SYSTEM_MESSAGE` (9), so an open card covers system messages.
-- **Band 11 clears the menus but is reported to break Escape.** The upstream guide says a panel
-  above the lobby menu stops the second Escape press from closing it, and that `show(False)` does
-  not fix that. Untested here. Test the chosen band against the Escape menu, not only against the
-  platoon window.
-- **A second resource-map entry means one more client restart** for existing users on the update
-  that adds it.
+- The card is a hit-test rectangle while it is open, so it blocks clicks and drag-to-rotate over its own area, exactly as a native window does.
+- The pointer cannot move onto the card. It is a separate native surface, so the banner loses `:hover` as the pointer leaves. The card is informational, which is what makes that fine.
+- A card on band 10 covers system messages on band 9 and ties with the native menus on activation.
 
 ## Campaign Tracker: Input And Notification Report (open)
 
@@ -115,13 +54,13 @@ A player reported two faults on 1.1.1 over Discord, on 10 September 2026. They n
 1. A notification about a newly researched vehicle that never clears. The wording fits both the garage menu badge and the achievements popup. Closed below as the client's own, but see the open question.
 2. After about an hour of play, the radial menu quick commands stop working. Escape and Tab sometimes stop as well.
 
-**Fault 2 has a proven mechanism, and 1.1.2 closes it.** `held_keys` subscribed to `gui.InputHandler.g_instance`, a process-global bus that fires in battle. It called its consumer with no guard. `game.handleKeyEvent` runs `GUI.handleKeyEvent`, the messenger and the avatar's own input handler after that dispatch. One exception therefore costs the whole key press. See [Events And Callbacks](docs/reference/events-and-callbacks.md#guiinputhandler-is-the-worst-event-to-raise-in). The mod now guards the callback and does the work only while its banners are on screen.
+**Fault 2 has a proven mechanism, and 1.2.0 closes it.** `held_keys` subscribed to `gui.InputHandler.g_instance`, a process-global bus that fires in battle. It called its consumer with no guard. `game.handleKeyEvent` runs `GUI.handleKeyEvent`, the messenger and the avatar's own input handler after that dispatch. One exception therefore costs the whole key press. See [Events And Callbacks](docs/reference/events-and-callbacks.md#guiinputhandler-is-the-worst-event-to-raise-in). The mod now guards the callback and does the work only while its banners are on screen.
 
-**What that fix does not prove.** No log shows the mod raising there, so the trigger is still unknown. The change is hardening, not the repair of a fault we watched happen. Wait for the reporter to say whether 1.1.2 helps them, and treat this entry as open until they do.
+**What that fix does not prove.** No log shows the mod raising there, so the trigger is still unknown. The change is hardening, not the repair of a fault we watched happen. Wait for the reporter to say whether 1.2.0 helps them, and treat this entry as open until they do.
 
-**Two more suspects for fault 2, if it survives 1.1.2.**
+**Two more suspects for fault 2, if it survives 1.2.0.**
 
-- `_models` in `widgets_inject` grew with no bound. A 2.4.0 game.log shows 50 entries after a few minutes of walking in and out of the garage, and every entry took a full `setSnapshot` write per refresh. 1.1.2 trims the list to the newest four. `ViewModel` carries no liveness test, so the trim goes by age. `directives-helper` shares the pattern and the same log shows it at 50 as well, so it needs the same trim.
+- `_models` in `widgets_inject` grew with no bound. A 2.4.0 game.log shows 50 entries after a few minutes of walking in and out of the garage, and every entry took a full `setSnapshot` write per refresh. 1.2.0 trims the list to the newest four. `ViewModel` carries no liveness test, so the trim goes by age. `directives-helper` shares the pattern and the same log shows it at 50 as well, so it needs the same trim.
 - The hover card window may accumulate. `card_window.install` builds a new window per garage build when the old one is not alive. It trusts the client to destroy the old one with the lobby. A stale window on `TOP_WINDOW` is a hit-test rectangle on the band that also holds `ingameMenu`. The reporter's log answers this. It carries `The hover card window was destroyed with the lobby; rebuilding` on each rebuild. Count those lines against the garages they visited.
 
 **Fault 1 is not ours. Closed.** The popup is the achievements 2.0 notification, `3 Achievements Unlocked! France: Fauteur and more`, with the trophy score beside it. `AchievementsEarningController` builds it as a `NotificationCommand` when `AchievementsController.onNewAchievementsEarned` fires. That event comes from `__dossierUpdateCallBack`, and its input comes from `__onChatMessageReceived`, which reads service channel messages of type `achievementReceived`.
@@ -132,13 +71,31 @@ Our side is clear. A grep over all five mods for `AccountSettings`, dossier, ach
 
 **One question stays open.** The `MainMenuModel` badge, `MenuItemModel.notification`, is a different component from this popup. The Discord wording covers both. Ask the reporter which one they saw. Only the badge could ever have been ours, and even that was never more than a suspicion.
 
-**1.1.2 is free to ship.** Fault 1 no longer holds it. The changelog carries the input fix and the trimmed model list, and neither mentions fault 1, which is correct.
+**1.2.0 is free to ship.** Fault 1 no longer holds it. The changelog carries the input fix and the trimmed model list, and neither mentions fault 1, which is correct.
 
 **If the candidate list is ever changed, keep the headroom in mind.** `directives-helper` lists it first and `campaign-tracker` lists it last. The preference decides nothing, because the client's build order does. Take `MainMenuModel` off `campaign-tracker` and two candidates remain. Any third mod that injects into the hangar can then leave the banners with no view. The player sees no reason for it. Take it off both and two sub-views serve two mods with no spare. Find more injectable sub-views in `mono/hangar/main` before trading any of them away.
 
+## Campaign Tracker: Hover Card Built Per Hover (done)
+
+A player on 1.1.1 reported that the game's own reward and event windows never opened. The bottom-right "you missed events" notice kept returning, and its button did nothing. [Window Layers](docs/reference/ui-and-scaleform.md#window-layers) has the cause and the rule to obey. A loaded window on band 8, 10 or 11 blocks the client's notification queue. Hiding a window leaves it loaded. The card window sat on band 10 for the whole garage session.
+
+`card_window.py` now builds the window on hover and destroys it on leave. **Tested in game on 11 September 2026.** Each of the three costs of that lifetime was looked for, and none showed. The first hover of a session draws its card. A hover is no slower to answer. Moving between two banners does not flicker.
+
+Do not go back to keeping the window. The module docstring says so as well, because the next reader of that file is the person most likely to undo this.
+
+Band 9 stays untried, and stays the fallback. `SYSTEM_MESSAGE` is the gap in the blocking list, and a window there still draws over the platoon window on band 7. It would allow keeping the card. The cost is that the card would sit under the lobby menu and the dialogs on band 10.
+
+## Research Progress Bar: Does Its Tooltip Block Notifications Too? (open)
+
+`hooks.py` sets `TOOLTIP_LAYER = WindowLayer.TOP_WINDOW` for the Scaleform tooltip view. Loaded windows on that band stop the client opening its own reward and event windows. That is the fault `campaign-tracker` was reported for and fixed. See [Window Layers](docs/reference/ui-and-scaleform.md#window-layers).
+
+Two questions, and neither is answered. Does a Scaleform view registered on that band show up as a window the client's predicate can see? Is that view kept for the session, or built and destroyed per use? The player who reported the fault did not have this mod installed, so that report settles neither.
+
+The first test needs no code. Run the mod, open the garage, and check whether a queued reward window opens. If it does not, read `windowsManager.findWindows` for bands 8, 10 and 11.
+
 ## Campaign Tracker: Back Button To The Campaign Map (done)
 
-Shipping in 1.1.2. `mods/campaign-tracker/src/zanju_ct/back_navigation.py` records the states the client's own path records. It does so right after a banner click opens a campaign screen. The reasoning behind every line of it is in [The Lobby Back Stack](docs/reference/ui-and-scaleform.md#the-lobby-back-stack).
+Shipping in 1.2.0. `mods/campaign-tracker/src/zanju_ct/back_navigation.py` records the states the client's own path records. It does so right after a banner click opens a campaign screen. The reasoning behind every line of it is in [The Lobby Back Stack](docs/reference/ui-and-scaleform.md#the-lobby-back-stack).
 
 **Tested in game on 10 September 2026.** It works in both campaign styles. The first build recorded the campaign map alone, and one press then skipped a screen in campaign 3. The `game.log` of the natural path settled it. A back press out of a line list navigates to `subScope/subLayer/personalMissions3Entry/personalMissions3` first. A second press reaches `subScope/subLayer/campaignSelector`. The mod records both.
 

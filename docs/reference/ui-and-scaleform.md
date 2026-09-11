@@ -86,6 +86,19 @@ unzip -j res/packages/scripts.pkg scripts/client/frameworks/wulf/gui_constants.p
 python2.7 -c "import marshal; f=open('gui_constants.pyc','rb'); f.read(8); c=marshal.load(f); print [(x.co_names, x.co_consts) for x in c.co_consts if getattr(x,'co_name','')=='WindowLayer']"
 ```
 
+**A loaded window on band 8, 10 or 11 stops the client showing its own notifications.** `__overlappingWindowsPredicate` in `gui/impl/pub/notification_window_controller.py` is the whole rule:
+
+```python
+return window.windowStatus in (WindowStatus.LOADING, WindowStatus.LOADED) and window.layer in (
+ WindowLayer.OVERLAY, WindowLayer.TOP_WINDOW, WindowLayer.FULLSCREEN_WINDOW)
+```
+
+While anything matches it, `__processNextCallback` refuses to run the next queued window. It does not take that window off the queue either, and it logs nothing when it refuses. Reward and event windows then pile up. The player gets a "you missed events" notice, and its button does nothing: releasing the queue runs straight back into the same test.
+
+Read `windowStatus`, not visibility. `Window.hide` changes the showing status. It leaves `windowStatus` at `LOADED`, so a window hidden between uses blocks notifications for as long as it is kept. A mod window on one of these bands has to be destroyed when nothing wants it. `campaign-tracker` had this reported on 1.1.1. It now builds its hover card per hover and destroys it on leave.
+
+Band 9, `SYSTEM_MESSAGE`, is the gap in that list. A window there draws over the platoon window on band 7 and blocks no notification. That makes it the band to reach for when a view has to be kept.
+
 **A mod view belongs on `WINDOW` or above.** `VIEW` and `SUB_VIEW` belong to the client. A mod view on `VIEW` takes the place of the lobby view. That lobby view owns the container the garage document needs, so the garage container never appears and the client shows an empty garage:
 
 ```
