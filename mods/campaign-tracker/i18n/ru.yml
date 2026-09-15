@@ -1,19 +1,19 @@
-# Widget states
-# Also shown when there is no vehicle in the garage at all, so keep the wording general.
-LABEL_NO_MISSION: "Нет задачи для этой техники"
+# Состояния виджета
+# Также отображается, когда в ангаре вообще нет техники, поэтому формулировка должна быть общей.
+LABEL_NO_MISSION: "Для этого танка нет задач"
 LABEL_PAUSED: "Задача на паузе"
 
-# Tooltip
-# "Locked" means the vehicle already completed this mission and cannot repeat it.
-LABEL_LOCKED_VEHICLES: "Заблокированная техника:"
-LABEL_VEHICLE_LOCKED: "Техника заблокирована"
-# An order is the game item that completes a primary condition. Stays singular for any number.
+# Всплывающая подсказка
+# «Блокировка» означает, что танк уже выполнил эту задачу и не может её повторить.
+LABEL_LOCKED_VEHICLES: "Заблокированные танки:"
+LABEL_VEHICLE_LOCKED: "Танк заблокирован"
+# «Бланк приказа» — это игровой предмет, который закрывает основное условие. Остаётся в единственном числе для любого количества.
 LABEL_PAWNED: "Возврат бланка приказа"
-# {percent} of the average the mission needs per battle, not of the total. 100 is on target.
-LABEL_PACE: "{percent}% от целевого среднего показателя за бой"
+# {percent} от среднего значения, необходимого для выполнения задачи за бой, а не от общего количества. 100% — это выполнение нормы.
+LABEL_PACE: "{percent}% от целевого среднего значения за бой"
 
-# Click hints, at the foot of the tooltip
+# Подсказки по клику в нижней части всплывающего окна
 LABEL_HINT_OPEN: "ЛКМ — открыть задачу"
 LABEL_HINT_PAUSE: "Shift + ЛКМ — поставить задачу на паузу"
-LABEL_HINT_RESUME: "Shift + ЛКМ — продолжить задачу"
-LABEL_HINT_RESET: "Ctrl + ЛКМ — сбросить прогресс задачи"
+LABEL_HINT_RESUME: "Shift + ЛКМ — продолжить выполнение задачи"
+LABEL_HINT_RESET: "Ctrl + ЛКМ — начать задачу заново"
