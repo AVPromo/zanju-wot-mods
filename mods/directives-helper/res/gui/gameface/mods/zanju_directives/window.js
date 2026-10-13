@@ -28,11 +28,38 @@ const UNPUSHED_POLL_INTERVAL_MS = 250;
 const DRAG_BOUND_FLAG = '__zanjuDhDragBound';
 const CLICK_BOUND_FLAG = '__zanjuDhClickBound';
 const PUSH_BOUND_FLAG = '__zanjuDhPushBound';
-const DEFAULT_MARGIN_PX = 24;
+// Where a window that was never moved starts, in rem, so it keeps its place relative to the rest
+// of the UI at any interface scale.
+const DEFAULT_POSITION_REM = 300;
 // Pointer travel before a press counts as a drag rather than a click on the header.
 const DRAG_THRESHOLD_PX = 4;
+// The garage's lobby bars are separate documents over this one, the top bar and the bottom bar.
+// Each takes every press across its full strip, also where it draws nothing, so the player cannot
+// grab a title bar under either. bar_probe.js measures each strip from inside its own document,
+// and Python passes them on in `topBar` and `bottomBar`. Until a bar's report arrives, only the
+// edge of the screen limits the window on that side. A window saved under a bar shows there until
+// the report moves it, about a second after the garage opens, and stays there if no report ever
+// comes. See "The Lobby Bars Take Input Where They Draw Nothing" in
+// docs/reference/gameface-mod-widgets.md.
+// The row at the inner edge of a strip still belongs to its bar: measured on 2.4.0.2, a press at
+// y=76 on a 76px top bar reached it. The title bar keeps one row clear of each bar.
+const BAR_EDGE_PX = 1;
+// The narrowest the window can be: `min-width` on `.zanju-dh-root` in window.css, and the share
+// of the screen width the resize grip keeps it between.
+const MIN_WIDTH_REM = 210;
+const MIN_WIDTH_SHARE = 0.10;
+const MAX_WIDTH_SHARE = 0.60;
+// The height of the title bar until the window can measure it, from the stylesheet: a 1rem
+// border, 6rem of padding above and below, and a 15rem font at a line height of 1.35.
+const HANDLE_FALLBACK_REM = 34;
 
 let lastSnapshotJson = null;
+const lastBarJson = { top: null, bottom: null };
+// The strips as bar_probe.js measured them, in screen pixels, or null until a usable report
+// arrives.
+const liveBars = { top: null, bottom: null };
+// The box the window was last checked against, so it is moved back only when the box changes.
+let lastBoxKey = null;
 // Which sub-view turned out to carry our data model, so the push subscription can name it.
 let dataResId = null;
 let pollTimer = null;
@@ -181,12 +208,12 @@ function buildRoot() {
 function clampWidth(width) {
     // As a fraction of the viewport rather than in pixels: WoT's UI scale is quantized per
     // resolution bucket, so a pixel floor that is sensible at 1080p is tiny at 4K.
-    const viewport = window.innerWidth || 0;
+    const viewport = viewportSize().w;
     if (!viewport) {
         return Math.max(1, Math.round(width));
     }
-    return Math.max(Math.round(viewport * 0.10),
-        Math.min(Math.round(viewport * 0.60), Math.round(width)));
+    return Math.max(Math.round(viewport * MIN_WIDTH_SHARE),
+        Math.min(Math.round(viewport * MAX_WIDTH_SHARE), Math.round(width)));
 }
 
 function applyWidth(root, state) {
@@ -195,7 +222,7 @@ function applyWidth(root, state) {
         return; // never resized: let the stylesheet size it
     }
     const capturedW = Number(unwrap(state.viewportWidth)) || 0;
-    const viewport = window.innerWidth || 0;
+    const viewport = viewportSize().w;
     let width = stored;
     if (capturedW > 0 && viewport > 0) {
         width = (stored / capturedW) * viewport;
@@ -442,6 +469,198 @@ function renderBody(body, snapshot, texts) {
     scheduleCheck(grids);
 }
 
+function pxPerRem() {
+    // The engine's own conversion, which follows the interface-scale setting. The top bar
+    // picks its breakpoint with the same scale. Under the test runner there is no `viewEnv`,
+    // so one rem is one pixel there.
+    if (typeof viewEnv !== 'undefined' && typeof viewEnv.remToPx === 'function') {
+        const scale = Number(viewEnv.remToPx(1));
+        if (scale > 0) {
+            return scale;
+        }
+    }
+    return 1;
+}
+
+function viewportSize() {
+    // `innerWidth` is still 0 when this module starts, measured on 2.4.0.2, while the engine
+    // already knows the size of the view. The first placement happens at that moment.
+    const w = (typeof window !== 'undefined' && window.innerWidth) || 0;
+    const h = (typeof window !== 'undefined' && window.innerHeight) || 0;
+    if (w > 0 && h > 0) {
+        return { w, h };
+    }
+    try {
+        if (typeof viewEnv !== 'undefined' && typeof viewEnv.getClientSizePx === 'function') {
+            const size = viewEnv.getClientSizePx();
+            const width = Number(size && size.width);
+            const height = Number(size && size.height);
+            if (width > 0 && height > 0) {
+                return { w: width, h: height };
+            }
+        }
+    } catch (e) {
+        // Unknown size: the callers skip the clamps that need it.
+    }
+    return { w, h };
+}
+
+function viewOriginY() {
+    // Where this document sits on the screen. The live report is in screen pixels, but the
+    // window takes its position in this document's pixels.
+    try {
+        if (typeof viewEnv !== 'undefined' && typeof viewEnv.getViewGlobalPositionRem === 'function') {
+            const y = Number(viewEnv.getViewGlobalPositionRem().y);
+            if (isFinite(y)) {
+                return y * pxPerRem();
+            }
+        }
+    } catch (e) {
+        // Taken as the top of the screen, which is where the garage document is.
+    }
+    return 0;
+}
+
+function boundingBox() {
+    // Where the title bar may be, in this document's pixels. `top` is the highest row it may take
+    // and `bottom` the row it must stay above. `right` and `bottom` are null while the screen
+    // size is unknown.
+    const { w, h } = viewportSize();
+    const originY = viewOriginY();
+    const top = liveBars.top ? Math.max(0, Math.ceil(liveBars.top.bottom - originY) + BAR_EDGE_PX) : 0;
+    let bottom = h || null;
+    if (liveBars.bottom) {
+        bottom = Math.floor(liveBars.bottom.top - originY) - BAR_EDGE_PX;
+    }
+    return { left: 0, top, right: w || null, bottom };
+}
+
+function minWindowWidth() {
+    // The stylesheet's minimum, or the resize grip's floor when that is wider. See clampWidth.
+    const viewport = viewportSize().w;
+    return Math.max(Math.ceil(MIN_WIDTH_REM * pxPerRem()), viewport ? Math.round(viewport * MIN_WIDTH_SHARE) : 0);
+}
+
+function visibleWidth() {
+    // How much of the window stays on screen sideways: all of a window at its narrowest, and the
+    // same width of a wider one, which can hang off the right edge. Before the first layout the
+    // window reads 0 wide, and the narrowest width stands in.
+    const minimum = minWindowWidth();
+    try {
+        const root = typeof document !== 'undefined' ? getRoot() : null;
+        const width = root && typeof root.getBoundingClientRect === 'function'
+            ? Number(root.getBoundingClientRect().width) : 0;
+        if (width > 0) {
+            return Math.ceil(Math.min(width, minimum));
+        }
+    } catch (e) {
+        // The narrowest width below.
+    }
+    return minimum;
+}
+
+function handleHeight() {
+    // From the top of the window to the bottom of its title bar, as laid out. It reads 0 before
+    // the first layout, and the stylesheet value stands in until then.
+    try {
+        const root = typeof document !== 'undefined' ? getRoot() : null;
+        const header = root && typeof root.querySelector === 'function' ? root.querySelector('.zanju-dh-header') : null;
+        if (header && typeof header.getBoundingClientRect === 'function'
+            && typeof root.getBoundingClientRect === 'function') {
+            const extent = header.getBoundingClientRect().bottom - root.getBoundingClientRect().top;
+            if (extent > 0) {
+                return Math.ceil(extent);
+            }
+        }
+    } catch (e) {
+        // The stylesheet value below.
+    }
+    return Math.ceil(HANDLE_FALLBACK_REM * pxPerRem());
+}
+
+function parseBar(raw, edge) {
+    // A report that does not describe a strip along its own edge of the screen is not used: the
+    // window keeps to the edge of the screen rather than clamp to a wrong measurement.
+    if (!raw) {
+        return null;
+    }
+    let report = null;
+    try {
+        report = JSON.parse(raw);
+    } catch (e) {
+        log('could not parse the ' + edge + ' bar report: ' + e);
+        return null;
+    }
+    const h = viewportSize().h;
+    const strip = report && isFinite(report.top) && isFinite(report.bottom) && report.bottom > report.top;
+    const alongEdge = !h || (edge === 'top' ? report.bottom < h / 2 : report.top > h / 2);
+    if (!strip || !alongEdge) {
+        log('ignoring a ' + edge + ' bar report that does not fit the screen: ' + raw);
+        return null;
+    }
+    return report;
+}
+
+function applyBars(data) {
+    for (const edge of ['top', 'bottom']) {
+        const raw = unwrap(data[edge + 'Bar']) || '';
+        if (raw === lastBarJson[edge]) {
+            continue;
+        }
+        lastBarJson[edge] = raw;
+        liveBars[edge] = parseBar(raw, edge);
+        if (liveBars[edge]) {
+            const box = boundingBox();
+            log(edge + ' bar measured: the title bar stays within rows ' + box.top + ' to ' + box.bottom);
+        }
+    }
+}
+
+function clampToBox(root) {
+    // Moves the window back inside the box when the box changes: a bar report, a new screen size
+    // or interface scale, or a window of a new size. A window that is still inside stays where
+    // it is.
+    const box = boundingBox();
+    const key = JSON.stringify([box, handleHeight(), visibleWidth(), pxPerRem()]);
+    if (key === lastBoxKey) {
+        return;
+    }
+    lastBoxKey = key;
+    if (!root._zanjuDhPositioned || root._zanjuDhDragging) {
+        return;
+    }
+    const left = parseInt(root.style.left, 10);
+    const top = parseInt(root.style.top, 10);
+    if (!isFinite(left) || !isFinite(top)) {
+        return;
+    }
+    const placed = clampPosition(left, top);
+    if (placed.top !== top || placed.left !== left) {
+        root.style.left = placed.left + 'px';
+        root.style.top = placed.top + 'px';
+        log('moved the window to ' + placed.left + ',' + placed.top + ', back inside rows ' + box.top + ' to '
+            + box.bottom);
+    }
+}
+
+function clampPosition(left, top) {
+    // Keeps the title bar inside the box. Sideways, the window's narrowest width stays on screen,
+    // so only a window wider than that can hang off the right edge. Up and down, all of the title
+    // bar stays between the bars. The top bar wins when the box is too short for the title bar: a
+    // title bar under the top bar cannot be grabbed at all, one that reaches into the bottom bar
+    // still can.
+    const box = boundingBox();
+    if (box.right) {
+        left = Math.min(box.right - visibleWidth(), left);
+    }
+    left = Math.max(box.left, left);
+    if (box.bottom !== null) {
+        top = Math.min(box.bottom - handleHeight(), top);
+    }
+    top = Math.max(box.top, top);
+    return { left: Math.round(left), top: Math.round(top) };
+}
+
 function applyPosition(root, state) {
     if (root._zanjuDhDragging) {
         return; // never fight an in-progress drag
@@ -455,10 +674,21 @@ function applyPosition(root, state) {
     root._zanjuDhPositioned = true;
     const x = Number(unwrap(state.x));
     const y = Number(unwrap(state.y));
+    // One line per garage session, with the stored position and the result. The game.log from
+    // a report of a stuck window then shows where the window came from and where it went.
+    const report = function (left, top, source) {
+        const box = boundingBox();
+        log('placed the window at ' + left + ',' + top + ' from ' + source + ', with the title bar within rows '
+            + box.top + ' to ' + box.bottom + ' (top bar ' + (liveBars.top ? 'measured' : 'not measured yet')
+            + ', bottom bar ' + (liveBars.bottom ? 'measured' : 'not measured yet') + ', ' + pxPerRem() + 'px per rem)');
+    };
     if (!(x >= 0) || !(y >= 0)) {
-        // Never positioned: park it in the top-left corner, clear of the header strip.
-        root.style.left = DEFAULT_MARGIN_PX + 'px';
-        root.style.top = (DEFAULT_MARGIN_PX * 4) + 'px';
+        // Never positioned: start towards the top-left corner.
+        const start = Math.round(DEFAULT_POSITION_REM * pxPerRem());
+        const corner = clampPosition(start, start);
+        root.style.left = corner.left + 'px';
+        root.style.top = corner.top + 'px';
+        report(corner.left, corner.top, 'the default corner');
         return;
     }
 
@@ -466,22 +696,20 @@ function applyPosition(root, state) {
     // resolution bucket, so raw pixels would strand the window off-screen otherwise.
     const capturedW = Number(unwrap(state.viewportWidth)) || 0;
     const capturedH = Number(unwrap(state.viewportHeight)) || 0;
-    const w = window.innerWidth || 0;
-    const h = window.innerHeight || 0;
+    const { w, h } = viewportSize();
     let left = x;
     let top = y;
     if (capturedW > 0 && capturedH > 0 && w > 0 && h > 0) {
         left = Math.round((x / capturedW) * w);
         top = Math.round((y / capturedH) * h);
     }
-    if (w) {
-        left = Math.max(0, Math.min(w - 40, left));
-    }
-    if (h) {
-        top = Math.max(0, Math.min(h - 20, top));
-    }
-    root.style.left = left + 'px';
-    root.style.top = top + 'px';
+    // A position stored before the mod knew about the bars can be under one of them. Moving it
+    // here is what frees a window that was already stuck there.
+    const placed = clampPosition(left, top);
+    root.style.left = placed.left + 'px';
+    root.style.top = placed.top + 'px';
+    report(placed.left, placed.top, 'the stored ' + x + ',' + y + ' (stored at ' + capturedW + 'x' + capturedH
+        + ', now ' + w + 'x' + h + ')');
 }
 
 function applyHeaderWarning(root, warn) {
@@ -630,6 +858,8 @@ function startResize(root, data, event) {
             w: window.innerWidth || 0,
             h: window.innerHeight || 0,
         });
+        // A window that hung off the right edge and is now at its narrowest comes back fully.
+        clampToBox(root);
         setTimeout(function () {
             root._zanjuDhDidDrag = false;
         }, 0);
@@ -695,18 +925,9 @@ function bindDrag(data) {
                 }
                 root._zanjuDhDidDrag = true;
             }
-            const w = window.innerWidth || 0;
-            const h = window.innerHeight || 0;
-            let left = moveEvent.clientX - offsetX;
-            let top = moveEvent.clientY - offsetY;
-            if (w) {
-                left = Math.max(0, Math.min(w - 40, left));
-            }
-            if (h) {
-                top = Math.max(0, Math.min(h - 20, top));
-            }
-            root.style.left = Math.round(left) + 'px';
-            root.style.top = Math.round(top) + 'px';
+            const placed = clampPosition(moveEvent.clientX - offsetX, moveEvent.clientY - offsetY);
+            root.style.left = placed.left + 'px';
+            root.style.top = placed.top + 'px';
         };
 
         const onUp = function () {
@@ -775,7 +996,10 @@ function tick() {
 
     bindModelPush();
 
+    // The reports first, so a window placing itself already uses the reports that are waiting.
+    applyBars(data);
     applyPosition(root, data);
+    clampToBox(root);
 
     // Three conditions decide this, all on the Python side; see window_inject.py.
     const visible = unwrap(data.visible);
@@ -828,9 +1052,11 @@ export {
     applyFolded,
     applyHeaderWarning,
     applyWidth,
+    clampPosition,
     clampWidth,
     isWithin,
     applyPosition,
+    boundingBox,
     buildRoot,
     findDataModel,
     parseSnapshot,

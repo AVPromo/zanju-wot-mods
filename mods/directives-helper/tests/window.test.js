@@ -10,9 +10,11 @@ import {
     applyFolded,
     applyHeaderWarning,
     applyWidth,
+    clampPosition,
     clampWidth,
     isWithin,
     applyPosition,
+    boundingBox,
     buildRoot,
     findDataModel,
     parseSnapshot,
@@ -398,9 +400,12 @@ describe('renderBody', () => {
 });
 
 describe('window chrome', () => {
+    const realConsoleError = console.error;
     let root;
 
     beforeEach(() => {
+        // Placing the window logs the strip it keeps clear of the top bar.
+        console.error = () => {};
         const body = new FakeNode('body');
         globalThis.document = {
             body,
@@ -411,6 +416,7 @@ describe('window chrome', () => {
     });
 
     afterEach(() => {
+        console.error = realConsoleError;
         delete globalThis.document;
     });
 
@@ -472,10 +478,22 @@ describe('window chrome', () => {
         assert.equal(root.querySelector('.zanju-dh-fold').textContent, '−');
     });
 
-    test('parks the window in a default corner when never positioned', () => {
+    test('parks a never-positioned window 300rem from the top-left corner', () => {
+        globalThis.window = { innerWidth: 1920, innerHeight: 1080 };
         applyPosition(root, { x: -1, y: -1, viewportWidth: 0, viewportHeight: 0 });
-        assert.equal(root.style.left, '24px');
-        assert.ok(parseInt(root.style.top, 10) > 0);
+        assert.equal(root.style.left, '300px');
+        assert.equal(root.style.top, '300px');
+        delete globalThis.window;
+    });
+
+    test('parks a never-positioned window at the same place at any interface scale', () => {
+        globalThis.window = { innerWidth: 3840, innerHeight: 2160 };
+        globalThis.viewEnv = { remToPx: (rem) => rem * 2 };
+        applyPosition(root, { x: -1, y: -1, viewportWidth: 0, viewportHeight: 0 });
+        assert.equal(root.style.left, '600px');
+        assert.equal(root.style.top, '600px');
+        delete globalThis.viewEnv;
+        delete globalThis.window;
     });
 
     test('restores a stored position', () => {
@@ -490,9 +508,9 @@ describe('window chrome', () => {
         // WoT's UI scale is quantized per resolution bucket, so raw pixels from a 4K session
         // would strand the window off-screen at 1080p.
         globalThis.window = { innerWidth: 1920, innerHeight: 1080 };
-        applyPosition(root, { x: 3000, y: 2000, viewportWidth: 3840, viewportHeight: 2160 });
+        applyPosition(root, { x: 3000, y: 1600, viewportWidth: 3840, viewportHeight: 2160 });
         assert.equal(root.style.left, '1500px');
-        assert.equal(root.style.top, '1000px');
+        assert.equal(root.style.top, '800px');
         delete globalThis.window;
     });
 
@@ -502,6 +520,265 @@ describe('window chrome', () => {
         assert.ok(parseInt(root.style.left, 10) <= 1920);
         assert.ok(parseInt(root.style.top, 10) <= 1080);
         delete globalThis.window;
+    });
+
+    test('keeps a stored position on screen before the page knows its own width', () => {
+        // Measured on 2.4.0.2: innerWidth is still 0 when the window first places itself, while
+        // the engine already reports the size of the view.
+        globalThis.window = { innerWidth: 0, innerHeight: 0 };
+        globalThis.viewEnv = { remToPx: (rem) => rem, getClientSizePx: () => ({ width: 1920, height: 1200 }) };
+        try {
+            applyPosition(root, { x: 5000, y: 5000, viewportWidth: 1920, viewportHeight: 1200 });
+            assert.equal(root.style.left, (1920 - 210) + 'px');
+            assert.equal(root.style.top, (1200 - 34) + 'px');
+        } finally {
+            delete globalThis.viewEnv;
+            delete globalThis.window;
+        }
+    });
+
+    test('moves a stored position out from under the top bar', () => {
+        // The top bar takes every press across its strip, also where it draws nothing. A
+        // title bar left under it can never be grabbed again, so placing the window frees it.
+        const data = {
+            snapshot: '{}', visible: true, x: 300, y: 10,
+            topBar: JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 76, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(root.style.left, '300px');
+            assert.equal(root.style.top, '77px');
+            assert.equal(boundingBox().top, 77);
+        } finally {
+            data.topBar = '';
+            tick();
+            delete globalThis.window;
+        }
+    });
+
+    test('a report that arrives later moves only a window that is under the strip', () => {
+        const data = { snapshot: '{}', visible: true, x: 300, y: 60, topBar: '' };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(root.style.top, '60px', 'only the screen edge applies until a report arrives');
+
+            data.topBar = JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 120, scale: 1 });
+            tick();
+            assert.equal(root.style.top, '121px');
+
+            data.topBar = JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 70, scale: 1 });
+            tick();
+            assert.equal(root.style.top, '121px', 'a window below the strip stays where it is');
+        } finally {
+            data.topBar = '';
+            tick();
+            delete globalThis.window;
+        }
+    });
+
+    test('ignores a top bar report that does not fit the screen', () => {
+        // A strip down to the middle of the screen means the probe measured the wrong thing.
+        const data = {
+            snapshot: '{}', visible: true, x: 300, y: 10,
+            topBar: JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 900, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(boundingBox().top, 0);
+            assert.equal(root.style.top, '10px');
+        } finally {
+            data.topBar = '';
+            tick();
+            delete globalThis.window;
+        }
+    });
+
+    test('a measured strip is moved into this document\'s pixels', () => {
+        // The report is in screen pixels. A document 10rem down the screen sees the strip 10rem
+        // higher.
+        const data = {
+            snapshot: '{}', visible: true, x: 300, y: 400,
+            topBar: JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 70, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        globalThis.viewEnv = { remToPx: (rem) => rem, getViewGlobalPositionRem: () => ({ x: 0, y: 10 }) };
+        try {
+            tick();
+            assert.equal(boundingBox().top, 61);
+        } finally {
+            data.topBar = '';
+            tick();
+            delete globalThis.viewEnv;
+            delete globalThis.window;
+        }
+    });
+
+    test('keeps the whole title bar on screen until the bottom bar reports', () => {
+        // The screen edge, and a 34rem title bar before the window is laid out.
+        globalThis.window = { innerWidth: 1920, innerHeight: 1080 };
+        assert.equal(boundingBox().bottom, 1080);
+        assert.equal(clampPosition(500, 1070).top, 1080 - 34);
+        delete globalThis.window;
+    });
+
+    test('keeps a window at its narrowest fully on screen', () => {
+        // 210rem is the stylesheet's minimum, wider than 10% of a 1920 screen.
+        globalThis.window = { innerWidth: 1920, innerHeight: 1080 };
+        root.getBoundingClientRect = () => ({ top: 100, bottom: 400, left: 1700, right: 1910, width: 210 });
+        assert.equal(clampPosition(1900, 400).left, 1920 - 210);
+        assert.equal(clampPosition(-50, 400).left, 0);
+        delete globalThis.window;
+    });
+
+    test('lets a wider window hang off the right edge by its extra width', () => {
+        globalThis.window = { innerWidth: 1920, innerHeight: 1080 };
+        root.getBoundingClientRect = () => ({ top: 100, bottom: 400, left: 1700, right: 2300, width: 600 });
+        assert.equal(clampPosition(1900, 400).left, 1920 - 210, 'its narrowest width stays on screen');
+        delete globalThis.window;
+    });
+
+    test('the narrowest width follows the resize floor on a wide screen', () => {
+        // 10% of 3840 pixels at one pixel per rem is wider than 210rem.
+        globalThis.window = { innerWidth: 3840, innerHeight: 2160 };
+        assert.equal(clampPosition(5000, 400).left, 3840 - 384);
+        delete globalThis.window;
+    });
+
+    test('uses the title bar height as laid out', () => {
+        globalThis.window = { innerWidth: 1920, innerHeight: 1080 };
+        root.getBoundingClientRect = () => ({ top: 100, bottom: 400, left: 0, right: 300, width: 300 });
+        root.querySelector('.zanju-dh-header').getBoundingClientRect = () => ({ top: 101, bottom: 140 });
+        assert.equal(clampPosition(500, 2000).top, 1080 - 40);
+        delete globalThis.window;
+    });
+
+    test('a measured bottom bar limits the window', () => {
+        const data = {
+            snapshot: '{}', visible: true, x: 300, y: 1050, topBar: '',
+            bottomBar: JSON.stringify({ left: 0, top: 1000, right: 1920, bottom: 1080, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(boundingBox().bottom, 999);
+            assert.equal(root.style.top, (999 - 34) + 'px');
+        } finally {
+            data.bottomBar = '';
+            tick();
+            delete globalThis.window;
+        }
+    });
+
+    test('ignores a bottom bar report that does not fit the screen', () => {
+        // A bottom bar that starts in the top half of the screen means the probe measured the
+        // wrong thing.
+        const data = {
+            snapshot: '{}', visible: true, x: 300, y: 400, topBar: '',
+            bottomBar: JSON.stringify({ left: 0, top: 200, right: 1920, bottom: 1080, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(boundingBox().bottom, 1080);
+            assert.equal(root.style.top, '400px');
+        } finally {
+            data.bottomBar = '';
+            tick();
+            delete globalThis.window;
+        }
+    });
+
+    test('moves the window back inside when the screen shrinks', () => {
+        const data = { snapshot: '{}', visible: true, x: 1500, y: 800, viewportWidth: 1920, viewportHeight: 1080 };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(root.style.left, '1500px');
+            assert.equal(root.style.top, '800px');
+
+            window.innerWidth = 1280;
+            window.innerHeight = 720;
+            tick();
+            assert.equal(root.style.left, (1280 - 210) + 'px');
+            assert.equal(root.style.top, (720 - 34) + 'px');
+        } finally {
+            delete globalThis.window;
+        }
+    });
+
+    test('a drag stops at the top bar', () => {
+        const data = {
+            snapshot: '{}', visible: true, x: 500, y: 400,
+            topBar: JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 76, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 1080,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.deepEqual(clampPosition(500, -40), { left: 500, top: 77 });
+            assert.deepEqual(clampPosition(500, 400), { left: 500, top: 400 });
+        } finally {
+            data.topBar = '';
+            tick();
+            delete globalThis.window;
+        }
+    });
+
+    test('the top bar wins when the screen is too short for the title bar', () => {
+        // A title bar that reaches into the bottom bar can still be grabbed. One under the top
+        // bar cannot. A 52px screen leaves 26 rows under a 25px top bar, less than a 34px title
+        // bar needs.
+        const data = {
+            snapshot: '{}', visible: true, x: 500, y: 500,
+            topBar: JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 25, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1920,
+            innerHeight: 52,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(clampPosition(500, 500).top, 26);
+        } finally {
+            data.topBar = '';
+            tick();
+            delete globalThis.window;
+        }
     });
 
     test('offers a resize grip, hidden while folded by the stylesheet', () => {

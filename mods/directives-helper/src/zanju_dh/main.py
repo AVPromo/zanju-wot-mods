@@ -12,7 +12,7 @@ from __future__ import print_function, unicode_literals
 import logging
 
 from .constants import MOD_ID
-from .gameface import window_inject
+from .gameface import bar_probe_inject, window_inject
 
 _logger = logging.getLogger('zanju.directiveshelper')
 
@@ -20,7 +20,9 @@ _logger = logging.getLogger('zanju.directiveshelper')
 def init():
     _logger.info('%s initializing', MOD_ID)
     try:
-        window_inject.install(_logger)
+        if window_inject.install(_logger):
+            # Only the window uses the probe's measurements.
+            bar_probe_inject.install(_logger)
         _logger.info('%s initialized', MOD_ID)
     except Exception:
         _logger.exception('%s failed to initialize', MOD_ID)
@@ -28,6 +30,7 @@ def init():
 
 def fini():
     try:
+        bar_probe_inject.uninstall(_logger)
         window_inject.uninstall(_logger)
     except Exception:
         _logger.exception('%s error in fini', MOD_ID)

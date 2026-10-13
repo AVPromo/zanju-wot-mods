@@ -286,7 +286,7 @@ entirely the mod's own DOM subtree — it never modifies an element the game ren
 the game's UI keeps its own references and would either overwrite the mod or strand its
 markup on screen.
 
-Two constraints shape the rest, both documented in
+Three constraints shape the rest, all documented in
 [Gameface Mod Widgets](gameface-mod-widgets.md):
 
 - The window root takes **no pointer events**; only the header and body opt back in. A root
@@ -297,6 +297,9 @@ Two constraints shape the rest, both documented in
   with any other draggable mod OpenWG has dropped into the same document. Deciding ownership
   by DOM subtree rather than by hit-testing rectangles is what makes that reliable — two
   overlapping widgets' rectangles can both contain the point.
+- The title bar never goes under the garage's top bar or bottom bar. Each bar is a separate document over the garage, and it takes every press across its strip, also where it draws nothing. The player can never grab a title bar under one of them again. Thus the window keeps its title bar between the bars, and keeps its narrowest width on screen sideways. It clamps itself when it places itself, on every move, and when the bars or the screen size change. The clamp at placement also frees a window that an earlier version left under a bar.
+
+A probe inside each bar document measures its strip. Until the first report arrives, only the screen edges limit the window. See [The Lobby Bars Take Input Where They Draw Nothing](gameface-mod-widgets.md#the-lobby-bars-take-input-where-they-draw-nothing).
 
 Window position and folded state are reported back to Python through wulf view-model
 commands and stored in AppData, so a modpack reinstall does not reset them. The stored

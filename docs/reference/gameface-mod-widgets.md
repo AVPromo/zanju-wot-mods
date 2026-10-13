@@ -34,6 +34,17 @@ Two consequences that are easy to get wrong:
   sub-views and inject onto the first *free* one; occupancy can be detected by serialising
   the view model (`toString()` yields its field names as JSON).
 
+**A mod can add a sub-view of its own instead.** A `ViewComponent` attaches each child with `setChildView(posId, child)`. The client then lists that child in `window.subViews`, also when the document's own code never uses it. OpenWG's bootstrap finds an inject model on such a child as on any other sub-view. Thus the mod takes no sub-view that another mod could want, and no other mod can clobber it.
+
+To add one:
+
+1. Patch the parent's `_onLoading`. Let the original run first, so that the parent's own children are in place.
+2. Build a small `ViewComponent` whose model carries the `ModInjectModel`.
+3. Call `_registerChild(posId, child)`. After the original `_onLoading`, this attaches the child at once.
+4. Make sure that `getChildView(posId)` returns the child. If it does not, unregister the child.
+
+Measured on 2.4.0.2 with `LobbyHeader` and `LobbyFooter`: the client attached children at `R.dynamic_ids.demo_window.bottom_panel()` and at the arbitrary number `0x5A4E4448`. The header document listed both as sub-views, and the footer took a child at `0x5A4E4448` too. The position ID needs no entry in OpenWG's `res_map`, so the client does not restart. Use a number far above the resource IDs, which count up from zero and were near 136,000 on 2.4.0.2. `directives-helper` puts its bar probe in both lobby bars this way.
+
 Documents worth knowing (`mono/hangar/...`): `main` is the persistent garage document and
 loads exactly once per garage session; `header` and `footer` likewise; `tooltips` and
 `vehicle_tooltip` are recreated constantly. A widget that should live for the whole garage
@@ -109,8 +120,61 @@ than per-control opt-in.
   at once and then registration order decides nondeterministically. Never
   `stopImmediatePropagation()` for an event that is not yours.
 - Clamp to the viewport so the widget cannot be dragged off-screen.
+- Keep the drag handle between the garage's top bar and bottom bar. Each bar takes every press across its strip, also where it draws nothing. See [The Lobby Bars Take Input Where They Draw Nothing](#the-lobby-bars-take-input-where-they-draw-nothing).
+- Read the screen size from `viewEnv.getClientSizePx()` while `window.innerWidth` is still 0. That is the case when the module starts, which is when a widget places itself.
 - Store the viewport size alongside the coordinates, so a later resolution or UI-scale change
   can rescale the position proportionally instead of stranding the widget.
+
+## The Lobby Bars Take Input Where They Draw Nothing
+
+This section comes from client 2.4.0.2. We read these files:
+
+- `gui/flash/lobby.swf`, the legacy lobby page
+- `mono/hangar/views/header/header.html/bundle.js` and `mono/hangar/header/header.css`, the top bar
+- `mono/hangar/views/footer/footer.html/bundle.js` and `mono/hangar/footer/footer.css`, the bottom bar
+- `mono/hangar/chunks/lib.js`, the shared chunk
+
+Then we measured the result in game at 1920×1200 and one pixel per rem. A probe ran inside each bar document, and the documents logged the presses they received. A player report of a `directives-helper` window stuck under the top bar started the work.
+
+The garage's top bar and bottom bar are documents of their own, `mono/hangar/header` and `mono/hangar/footer`, and they sit over `main`. The legacy lobby page holds each of them in a `GFInjectComponent` across the full width. The header sits at the top of the stage, and the footer at the bottom. Each bar sets the size of that surface itself.
+
+Both bars use the shared hook `useSyncSizeTexture`, in mirror image:
+
+- The header's App root calls `useSyncSizeTexture(0, 250)`. The hook resizes the view to the `offsetHeight` of the root plus 250rem below it. Then it removes those 250rem from the hit area with `viewEnv.setHitAreaPaddingsRem`. The battle button's glow draws there and takes no input.
+- The footer's `App_footer` element calls `useSyncSizeTexture(250, 0)`. The extra 250rem go above the element, and they leave the hit area in the same way.
+
+Thus each hit area is one element: a strip across the full width of the screen. The measurements agree. The header view was 326 pixels tall, the 76-pixel App root plus 250rem. The footer view was 308 pixels tall at y=892, the 58-pixel `App_footer` element plus 250rem.
+
+Measure the right element in each bar. In the header, it is the outermost element with an `App_` class. In the footer, the outermost `App_` element fills the whole view, the 250rem above the bar included. The sized element is the `App_footer` element inside it.
+
+In the garage neither strip has a background. An earlier client drew a solid bar there, so the player could see the area was in use. The background now comes back only in the old style, `App_base__oldStyle` and `App_footer__oldStyle`, which [a view on band 6](ui-and-scaleform.md#top_sub_view-6-brings-the-legacy-lobby-back-with-it) turns on. Without it each strip looks like part of the garage scene, but it still takes every press. A widget in `main` under a strip does not get the press. No `z-index` changes that, because the documents are separate.
+
+The inner row of a strip belongs to its bar too. With a 76-pixel App root, presses at y=76 and above reached the header document, and presses at y=80 and below reached `main`. So a handle must start at the row under the strip's bottom edge. We did not measure the edge row of the bottom bar. `directives-helper` keeps one row clear there too, and in game its handle stayed easy to grab at that limit.
+
+### The Strip Heights
+
+The top bar's height follows the client's width breakpoints. The breakpoint uses the screen width in rem, from `viewEnv.getClientSizeRem()`, not in pixels:
+
+| Screen width | Top bar height |
+| --- | --- |
+| under 1600rem | 57rem |
+| 1600rem or more (`mediaMediumWidth`) | 59rem |
+| 1920rem or more (`mediaLargeWidth`) | 76rem |
+| 2560rem or more (`mediaExtraLargeWidth`) | 82rem |
+
+The App root also has 6rem of bottom padding, and the padding is inside these heights. At 1920 pixels wide the root measured 76 pixels, the same as its `height: 76rem`. `getComputedStyle` reports no `box-sizing` in this renderer, so read the height, not the style. For example, 3840 pixels at two pixels per rem is 1920rem wide. There the top bar is 76rem, or 152 pixels.
+
+The bottom bar's stylesheet gives no height. The bar takes its height from its content and its padding. At 1920 pixels wide it measured 58 pixels. Its padding grows by 6rem at 2560rem and wider.
+
+### Reading The Strips Live
+
+A widget in `main` cannot read the bar documents. `directives-helper` therefore puts a probe, `bar_probe.js`, into both of them. It takes none of their own sub-views: it adds a child of its own to `LobbyHeader` and to `LobbyFooter`, as in [Getting code into a document](#getting-code-into-a-document). Python tells each probe the class prefix of the element to measure. The probe adds the view position from `viewEnv.getViewGlobalPositionRem()` to the element's rectangle, and reports the strip in screen pixels with a command. Python passes each report on to the window's model, with the bar it came from. All three documents measured the same pixels per rem.
+
+The reports come late. In the measured run the window placed itself, and the first reports arrived one second after that. Until then a widget has two choices: fixed limits copied from the stylesheets, or the screen edges alone. `directives-helper` uses the screen edges, so it keeps no client numbers to maintain. A window saved under a bar shows there for about a second, and then moves when the report arrives. If no report ever comes, the window loses only the protection from the bars. When a report arrives, move the widget only if it is outside the new limits.
+
+The first placement has a trap of its own. When a module in `main` starts, `window.innerWidth` and `window.innerHeight` are still 0, but `viewEnv.getClientSizePx()` already reports the size of the view. A placement that reads `innerWidth` at that moment picks the smallest breakpoint, and it skips every clamp that needs the screen size.
+
+For a draggable widget the result is direct: a drag handle under a strip is lost. Keep the whole handle between the bars, and keep enough of it on screen sideways. Clamp it on every move and when the widget places itself at start. That start clamp frees a widget that a player already dropped there. Measured: a window stored at y=10 came back at y=77, directly under a top bar of 76 pixels. Clamp it again when the limits change: a bar report, a new screen size or interface scale, or a new size of the widget. `directives-helper` keeps the window's narrowest width on screen sideways, so only a wider window can hang off the right edge.
 
 ## Showing the widget only when it belongs
 

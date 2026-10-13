@@ -64,6 +64,11 @@ _patched = []
 # for the risk of a model vanishing while it is still in use, which is silent and much worse.
 _models = []
 
+# The lobby bar strips as bar_probe.js last measured them, as JSON for window.js, by the edge of
+# the screen each bar holds. Empty until a bar's first report, and window.js keeps to its fixed
+# limits until then. See bar_probe_inject.
+_bars = {'top': '', 'bottom': ''}
+
 # Set when a refresh had to be dropped because the account was mid-sync. The items cache tells
 # us when it has finished, and this is what turns that signal into the one refresh that was
 # owed rather than a rebuild on every sync the client runs.
@@ -87,7 +92,7 @@ class _WindowDataModel(ViewModel):
     def __init__(self, payload, state):
         self._payload = payload
         self._state = state
-        super(_WindowDataModel, self).__init__(properties=9, commands=7)
+        super(_WindowDataModel, self).__init__(properties=11, commands=7)
 
     def _initialize(self):
         super(_WindowDataModel, self)._initialize()
@@ -107,6 +112,9 @@ class _WindowDataModel(ViewModel):
         # inserting anything earlier would silently repoint every setter.
         self._addNumberProperty('width', self._state['width'])
         self._addBoolProperty('showUnowned', self._state['showUnowned'])
+        # Appended last for the same reason as `width`.
+        self._addStringProperty('topBar', _bars['top'])
+        self._addStringProperty('bottomBar', _bars['bottom'])
         # JS -> Python. `_addCommand` takes only the name and returns a Command; the handler
         # is bound to it with `+=` (it wraps an Event), which is how the game's own generated
         # view models declare theirs. A wulf command carries exactly one map argument.
@@ -129,6 +137,7 @@ class _WindowDataModel(ViewModel):
     _SNAPSHOT_INDEX = 0
     _VISIBLE_INDEX = 6
     _SHOW_UNOWNED_INDEX = 8
+    _BAR_INDEX = {'top': 9, 'bottom': 10}
 
     def setSnapshot(self, payload):
         self._payload = payload
@@ -139,6 +148,9 @@ class _WindowDataModel(ViewModel):
 
     def setShowUnownedValue(self, value):
         self._setBool(self._SHOW_UNOWNED_INDEX, bool(value))
+
+    def setBar(self, edge, payload):
+        self._setString(self._BAR_INDEX[edge], payload)
 
     def __onSetPosition(self, *args):
         arg = args[0] if args else None
@@ -466,6 +478,33 @@ def refresh(logger):
     _push(lambda model: model.setSnapshot(payload), logger)
 
 
+def report_bar(edge, arg, logger):
+    """Pass a lobby bar strip that bar_probe.js measured on to every live window model.
+
+    `edge` is the edge of the screen the bar holds, `top` or `bottom`. `arg` is the map the
+    `reportBar` command carries: the strip edges in screen pixels, and the pixels per rem the bar
+    measured them at. A report with a missing or unreadable edge is dropped, so the window keeps
+    what it had rather than clamping to a guess.
+    """
+    import json
+    if edge not in _bars:
+        logger.warning('Bar report dropped: unknown edge %r', edge)
+        return
+    report = {}
+    for key in ('left', 'top', 'right', 'bottom', 'scale'):
+        try:
+            report[key] = float(_map_get(arg, key))
+        except (TypeError, ValueError):
+            logger.warning('%s bar report dropped: no usable %s in %r', edge.capitalize(), key, arg)
+            return
+    payload = json.dumps(report, sort_keys=True)
+    if payload == _bars[edge]:
+        return
+    _bars[edge] = payload
+    logger.info('%s bar measured: %s', edge.capitalize(), payload)
+    _push(lambda model: model.setBar(edge, payload), logger)
+
+
 def _should_be_visible():
     return loadout_panel.is_visible() and route_gate.is_visible() and slot_gate.is_visible()
 
@@ -693,6 +732,7 @@ def uninstall(logger):
     global _claimed_class, _pending_refresh
     _claimed_class = None
     _pending_refresh = False
+    _bars.update(top='', bottom='')
     _unbind_events(logger)
     loadout_panel.uninstall(logger)
     route_gate.uninstall(logger)

@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.0.6 (13 October 2026)
+
+- Fixed the window getting stuck where the player could not grab it, such as under the garage's top bar. A window that is already stuck moves back by itself.
+
 ## 1.0.5 (21 September 2026)
 
 - New Simplified Chinese translation. Thank you [@becausemadoka](https://github.com/becausemadoka)!
