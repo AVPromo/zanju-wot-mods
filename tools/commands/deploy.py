@@ -19,6 +19,7 @@ Usage:
 
 Note:
     Deployment copies pre-built artifacts from dist/ — run zwm build first.
+    Each build empties dist/, so build every mod you deploy in one zwm build run.
     Close WoT before deploying (no automatic running-process check; in-use files are skipped).
 """
 
@@ -55,7 +56,11 @@ def deploy_mod(game_dir, mod_name, target_wot_version, include_companion_bundle=
     bundle_name = "{}_{}".format(mod_id, version)
     src_archive = os.path.join(DIST_DIR, bundle_name, "mods", target_wot_version, archive_name)
     if not os.path.isfile(src_archive):
-        raise RuntimeError("Built archive not found: {}".format(src_archive))
+        raise RuntimeError(
+            "Built archive not found: {}. Each build empties dist/. Build {} before you deploy it.".format(
+                src_archive, mod_name
+            )
+        )
 
     dst_mods_dir = os.path.join(game_dir, "mods", target_wot_version)
     os.makedirs(dst_mods_dir, exist_ok=True)

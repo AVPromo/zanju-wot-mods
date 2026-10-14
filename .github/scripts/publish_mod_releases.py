@@ -1,7 +1,7 @@
 """Publish a release for every mod whose current version has not been released yet.
 
 One rule drives all of it: a mod at version >= 1.0.0 with no release tagged
-``<mod-dir>@<version>`` gets one. Bootstrapping the scheme, a new mod reaching 1.0.0,
+``<ACRONYM>@<version>`` gets one. Bootstrapping the scheme, a new mod reaching 1.0.0,
 and a day-to-day version bump are all the same case, which makes the step idempotent --
 re-running it after a failure publishes exactly what is still missing.
 """

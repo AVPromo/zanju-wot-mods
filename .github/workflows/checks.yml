@@ -1,7 +1,7 @@
 name: Checks
 
 # Reusable check definition (single source of truth for "what CI verifies"):
-# formatting, linting, localization coverage, and the mods' unit tests. Runs inside
+# formatting, linting, localization coverage, release tags, and the mods' unit tests. Runs inside
 # the published build image, so CI and local use the exact same Python 3 +
 # Python 2.7 + Node + tooling. Called by checks-on-change.yml (every push / PR) and
 # stable-release.yml (release gate).
@@ -40,6 +40,11 @@ jobs:
 
     - name: Localization (i18n key coverage + README coverage up to date)
       run: python3 -m tools.commands.lint i18n-check
+
+    # The publish step on master refuses the same faults, but only after the merge, and
+    # there one fault stops the release of every mod.
+    - name: Release tags (acronyms + changelog entries)
+      run: python3 .github/scripts/check_release_tags.py
 
     # Mod unit tests (Python 2.7 runtime + Gameface JavaScript). --strict turns a missing
     # Node into a failure instead of a silent skip: the runner degrades gracefully for local

@@ -99,7 +99,6 @@ jobs:
       shell: bash
       run: |
         set -euo pipefail
-        rm -rf dist
         mkdir -p .tmp
         docker run --rm \
           --user "$(id -u):$(id -g)" \

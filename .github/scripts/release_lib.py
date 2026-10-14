@@ -30,6 +30,21 @@ MODS_DIR = os.path.join(REPO_ROOT, "mods")
 DIST_DIR = os.path.join(REPO_ROOT, "dist")
 WOT_VERSION_MANIFEST_PATH = os.path.join(REPO_ROOT, "tools", "wot_version_manifest.json")
 
+# Fixed release acronyms, as {"overrides": {"<mod directory name>": "<ACRONYM>"}}. A mod with
+# no entry takes the acronym that release_acronym() makes from its meta.xml <name>.
+#
+# Add an entry in two cases. If a new mod makes the same acronym as another mod, give the
+# entry to the new mod, because it has no releases yet. If you rename a mod that has
+# releases, give it the acronym it had before the rename.
+#
+# The acronym is the first part of every release tag of a mod, so a changed acronym starts a
+# new series of tags. The publish step then finds no tag for the current version and releases
+# it again, and the index no longer finds the old releases.
+#
+# meta.xml is not the place for this value, because meta.xml ships inside every package.
+ACRONYMS_PATH = os.path.join(SCRIPT_DIR, "release_acronyms.json")
+ACRONYMS_LABEL = ".github/scripts/release_acronyms.json"
+
 # Separator between acronym and version in a release tag. '@' rather than '-v' because it
 # never occurs in an acronym, and rather than '/' because a tag named "PT" could then
 # never coexist with "PT/..." in the ref namespace, foreclosing a rolling per-mod tag.
@@ -48,6 +63,11 @@ TAG_SEPARATOR = "@"
 # The invariant that matters: no other release tag may begin with a lowercase letter
 # sorting after this one.
 HUB_TAG_PREFIX = "index"
+
+# Only ASCII capitals and digits. All of them sort below every lowercase letter, as
+# HUB_TAG_PREFIX requires, and none of them is TAG_SEPARATOR. A derived acronym can break
+# this rule: "Über" gives "Ü", which sorts above "i".
+ACRONYM_PATTERN = re.compile(r"^[A-Z0-9]+$")
 
 
 def run_command(cmd, check=True):
@@ -83,6 +103,17 @@ def read_wot_version():
     with open(WOT_VERSION_MANIFEST_PATH, "r", encoding="utf-8") as fh:
         manifest = json.load(fh)
     return (manifest.get("wotClientVersion") or "").strip()
+
+
+def read_acronym_overrides():
+    with open(ACRONYMS_PATH, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    overrides = data.get("overrides") if isinstance(data, dict) else None
+    if not isinstance(overrides, dict) or not all(isinstance(value, str) for value in overrides.values()):
+        raise RuntimeError(
+            '{} must hold {{"overrides": {{"<mod directory name>": "<ACRONYM>"}}}}.'.format(ACRONYMS_LABEL)
+        )
+    return overrides
 
 
 def version_tuple(version):
@@ -129,6 +160,20 @@ def release_acronym(display_name):
     return "".join(word[0].upper() for word in words)
 
 
+def mod_acronym(mod_name, display_name, overrides):
+    """The release acronym of one mod: its entry in overrides, else the derived one."""
+
+    acronym = overrides.get(mod_name) or release_acronym(display_name)
+    if not ACRONYM_PATTERN.match(acronym):
+        raise RuntimeError(
+            "{} has the release acronym '{}'. A release acronym can contain only the letters A-Z "
+            "and the digits 0-9. Set a different acronym for {} in {}.".format(
+                mod_name, acronym, mod_name, ACRONYMS_LABEL
+            )
+        )
+    return acronym
+
+
 def release_title(acronym, version):
     """Short title for a per-mod release, e.g. "RPB 1.3.1".
 
@@ -148,6 +193,7 @@ def iter_mods():
     if not os.path.isdir(MODS_DIR):
         return
 
+    overrides = read_acronym_overrides()
     mods = []
     for mod_name in sorted(os.listdir(MODS_DIR)):
         mod_dir = os.path.join(MODS_DIR, mod_name)
@@ -159,7 +205,7 @@ def iter_mods():
             raise RuntimeError("{} has missing id or version in meta.xml".format(mod_name))
 
         display_name = meta["name"] or mod_name
-        acronym = release_acronym(display_name)
+        acronym = mod_acronym(mod_name, display_name, overrides)
         bundle_name = "{}_{}".format(meta["id"], meta["version"])
         mods.append(
             {
@@ -184,10 +230,20 @@ def iter_mods():
         clash = by_acronym.get(mod["acronym"])
         if clash:
             raise RuntimeError(
-                "{} and {} both produce the release acronym '{}'. Rename one in its "
-                "meta.xml <name> so their tags stay distinct.".format(clash, mod["mod_name"], mod["acronym"])
+                "{} and {} both produce the release acronym '{}'. Set a different acronym for one "
+                "of them in {}. Select the mod that has no releases yet, because a changed acronym "
+                "starts a new series of tags.".format(clash, mod["mod_name"], mod["acronym"], ACRONYMS_LABEL)
             )
         by_acronym[mod["acronym"]] = mod["mod_name"]
+
+    # An entry for a mod that is not there does nothing. If its name has a typo, the mod it
+    # was meant for loses its fixed acronym without a sign.
+    unknown = sorted(set(overrides) - {mod["mod_name"] for mod in mods})
+    if unknown:
+        raise RuntimeError(
+            "{} has an entry for {}. There is no mods/<name>/meta.xml for it. Correct the name or "
+            "remove the entry.".format(ACRONYMS_LABEL, ", ".join(unknown))
+        )
 
     yield from mods
 

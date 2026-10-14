@@ -55,6 +55,8 @@ Pushes to `master` lint, build all mods inside the image, and then publish. The 
 
 Publishing follows a single rule: a mod at version `1.0.0` or higher whose `meta.xml` version has no release yet gets one, tagged `<ACRONYM>@<version>`, where the acronym is built from the mod's `meta.xml` name minus the author prefix — "Zanju's Premium Time" becomes `PT@1.0.1`. Releases are never edited afterwards, so a push with no version bump publishes nothing. Versions below `1.0.0` are treated as internal and are not released.
 
+Two mods must not share an acronym. If a new mod makes the same acronym as another mod, give the new mod a fixed acronym in `.github/scripts/release_acronyms.json`, for example `{"overrides": {"platoon-tracker": "PLT"}}`. If you rename a mod that has releases, keep its old acronym there. A changed acronym starts a new series of tags: the next run releases the current version again, and the index no longer finds the old releases. The pull-request checks run `.github/scripts/check_release_tags.py`, which finds a shared acronym or a missing changelog section before the merge.
+
 Whenever at least one mod is released, the `Latest Releases` index release is republished under a fresh dated tag and marked as GitHub's latest release, so `/releases/latest` always resolves to a current list of every mod's newest download. The index carries no assets of its own and is rendered from the releases that actually exist, so a partly failed run self-corrects on the next one.
 
 Release notes for each mod are taken from its `mods/<name>/CHANGELOG.md` section matching the version being released, so that section must exist before the version can ship.
@@ -64,6 +66,8 @@ Release notes for each mod are taken from its `mods/<name>/CHANGELOG.md` section
 ## Output
 
 Successful builds are written to `dist/` as bundle directories. For end users, the main installation artifact is the generated zip inside each bundle directory.
+
+Each `zwm build` run empties `dist/` before it builds. Thus `dist/` holds only the mods of the last run: `zwm build premium-time` leaves one bundle, and `zwm build --all` leaves one bundle for each mod. `zwm deploy` copies from `dist/`, so build every mod that you deploy in one run. `zwm cycle` does this for you.
 
 Each built mod bundle includes:
 

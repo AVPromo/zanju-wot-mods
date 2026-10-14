@@ -11,6 +11,9 @@ Usage:
 
 Output: dist/<mod-id>_<version>/mods/<target_wot_version>/<mod-id>_<version>.wotmod
 
+Each run empties dist/ before it builds. Thus dist/ holds only the mods of the last run, also when that
+run built one mod.
+
 Optional prebuild hooks:
 - If mods/<name>/ui/compile_ui.py exists, it is run before packaging that mod.
 - Generated packaged assets should land under mods/<name>/ui/build/res/.
@@ -53,7 +56,7 @@ from ..core.mod_assets import (
     copy_tree_contents,
     directory_has_entries,
 )
-from ..core.mod_cli import parse_companion_targeting_args, resolve_mod_targets, run_entrypoint
+from ..core.mod_cli import ensure_mod_dirs_exist, parse_companion_targeting_args, resolve_mod_targets, run_entrypoint
 from ..core.env import subprocess_env
 from ..core.mod_meta import read_meta
 from ..core.paths import DIST_DIR, LICENSE_PATH, MODS_DIR
@@ -146,6 +149,21 @@ def stage_resource_trees(mod_dir, mod_id, staged_res_dir):
     copy_tree_contents(os.path.join(mod_dir, "res"), staged_res_dir)
     stage_i18n_resources(mod_dir, mod_id, staged_res_dir)
     copy_tree_contents(os.path.join(mod_dir, "ui", "build", "res"), staged_res_dir)
+
+
+def clear_dist_dir():
+    """Empty dist/, so that it holds only what this run builds.
+
+    This removes the entries in dist/ but keeps dist/ itself. A shell whose working directory is
+    dist/ thus keeps a directory that exists.
+    """
+    os.makedirs(DIST_DIR, exist_ok=True)
+    for name in os.listdir(DIST_DIR):
+        path = os.path.join(DIST_DIR, name)
+        if os.path.isdir(path) and not os.path.islink(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
 
 
 def write_release_zip(bundle_root, bundle_name):
@@ -288,9 +306,6 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
     bundle_root = os.path.join(DIST_DIR, bundle_name)
     package_dir = os.path.join(bundle_root, "mods", target_wot_version)
 
-    os.makedirs(DIST_DIR, exist_ok=True)
-    if os.path.isdir(bundle_root):
-        shutil.rmtree(bundle_root)
     os.makedirs(package_dir, exist_ok=True)
     output_path = os.path.join(package_dir, output_name)
 
@@ -365,12 +380,16 @@ def _main():
     mod_names = resolve_mod_targets(run_all, targets, "build")
     if mod_names is None:
         return
+    ensure_mod_dirs_exist(mod_names)
 
     success("Target WoT client version: {}".format(target_wot_version))
 
     # The whole repository, also on a partial build: a partial build must never pass what
     # `--all` would stop on.
     mods_common.check()
+
+    # After the checks, so that a mistyped mod name or a failed check keeps the last output.
+    clear_dist_dir()
 
     for mod_name in mod_names:
         build_mod(
