@@ -121,7 +121,7 @@ than per-control opt-in.
   `stopImmediatePropagation()` for an event that is not yours.
 - Clamp to the viewport so the widget cannot be dragged off-screen.
 - Keep the drag handle between the garage's top bar and bottom bar. Each bar takes every press across its strip, also where it draws nothing. See [The Lobby Bars Take Input Where They Draw Nothing](#the-lobby-bars-take-input-where-they-draw-nothing).
-- Do not trust the screen size when the module starts, which is when a widget places itself. On 2.4.1.0 `window.innerWidth` is 1 at that moment. Take a size smaller than any screen as unknown, and wait for a real size before the first placement.
+- Do not trust the screen size when the module starts, which is when a widget places itself. On 2.4.1.0 `window.innerWidth` can be 1 at that moment. Take a size smaller than any screen as unknown, and wait for a real size before the first placement.
 - Store the viewport size alongside the coordinates, so a later resolution or UI-scale change
   can rescale the position proportionally instead of stranding the widget.
 
@@ -172,7 +172,7 @@ A widget in `main` cannot read the bar documents. `directives-helper` therefore 
 
 The reports come late. In the measured run the window placed itself, and the first reports arrived one second after that. Until then a widget has two choices: fixed limits copied from the stylesheets, or the screen edges alone. `directives-helper` uses the screen edges, so it keeps no client numbers to maintain. A window saved under a bar shows there for about a second, and then moves when the report arrives. If no report ever comes, the window loses only the protection from the bars. When a report arrives, move the widget only if it is outside the new limits.
 
-The first placement has a trap of its own. When a module in `main` starts on 2.4.1.0, `window.innerWidth` and `window.innerHeight` are 1. A check for a size above 0 takes 1 by 1 as the screen. The 2.4.1.0 `game.log` shows what follows:
+The first placement has a trap of its own. When a module in `main` starts on 2.4.1.0, `window.innerWidth` and `window.innerHeight` can be 1. In the first 2.4.1.0 session, all five garage loads read 1 by 1. In the next session, the one garage load read the real size. A check for a size above 0 takes 1 by 1 as the screen. The 2.4.1.0 `game.log` shows what follows:
 
 ```text
 [zanju.directiveshelper] placed the window at 0,0 from the stored 1326,187 (stored at 1920x1200, now 1x1), ...

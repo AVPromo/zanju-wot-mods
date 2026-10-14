@@ -538,7 +538,7 @@ describe('window chrome', () => {
     });
 
     test('takes the size from the engine while the page reads 1 by 1', () => {
-        // Measured on 2.4.1.0: innerWidth and innerHeight are 1 when the window first places
+        // Measured on 2.4.1.0: innerWidth and innerHeight can be 1 when the window first places
         // itself. Used as the size, they rescaled the stored 1326,187 to 0,0.
         globalThis.window = { innerWidth: 1, innerHeight: 1 };
         globalThis.viewEnv = { remToPx: (rem) => rem, getClientSizePx: () => ({ width: 1920, height: 1200 }) };

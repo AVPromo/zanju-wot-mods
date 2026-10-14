@@ -1357,6 +1357,25 @@ test('a position is clamped so a banner can never sit off-screen', () => {
     assert.deepEqual(widgets.clampToViewport(99999, 99999), { x: 1880, y: 1060 });
 });
 
+test('a page that reads 1 by 1 does not pin the banners to the corner', () => {
+    // Measured on 2.4.1.0: innerWidth and innerHeight can be 1 when a module starts. Taken as the
+    // size of the screen, they clamp every banner to 0,0.
+    const realWindow = global.window;
+    global.window = { innerWidth: 1, innerHeight: 1 };
+    try {
+        assert.deepEqual(widgets.clampToViewport(1030, 100), { x: 1030, y: 100 });
+
+        const root = document.createElement('div');
+        const branches = widgets.renderWidgets(root, { campaigns: [entry({})], labels: {} });
+        widgets.applyLayout(root, branches, { x: 1030, y: 100 });
+        const banner = root.querySelector('[data-branch="pm2"]');
+        assert.equal(banner.style.left, '1030px');
+        assert.equal(banner.style.top, '100px');
+    } finally {
+        global.window = realWindow;
+    }
+});
+
 test('banners are laid out in a row from the origin, one margin apart', () => {
     const root = document.createElement('div');
     const branches = widgets.renderWidgets(root, {

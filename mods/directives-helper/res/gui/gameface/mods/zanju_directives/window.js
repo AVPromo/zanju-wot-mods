@@ -497,10 +497,10 @@ function isScreenSize(w, h) {
 }
 
 function viewportSize() {
-    // The page does not know its own size when this module starts. On 2.4.1.0 `innerWidth` and
-    // `innerHeight` are 1 at that moment. A size smaller than any screen is the same as no size:
-    // 1 by 1 rescaled a stored position to 0,0 and made the top bar report look like it did not
-    // fit the screen. {0, 0} means that the size is unknown.
+    // The page does not always know its own size when this module starts. On 2.4.1.0
+    // `innerWidth` and `innerHeight` can be 1 at that moment. A size smaller than any screen is
+    // the same as no size: 1 by 1 rescaled a stored position to 0,0 and made the top bar report
+    // look like it did not fit the screen. {0, 0} means that the size is unknown.
     const w = (typeof window !== 'undefined' && Number(window.innerWidth)) || 0;
     const h = (typeof window !== 'undefined' && Number(window.innerHeight)) || 0;
     if (isScreenSize(w, h)) {
