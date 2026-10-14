@@ -17,6 +17,7 @@ import json
 import logging
 import os
 
+from .constants import MOD_CONFIG_DIR_NAME
 from .storage import atomic_write_text, resolve_mod_data_dir
 
 _logger = logging.getLogger('zanju.directiveshelper')
@@ -123,7 +124,7 @@ def _as_int(value):
 
 
 def _config_path():
-    data_dir = resolve_mod_data_dir()
+    data_dir = resolve_mod_data_dir(MOD_CONFIG_DIR_NAME)
     if not data_dir:
         return None
     return os.path.join(data_dir, _FILE_NAME)

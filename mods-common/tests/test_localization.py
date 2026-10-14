@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tests for the runtime localization loader.
 
-Run via `zwm test premium-time`, which puts the mod's src/ on the path and fakes the
-build-generated `_mod_meta` module (see testing/zwm_test_env.py).
+Run via `zwm test`, which loads the module into the stand-in package `mods_common` and fakes
+the build-generated `_mod_meta` module with the stand-in id `zanju.modscommon` (see
+testing/zwm_test_env.py).
 
 The parser is the interesting part: `i18n/*.yml` files are authored by translators and
 hand-edited on GitHub, so it has to survive whatever shape they arrive in. In particular
@@ -13,7 +14,7 @@ from __future__ import unicode_literals
 
 import unittest
 
-from zanju_pt import localization
+from mods_common import localization
 
 
 class ParseFlatYamlTest(unittest.TestCase):
@@ -155,7 +156,11 @@ class LanguageCodeTest(unittest.TestCase):
 
     def test_text_domain_follows_the_mod_id(self):
         # Translations are read from the mounted package VFS, not from disk.
-        self.assertEqual(localization._TEXT_DOMAIN, 'mods/zanju.premiumtime/text')
+        self.assertEqual(localization._TEXT_DOMAIN, 'mods/zanju.modscommon/text')
+
+    def test_logger_name_follows_the_mod_id(self):
+        # Each mod's copy logs under its own id, as it did when every mod had its own file.
+        self.assertEqual(localization._logger.name, 'zanju.modscommon.i18n')
 
 
 if __name__ == '__main__':

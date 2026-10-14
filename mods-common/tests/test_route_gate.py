@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Tests for the lobby-route half of the window's visibility.
+"""Tests for the lobby-route half of the visibility of a mod's garage UI.
 
-The routes below are verbatim from a session that opened each offending screen in turn, as
-recorded in `game.log` — the strings are the contract, so they are worth pinning literally
-rather than paraphrasing.
+Every route below is verbatim from the client. Most come from a session that opened each
+offending screen in turn, as recorded in `game.log`. The test of every registered route holds
+all 58 registered states whose route names a hangar. The strings are the contract, so they are
+worth pinning literally rather than paraphrasing.
 """
 from __future__ import unicode_literals
 
 import logging
 import unittest
 
-from zanju_dh import route_gate
+from mods_common import route_gate
 
 
 class SilentLogger(logging.Logger):
@@ -74,22 +75,22 @@ class FakeMachine(object):
 
 class BareHangarRouteTest(unittest.TestCase):
 
-    def test_the_plain_garage_shows_the_window(self):
+    def test_the_plain_garage_shows_the_ui(self):
         self.assertTrue(route_gate.is_bare_hangar_route('subScope/subLayer/hangar/{root}'))
 
-    def test_a_garage_still_navigating_shows_the_window(self):
+    def test_a_garage_still_navigating_shows_the_ui(self):
         # The machine reports the route without its leaf while a navigation is in flight.
         self.assertTrue(route_gate.is_bare_hangar_route('subScope/subLayer/hangar'))
 
-    def test_another_modes_garage_shows_the_window(self):
+    def test_another_modes_garage_shows_the_ui(self):
         # The reason this is a suffix test and not an allowlist: every mode prefixes the route,
         # and an allowlist would silently omit whichever ones nobody thought to add.
         self.assertTrue(
             route_gate.is_bare_hangar_route('subScope/subLayer/comp7Light/hangar/{root}'))
 
-    def test_a_mode_that_folds_its_name_into_the_segment_shows_the_window(self):
+    def test_a_mode_that_folds_its_name_into_the_segment_shows_the_ui(self):
         # Three modes do not prefix a path. They rename the segment, so an equality test on
-        # 'hangar' misses them and the window stays hidden in those garages. Fun Random was
+        # 'hangar' misses them and the UI stays hidden in those garages. Fun Random was
         # found this way: its state class is even NAMED GeneratedDefaultHangarState.
         for route in ('subScope/subLayer/funRandomHangar',
                       'subScope/subLayer/funRandomHangar/{root}',
@@ -97,7 +98,7 @@ class BareHangarRouteTest(unittest.TestCase):
                       'subScope/subLayer/battleRoyale/battleRoyaleHangar'):
             self.assertTrue(route_gate.is_bare_hangar_route(route), route)
 
-    def test_a_screen_over_a_renamed_garage_still_hides_the_window(self):
+    def test_a_screen_over_a_renamed_garage_still_hides_the_ui(self):
         # The renamed segment must not swallow the suffix test along with it.
         for route in ('subScope/subLayer/funRandomHangar/loadout/shells',
                       'subScope/subLayer/funRandomHangar/allVehicles',
@@ -131,30 +132,29 @@ class BareHangarRouteTest(unittest.TestCase):
                 route = root + '/' + screen
                 self.assertFalse(route_gate.is_bare_hangar_route(route), route)
 
-    def test_the_playlist_editor_hides_the_window(self):
+    def test_the_playlist_editor_hides_the_ui(self):
         self.assertFalse(
             route_gate.is_bare_hangar_route('subScope/subLayer/hangar/editVehiclePlaylists'))
 
-    def test_the_directives_screen_hides_the_window(self):
+    def test_the_directives_screen_hides_the_ui(self):
         self.assertFalse(
             route_gate.is_bare_hangar_route('subScope/subLayer/hangar/loadout/instructions'))
 
-    def test_the_equipment_screen_hides_the_window(self):
+    def test_the_equipment_screen_hides_the_ui(self):
         self.assertFalse(
             route_gate.is_bare_hangar_route('subScope/subLayer/hangar/loadout/equipment'))
 
-    def test_a_route_outside_the_garage_hides_the_window(self):
+    def test_a_route_outside_the_garage_hides_the_ui(self):
         self.assertFalse(route_gate.is_bare_hangar_route('subScope/subLayer/techtree'))
 
-    def test_an_unreadable_route_hides_the_window(self):
+    def test_an_unreadable_route_hides_the_ui(self):
         self.assertFalse(route_gate.is_bare_hangar_route(''))
         self.assertFalse(route_gate.is_bare_hangar_route(None))
 
 
 class DegradationTest(unittest.TestCase):
-    """Until a route has been seen the window must not be held hidden: it is gated on the
-    loadout panel as well, and a garage that was already up when the mod loaded never
-    produces a route change of its own."""
+    """Until a route has been seen, the UI must not be held hidden: a garage that was already up
+    when the mod loaded never produces a route change of its own."""
 
     def setUp(self):
         self.restore = route_gate._route
@@ -162,7 +162,7 @@ class DegradationTest(unittest.TestCase):
     def tearDown(self):
         route_gate._route = self.restore
 
-    def test_no_route_yet_leaves_the_window_visible(self):
+    def test_no_route_yet_leaves_the_ui_visible(self):
         route_gate._route = None
         self.assertTrue(route_gate.is_visible())
 
@@ -179,7 +179,7 @@ class SubscriptionTest(unittest.TestCase):
     The failure this pins: the lobby clears the event manager on the way into a battle, so the
     handler is dropped while the machine object survives. An install that skipped re-subscribing
     because the machine looked unchanged stopped hearing routes for the rest of the session, and
-    the window stayed hidden behind whatever route was last seen -- the FINAL state the lobby
+    the UI stayed hidden behind whatever route was last seen -- the FINAL state the lobby
     passes through on its way out, which is not a garage route.
     """
 
@@ -217,7 +217,7 @@ class SubscriptionTest(unittest.TestCase):
         self.assertFalse(route_gate.is_visible(), 'routes must be reaching us again')
 
     def test_a_stale_route_is_re_read_on_install(self):
-        # The window came out of a battle: the last route anyone saw was the lobby's FINAL
+        # The mod came out of a battle: the last route anyone saw was the lobby's FINAL
         # state, and no navigation is coming to correct it.
         machine = FakeMachine('subScope/subLayer/FINAL')
         self.install(machine)

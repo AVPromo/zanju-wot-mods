@@ -56,6 +56,8 @@ SHARED_TESTS_DIR = os.path.join(MODS_COMMON_DIR, "tests")
 SHARED_SUITE_LABEL = "mods-common"
 # The tests of the shared modules import them from this package, which exists only in the test run.
 SHARED_STAND_IN_PACKAGE = "mods_common"
+# The MOD_ID that the stand-in package gets. It has the shape of a real meta.xml id.
+SHARED_STAND_IN_MOD_ID = "zanju.modscommon"
 
 PASSED = "passed"
 FAILED = "failed"
@@ -114,7 +116,7 @@ def run_shared_suite(verbose):
         "--tests",
         SHARED_TESTS_DIR,
         "--mod-id",
-        SHARED_STAND_IN_PACKAGE,
+        SHARED_STAND_IN_MOD_ID,
         "--mod-name",
         SHARED_SUITE_LABEL,
         "--pattern",

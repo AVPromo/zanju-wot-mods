@@ -1,4 +1,4 @@
-"""Runtime localization loader for directives-helper.
+"""Runtime localization loader for a mod.
 
 Translations ship inside the `.wotmod` at `res/mods/<MOD_ID>/text/<lang>.yml`. The WoT
 client mounts a package's `res/` at the root of its virtual resource filesystem, so the files
@@ -6,12 +6,12 @@ are read through `ResMgr` at the VFS path `mods/<MOD_ID>/text/<lang>.yml` (no `r
 The client UI language selects the file, with English merged underneath as a fallback. There
 is no loose on-disk localisation source and no per-mod language override.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import absolute_import, print_function, unicode_literals
 
 import json
 import logging
 
-from .constants import MOD_ID
+from ._mod_meta import MOD_ID
 
 try:
     import ResMgr
@@ -29,7 +29,7 @@ except Exception:
     _wg_i18n = None
 
 
-_logger = logging.getLogger('zanju.directiveshelper.i18n')
+_logger = logging.getLogger(MOD_ID + '.i18n')
 _DEFAULT_LANGUAGE = 'en'
 _TEXT_DOMAIN = 'mods/{0}/text'.format(MOD_ID)
 _bundle_cache = {}
@@ -46,6 +46,20 @@ def get_text(key, **format_kwargs):
         except Exception:
             _logger.exception('Failed to format localized text for key %s', key)
     return text
+
+
+def get_wg_text(resource_key, default=None):
+    if _wg_i18n is None or not resource_key:
+        return default
+
+    try:
+        resolved = _wg_i18n.makeString(resource_key)
+    except Exception:
+        return default
+
+    if not resolved or resolved == resource_key:
+        return default
+    return resolved
 
 
 def make_tooltip(header_key, body_key):

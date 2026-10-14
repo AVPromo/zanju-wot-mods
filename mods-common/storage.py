@@ -1,16 +1,18 @@
 """Shared on-disk storage helpers: AppData path resolution and atomic writes.
 
-The window state (config.py) lives under a shared AppData parent so the modpack never
-wipes it on reinstall:
+A mod keeps its files in its own folder under a shared AppData parent, so the modpack never
+wipes them on reinstall. For example:
 
     %APPDATA%/zanju_wot_mods_cache/directives-helper/window.json
+    %APPDATA%/zanju_wot_mods_cache/research-progress-bar/{config.json, cache.json}
+
+Each mod gives its own folder name to `resolve_mod_data_dir`. The name decides where the
+player's settings are, so it must never change.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import absolute_import, print_function, unicode_literals
 
 import io
 import os
-
-from .constants import MOD_CONFIG_DIR_NAME
 
 try:
     _text_type = unicode
@@ -22,12 +24,12 @@ except NameError:
 _DATA_ROOT_DIR_NAME = 'zanju_wot_mods_cache'
 
 
-def resolve_mod_data_dir():
+def resolve_mod_data_dir(dir_name):
     base_dir = resolve_appdata_base_dir()
     if not base_dir:
         return None
 
-    return os.path.join(base_dir, _DATA_ROOT_DIR_NAME, MOD_CONFIG_DIR_NAME)
+    return os.path.join(base_dir, _DATA_ROOT_DIR_NAME, dir_name)
 
 
 def resolve_appdata_base_dir():

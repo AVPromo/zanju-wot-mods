@@ -66,13 +66,14 @@ _poll_id = None
 def _data_dir():
     """The mod's AppData directory, imported late.
 
-    `storage` reaches `constants`, which imports a client module, so pulling it in at module
-    scope would break the promise in the docstring above that this file stays importable
+    The folder name comes from `constants`, which imports a client module, so pulling it in at
+    module scope would break the promise in the docstring above that this file stays importable
     outside the game. Kept as its own function so a test can stand in for it without having to
     import `storage` at all.
     """
+    from .constants import MOD_CONFIG_DIR_NAME
     from .storage import resolve_mod_data_dir
-    return resolve_mod_data_dir()
+    return resolve_mod_data_dir(MOD_CONFIG_DIR_NAME)
 
 
 def marker_path():
