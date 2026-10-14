@@ -1,6 +1,11 @@
 Changelog
 =========
 
+## 1.4.6 (14 October 2026)
+
+- The download now ships Aslain's Mod Menu 2.1.04, in place of 2.0.17.
+- Updated for World of Tanks 2.4.1.0.
+
 ## 1.4.5 (30 September 2026)
 
 - New Simplified Chinese translation. Thank you [@becausemadoka](https://github.com/becausemadoka)!

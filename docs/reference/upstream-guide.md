@@ -37,9 +37,9 @@ Keep writing these here, because nothing upstream answers them:
 
 ## Where the guide is wrong
 
-Four claims fail against client 2.3.1.3. Each was checked twice: read out of the shipped bytecode, then observed in a running client through a throwaway probe mod. The probe has been removed, so the log excerpts below are the record it left.
+Three claims fail against client 2.3.1.3. Each was checked twice: read out of the shipped bytecode, then observed in a running client through a throwaway probe mod. The probe has been removed, so the log excerpts below are the record it left.
 
-The fourth one is the serious one: it breaks the data path of the guide's whole standalone Gameface series.
+The third one is the serious one: it breaks the data path of the guide's whole standalone Gameface series.
 
 ### `dependency` does not come from `frameworks.wulf`
 
@@ -97,33 +97,6 @@ The last row is the one to show the author. Fun Random's garage state carries th
 Worth knowing on its own: **a mode's Python is not importable unless that mode is loaded.** The extension package sits on disk either way. A static reading of the packages and a runtime import answer different questions. The runtime answer also depends on what the account can currently play.
 
 Status: **confirmed at runtime.** Five of six garage roots fail the guide's test.
-
-### The `len(resource_map)` warning does not describe this client
-
-[gameface-resources](https://modding.wot-tools.dev/gameface-resources.html) says: "Do not use `len(resource_map)` as the next key when native keys can be sparse." `net.openwg.gameface` 1.1.6 does exactly that, so the warning reads as a live hazard in the helper the same guide tells you to depend on.
-
-It is not one here. The shipped `gui/unbound/res_map.json` holds 131,570 entries keyed `0` through `131569` with no gaps, so `len()` lands one past the end every time. The warning is still worth keeping as a rule, but it describes a client that could exist rather than this one.
-
-```python
-# openwg_gameface.ResMapManager._add_mod_items_to_resource_map
-numeric_item_id = len(resource_map)
-```
-
-The other rule on that page is the useful one, and it is real. The helper does `del item['itemID']` on the dictionary it was given. It parses its own JSON file, so today only its own transient copy suffers. A caller that ever hands OpenWG a dictionary it still needs should pass a copy.
-
-Probe tag: `U3`. Status: **confirmed, and downgraded from a bug to a rule.** Run 1 showed twelve mod entries allocated densely from 131570 upward, ours last:
-
-```text
-U3 res map validated: False        <- first launch, before the restart
-U3 res map validated: True         <- second launch
-U3 mod entries registered: 12
-U3   MoEGarageGameFaceView -> 131570 (hex 201f2)
-U3   FightButtonTextView   -> 131571 (hex 201f3)
-...
-U3   mods/zanju/ClientProbe/panelLayoutID -> 131581 (hex 201fd)
-```
-
-Seven other installed mods already register resource-map entries, so the standalone route is well travelled in the wild rather than exotic.
 
 ### The JavaScript model API does not exist
 

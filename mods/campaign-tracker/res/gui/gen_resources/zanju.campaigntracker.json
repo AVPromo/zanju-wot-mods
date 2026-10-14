@@ -1,11 +1,10 @@
 [
   {
-    "itemID": "mods/zanju/CampaignTracker/cardLayoutID",
     "type": "Layout",
+    "id": "R.mods.zanju.campaigntracker.views.CampaignCard",
     "path": "coui://gui/gameface/mods/zanju_campaigns/CampaignCard.html",
     "parameters": {
       "entrance": "CampaignCard",
-      "extension": "",
       "impl": "gameface"
     }
   }

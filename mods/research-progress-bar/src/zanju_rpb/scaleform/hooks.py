@@ -5,11 +5,12 @@ import logging
 import BigWorld
 from CurrentVehicle import g_currentPreviewVehicle, g_currentVehicle
 from frameworks.wulf import WindowLayer
-from gui.Scaleform.framework import ScopeTemplates, ViewSettings, g_entitiesFactories
+from gui.Scaleform.framework import ScopeTemplates, ViewSettings
 from gui.Scaleform.framework.entities.View import View
 from gui.Scaleform.framework.managers.loaders import SFViewLoadParams
 from gui.shared.personality import ServicesLocator
 from helpers import dependency
+from skeletons.gui.impl import IGuiLoader
 from skeletons.gui.shared import IItemsCache
 
 from ..constants import TOOLTIP_FILE_NAME, TOOLTIP_VIEW_ALIAS
@@ -685,9 +686,14 @@ VIEW_LAYER = WindowLayer.WINDOW
 TOOLTIP_LAYER = WindowLayer.TOP_WINDOW
 
 
+def _entities_factory():
+    """The registry of Scaleform view settings, a property of the GUI loader service."""
+    return dependency.instance(IGuiLoader).entitiesFactory
+
+
 def _register_tooltip_view_settings():
     """Register the tooltip's view once, on its own band."""
-    g_entitiesFactories.addSettings(
+    _entities_factory().addSettings(
         ViewSettings(
             TOOLTIP_VIEW_ALIAS,
             _ScaleformTooltipView,
@@ -703,7 +709,7 @@ def _register_scaleform_view_settings(current_registered, view_alias, view_class
     if current_registered:
         return current_registered
 
-    g_entitiesFactories.addSettings(
+    _entities_factory().addSettings(
         ViewSettings(
             view_alias,
             view_class,
@@ -749,7 +755,7 @@ def _unregister_scaleform_view_settings(current_registered, view_alias, logger):
         return False
 
     try:
-        g_entitiesFactories.removeSettings(view_alias)
+        _entities_factory().removeSettings(view_alias)
     except Exception:
         logger.exception('Failed to unregister scaleform garage view settings')
     return False

@@ -537,6 +537,78 @@ describe('window chrome', () => {
         }
     });
 
+    test('takes the size from the engine while the page reads 1 by 1', () => {
+        // Measured on 2.4.1.0: innerWidth and innerHeight are 1 when the window first places
+        // itself. Used as the size, they rescaled the stored 1326,187 to 0,0.
+        globalThis.window = { innerWidth: 1, innerHeight: 1 };
+        globalThis.viewEnv = { remToPx: (rem) => rem, getClientSizePx: () => ({ width: 1920, height: 1200 }) };
+        try {
+            applyPosition(root, { x: 1326, y: 187, viewportWidth: 1920, viewportHeight: 1200 });
+            assert.equal(root.style.left, '1326px');
+            assert.equal(root.style.top, '187px');
+        } finally {
+            delete globalThis.viewEnv;
+            delete globalThis.window;
+        }
+    });
+
+    test('waits for the screen size before it places the window', () => {
+        // The case from the 2.4.1.0 game.log: the page reads 1 by 1, the engine gives no size,
+        // and the top bar report is already in the model. The window must not show at 0,0
+        // under the top bar, and the top bar report must not be thrown away.
+        const data = {
+            snapshot: '{}', visible: true, x: 1326, y: 187, viewportWidth: 1920, viewportHeight: 1200,
+            topBar: JSON.stringify({ left: 0, top: 0, right: 1921, bottom: 76, scale: 1 }),
+        };
+        globalThis.window = {
+            innerWidth: 1,
+            innerHeight: 1,
+            subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
+        };
+        try {
+            tick();
+            assert.equal(root.style.display, 'none');
+            assert.equal(root.style.left, '');
+
+            globalThis.window.innerWidth = 1920;
+            globalThis.window.innerHeight = 1200;
+            tick();
+            assert.equal(root.style.display, 'flex');
+            assert.equal(root.style.left, '1326px');
+            assert.equal(root.style.top, '187px');
+            assert.equal(boundingBox().top, 77);
+        } finally {
+            data.topBar = '';
+            tick();
+            delete globalThis.window;
+        }
+    });
+
+    test('places the window without the screen size when the size does not come', () => {
+        // A window that waited for ever would never show. After the wait it places itself as
+        // it did before it knew about the size.
+        const realNow = Date.now;
+        let now = 1000;
+        Date.now = () => now;
+        globalThis.window = { innerWidth: 1, innerHeight: 1 };
+        try {
+            applyPosition(root, { x: 300, y: 400, viewportWidth: 1920, viewportHeight: 1080 });
+            assert.equal(root.style.left, '');
+
+            now += 2999;
+            applyPosition(root, { x: 300, y: 400, viewportWidth: 1920, viewportHeight: 1080 });
+            assert.equal(root.style.left, '');
+
+            now += 1;
+            applyPosition(root, { x: 300, y: 400, viewportWidth: 1920, viewportHeight: 1080 });
+            assert.equal(root.style.left, '300px');
+            assert.equal(root.style.top, '400px');
+        } finally {
+            Date.now = realNow;
+            delete globalThis.window;
+        }
+    });
+
     test('moves a stored position out from under the top bar', () => {
         // The top bar takes every press across its strip, also where it draws nothing. A
         // title bar left under it can never be grabbed again, so placing the window frees it.
@@ -760,23 +832,25 @@ describe('window chrome', () => {
 
     test('the top bar wins when the screen is too short for the title bar', () => {
         // A title bar that reaches into the bottom bar can still be grabbed. One under the top
-        // bar cannot. A 52px screen leaves 26 rows under a 25px top bar, less than a 34px title
-        // bar needs.
+        // bar cannot. At 4px per rem the title bar is 136px high, and a 200px screen leaves 109
+        // rows under a 90px top bar.
         const data = {
             snapshot: '{}', visible: true, x: 500, y: 500,
-            topBar: JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 25, scale: 1 }),
+            topBar: JSON.stringify({ left: 0, top: 0, right: 1920, bottom: 90, scale: 1 }),
         };
         globalThis.window = {
             innerWidth: 1920,
-            innerHeight: 52,
+            innerHeight: 200,
             subViews: { ids: () => [1], get: () => ({ model: { zanjuDhWindow: data } }) },
         };
+        globalThis.viewEnv = { remToPx: (rem) => rem * 4 };
         try {
             tick();
-            assert.equal(clampPosition(500, 500).top, 26);
+            assert.equal(clampPosition(500, 500).top, 91);
         } finally {
             data.topBar = '';
             tick();
+            delete globalThis.viewEnv;
             delete globalThis.window;
         }
     });

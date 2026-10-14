@@ -86,8 +86,10 @@ _GAP_PX = 6
 # stay true for the rest of the session, and a hover is cheap to repeat.
 _reported = set()
 
-# The stable key the resource map entry declares; see res/mods/configs/res_map/.
-LAYOUT_KEY = 'mods/zanju/CampaignTracker/cardLayoutID'
+# Where the card's layout sits in the client's resource tree, `R`. The entry is in
+# res/gui/gen_resources/zanju.campaigntracker.json. The client reads every
+# `gui/gen_resources/*.json` at start, the files in mod packages too, so no restart is necessary.
+LAYOUT_PATH = ('mods', 'zanju', 'campaigntracker', 'views', 'CampaignCard')
 
 
 def _layer():
@@ -203,7 +205,7 @@ def _discard():
 def _ensure_window(logger, payload):
     """Build the card window if it is not standing. False when it cannot be built right now.
 
-    Synchronous throughout, and deliberately so. The resource map and the lobby's main window
+    Synchronous throughout, and deliberately so. The resource tree and the lobby's main window
     are both ready long before a player can reach a banner, so waiting for either would buy
     nothing -- and a build that completed after the pointer left would leave a window standing
     with no card in it, which is the fault this module's lifetime exists to avoid.
@@ -214,17 +216,6 @@ def _ensure_window(logger, payload):
     if is_alive():
         return True
     _discard()
-
-    try:
-        from openwg_gameface import manager
-    except ImportError:
-        _report_once(logger, 'gameface',
-                     'net.openwg.gameface is not installed; the hover card is disabled')
-        return False
-    if not manager.isResMapValidated:
-        # The bootstrap validates the map once, long before the garage is reachable, so this
-        # is close to unreachable. No card this hover, and the next one tries again.
-        return False
 
     parent = _main_window()
     if parent is None:
@@ -255,16 +246,28 @@ def _report_once(logger, key, message):
     logger.warning(message)
 
 
-def _build(logger, parent, payload):
-    from openwg_gameface import res_id_by_key
+def _layout_id():
+    """The card's layout ID, or None when the client's resource tree has no such entry."""
+    from gui.impl.gen import R
 
-    layout_id = res_id_by_key(LAYOUT_KEY)
-    if not layout_id or layout_id < 0:
+    try:
+        node = R
+        for name in LAYOUT_PATH:
+            node = getattr(node, name)
+        layout_id = int(node())
+    except Exception:
+        return None
+    return layout_id if layout_id >= 0 else None
+
+
+def _build(logger, parent, payload):
+    layout_id = _layout_id()
+    if layout_id is None:
         _report_once(
-            logger, 'res_map',
-            'The resource map has no entry for {0}; the hover card is disabled. The client '
-            'restarts once after this mod is installed, which is when the map is '
-            'rebuilt.'.format(LAYOUT_KEY))
+            logger, 'resources',
+            'The client has no resource R.{0}; the hover card is disabled. The client reads it '
+            'from gui/gen_resources/zanju.campaigntracker.json in this mod at '
+            'start.'.format('.'.join(LAYOUT_PATH)))
         return False
 
     model = build_model_class()(json.dumps(payload), lambda *args: _on_sized(logger, *args))

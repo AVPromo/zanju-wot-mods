@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.2.3 (14 October 2026)
+
+- Updated for World of Tanks 2.4.1.0.
+
 ## 1.2.2 (2 October 2026)
 
 - New Simplified Chinese translation. Thank you [@becausemadoka](https://github.com/becausemadoka)!

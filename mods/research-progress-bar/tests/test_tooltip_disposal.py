@@ -122,6 +122,7 @@ _WINDOW_LAYER = _constant(
     TOP_WINDOW=10, OVERLAY=11,
 )
 _SPACE_ID = _constant('GuiGlobalSpaceID', LOBBY=1, BATTLE=2)
+_IGuiLoader = _constant('IGuiLoader')
 
 _register('BigWorld', callback=_scheduler.callback, cancelCallback=_scheduler.cancelCallback)
 _register('CurrentVehicle', g_currentVehicle=object(), g_currentPreviewVehicle=object())
@@ -130,12 +131,16 @@ _register(
     'gui.Scaleform.framework',
     ScopeTemplates=_constant('ScopeTemplates', GLOBAL_SCOPE=0),
     ViewSettings=lambda *args, **kwargs: None,
-    g_entitiesFactories=_constant('Factories', addSettings=staticmethod(lambda settings: None))(),
 )
 _register('gui.Scaleform.framework.entities.View', View=FakeView)
 _register('gui.Scaleform.framework.managers.loaders', SFViewLoadParams=lambda alias: alias)
 _register('gui.shared.personality', ServicesLocator=_constant('ServicesLocator', appLoader=None))
-_register('helpers', dependency=_constant('dependency', instance=staticmethod(lambda skeleton: None)))
+_GUI_LOADER = _constant(
+    'GuiLoader', entitiesFactory=_constant('Factories', addSettings=staticmethod(lambda settings: None))(),
+)()
+_register('helpers', dependency=_constant(
+    'dependency', instance=staticmethod(lambda skeleton: _GUI_LOADER if skeleton is _IGuiLoader else None)))
+_register('skeletons.gui.impl', IGuiLoader=_IGuiLoader)
 _register('skeletons.gui.shared', IItemsCache=object)
 _register('skeletons.gui.app_loader', GuiGlobalSpaceID=_SPACE_ID)
 

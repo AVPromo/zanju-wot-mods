@@ -14,8 +14,8 @@ Scaleform is the older engine and Gameface is the current one. For a mod, that i
 | | Python only | Gameface widget (injected) | Gameface panel (standalone) | Scaleform view |
 | --- | --- | --- | --- | --- |
 | Used by | `salvo-reticle-fix` | `campaign-tracker`, `directives-helper`, `premium-time` | `campaign-tracker`, for its banner tooltip | `research-progress-bar`, one view for the bar and one for its tooltip |
-| Needs another mod | no | yes, `net.openwg.gameface` | yes, `net.openwg.gameface`, for the resource map only | no |
-| Build step | none | none, the files ship as they are | none, plus one `res_map` entry | `mxmlc` on an API mirror, run by `zwm build` through `ui/compile_ui.py` |
+| Needs another mod | no | yes, `net.openwg.gameface` | no | no |
+| Build step | none | none, the files ship as they are | none, plus one `gen_resources` entry | `mxmlc` on an API mirror, run by `zwm build` through `ui/compile_ui.py` |
 | Draws in | wherever the client draws it | the band of the host document, 5 for the garage | a band of its own, chosen per window | a band of its own, 7 or above |
 | Against native windows | n/a | always behind them | band 7 shares with them and activation decides; band 10 stays on top | the same |
 | Escape key | n/a | the host document's | cascades past the panel to the lobby menu; handle it yourself to close the panel | the same |
@@ -27,7 +27,6 @@ Scaleform is the older engine and Gameface is the current one. For a mod, that i
 | Unit tests | Python | Python, plus `node --test` against the shipped module | the same | Python only, and none for the ActionScript |
 | Debug output | `game.log` | `console.error` reaches `game.log`, tagged `[UI] [Gameface]`; `console.log` is untested | the same | a round trip through Python |
 | Breaks when | the patched client code changes | the host document or its sub-views change | the Wulf view or window contract changes | the API mirror or the view settings go stale |
-| Costs a restart | no | no | yes, once, when the `res_map` entry changes | no |
 
 The settings menu is a separate question from all of this. Any route can register with Mod Menu, which is a companion artifact rather than a UI decision. See [In-Game Settings](in-game-settings.md).
 
@@ -94,7 +93,7 @@ The mod builds its own view model, its own `ViewImpl`, and its own `WindowImpl`,
 
 It **holds a band of its own**, which is the whole point. It is not sealed inside the garage document, so a native window no longer covers it by construction.
 
-It **needs an entry in the Gameface resource map**, because the document is one the client has never registered. The entry ships inside the `.wotmod` at `res/mods/configs/res_map/<mod>.json`, and OpenWG merges it. Changing that entry restarts the client once. The dependency on `net.openwg.gameface` therefore stays, but narrows to the resource map.
+It **needs an entry in the client's resource registry**, because the document is one the client has never registered. The entry ships inside the `.wotmod` at `res/gui/gen_resources/<mod id>.json`, and the client reads it at start with its own files. No restart is necessary, and the panel itself does not need `net.openwg.gameface`. See [Runtime Layout And Packaging](runtime-layout-and-packaging.md).
 
 It **owns its own hit area**. The native surface is what the client hit-tests, so the panel must publish its real size through `resizeViewPx` and Python must expect the same number. Get that right and the `pointer-events: none` root and its single hot child are no longer needed. Measured on 2.3.1.3, the result is the *native* interaction: drag-to-rotate started outside the panel keeps working, pauses while the pointer crosses the panel, and resumes past it, exactly as it does over the platoon window. Get the size wrong and the mod pauses rotation over a rectangle the player cannot see.
 
