@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 """Whether the garage itself is on screen, or something is layered over it.
 
-The loadout panel answers "does this mode offer directives"; it cannot answer this one. Opening
-the playlist editor, the directives screen or the equipment screen does not tear the garage
-down -- the loadout panel underneath stays alive and keeps reporting that it offers directives
--- so a window that follows only the panel stays up over all three.
+A mod that draws over the garage needs this answer, and usually a second one that the route
+cannot give: which battle modes the mod serves, or whether the loadout panel offers directives.
+Each mod asks that second question in its own code.
+
+Opening the playlist editor, the tank setup screen, the directives screen or the personal
+missions screen does not tear the garage down. A UI that only waits for the garage to be built,
+or that follows a part of the garage such as the loadout panel, thus stays on screen over all
+of them.
 
 What does change is the lobby's visible route, which is the client's own record of what the
 player is actually looking at. `LobbyStateMachine.onVisibleRouteChanged` carries the state that
@@ -28,13 +32,13 @@ well and is still a different class object.
 The route string carries the mode as a prefix and the screen as a suffix, which lets
 `is_bare_hangar_route` ignore the first and read the second.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import absolute_import, print_function, unicode_literals
 
 # The garage's own route ends at a segment that ENDS WITH this word; anything after it is a
 # screen drawn over the garage. Matching the end rather than the whole segment matters: three
 # modes fold their name into the segment instead of prefixing a path of their own, so
 # `funRandomHangar`, `legacyHangar` and `battleRoyaleHangar` are garage roots too. An equality
-# test misses all three and hides the window in those garages.
+# test misses all three and hides the UI in those garages.
 _HANGAR_SEGMENT = 'hangar'
 # The leaf the state machine gives the garage when it is showing nothing in particular. Routes
 # are reported both with and without it depending on whether the machine is mid-navigation.
@@ -48,9 +52,9 @@ _route = None
 def is_bare_hangar_route(route_path):
     """Whether this route is the garage with nothing layered over it.
 
-    Examples, all verbatim from the client. The mod's own probe enumerated all 58 registered
-    states whose route names a hangar, so this list is the shape of the real route space rather
-    than the screens somebody happened to open:
+    Examples, all verbatim from the client. All 58 registered states whose route names a hangar
+    were enumerated from a running client on 2.3.1.3, with all mode extensions loaded, so this
+    list is the shape of the real route space rather than the screens somebody happened to open:
 
         subScope/subLayer/hangar                          -> True
         subScope/subLayer/hangar/{root}                   -> True
@@ -65,7 +69,9 @@ def is_bare_hangar_route(route_path):
         subScope/subLayer/funRandomHangar/loadout/shells  -> False
         subScope/subLayer/comp7/hangar/allVehicles        -> False
 
-    A route with no hangar segment at all is not the garage either, so it answers False.
+    Every garage above answers True, whatever mode it belongs to. Which modes a mod serves is a
+    separate question. A route with no hangar segment at all is not the garage either, so it
+    answers False.
     """
     if not route_path:
         return False
@@ -90,9 +96,8 @@ def _last_hangar_segment(segments):
 def is_visible():
     """Whether the garage is what the player is looking at.
 
-    Degrades to True until the first route arrives: the window is gated on the loadout panel as
-    well, and a garage that was already up when the mod loaded would otherwise stay hidden until
-    the player navigated somewhere and back.
+    Degrades to True until the first route arrives. A garage that was already up when the mod
+    loaded would otherwise stay hidden until the player navigated somewhere and back.
     """
     return True if _route is None else is_bare_hangar_route(_route)
 
@@ -118,7 +123,7 @@ def install(logger, on_change):
 
     if machine is None:
         # Called outside the lobby, or before it finished starting. The next hangar build tries
-        # again, and until one succeeds `is_visible()` stays True rather than hiding the window.
+        # again, and until one succeeds `is_visible()` stays True rather than hiding the UI.
         return
 
     try:
@@ -129,7 +134,7 @@ def install(logger, on_change):
 
     # Re-read every time, subscribed or not. A teardown leaves `_route` naming the FINAL state
     # the lobby passes through on its way out, which is not a garage route -- so a stale copy
-    # would keep the window hidden for the whole of the next session.
+    # would keep the UI hidden for the whole of the next session.
     was_visible = is_visible()
     _machine = machine
     _route = _read_route(machine, logger)
@@ -190,7 +195,7 @@ def _on_route_changed(route_info, *args):
         state = getattr(route_info, 'state', None)
         route = state.getStateID() if state is not None else None
     except Exception:
-        # A route we cannot read must not strand the window hidden.
+        # A route we cannot read must not strand the UI hidden.
         route = None
     if route == _route:
         return

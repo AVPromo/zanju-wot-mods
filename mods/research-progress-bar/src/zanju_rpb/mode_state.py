@@ -5,6 +5,7 @@ import json
 import os
 from collections import OrderedDict
 
+from .constants import MOD_CONFIG_DIR_NAME
 from .storage import atomic_write_text, resolve_mod_data_dir
 
 try:
@@ -133,7 +134,7 @@ class ModeSelectionState(object):
 
 
 def _resolve_state_path():
-    base_dir = resolve_mod_data_dir()
+    base_dir = resolve_mod_data_dir(MOD_CONFIG_DIR_NAME)
     if not base_dir:
         return None
 

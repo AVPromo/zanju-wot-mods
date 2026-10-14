@@ -21,6 +21,7 @@ Internal .wotmod layout:
     LICENSE.md                              (repo-root license, when present)
     res/scripts/client/gui/mods/<file>.pyc  (compiled from mods/<name>/src/)
     res/scripts/client/gui/mods/<pkg>/_mod_meta.pyc  (generated from meta.xml: MOD_ID/MOD_NAME)
+    res/scripts/client/gui/mods/<pkg>/<name>.pyc     (compiled from mods-common/<name>.py, per manifest.json)
     res/...                                 (from mods/<name>/res/ plus generated ui/build/res/)
 
 Additional release output:
@@ -43,6 +44,7 @@ import sys
 import tempfile
 import zipfile
 
+from ..core import mods_common
 from ..core.companion_artifacts import resolve_bundle_artifacts_if_defined, should_include_companion_bundle
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
@@ -237,7 +239,35 @@ def bundle_generated_mod_meta(src_dir, meta, temp_dir, py2_exe, zf):
         zf.write(pyc_path, archive_path)
 
 
-def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=None, verbose=False):
+def bundle_shared_modules(mod_name, src_dir, temp_dir, py2_exe, zf, built_together, verbose=False):
+    """Compile each shared module this mod takes into each internal package.
+
+    The module lands at the path an in-tree copy would have, under the mod's own package. Thus
+    two mods that take the same module do not share a file or a module object in the game.
+    """
+    names = mods_common.modules_for(mod_name)
+    for package in iter_internal_packages(src_dir):
+        for name in names:
+            pyc_path = os.path.join(temp_dir, "shared", package, "{}.pyc".format(name))
+            os.makedirs(os.path.dirname(pyc_path), exist_ok=True)
+            archive_path = "res/scripts/client/gui/mods/{}/{}.pyc".format(package, name)
+            compile_py2_to_pyc(py2_exe, mods_common.module_path(name), pyc_path, archive_path[:-1])
+            zf.write(pyc_path, archive_path)
+            detail("Shared module: {}".format(archive_path), verbose=verbose)
+
+    # A partial build leaves the other mods that take a module with their old copy. That is
+    # safe, but a change to the module is then not in them yet.
+    for name in names:
+        left_out = [other for other in mods_common.consumers_of(name) if other not in built_together]
+        if left_out:
+            warning(
+                "Shared module {} also goes into {}. If you changed {}, build {} too.".format(
+                    name, ", ".join(left_out), name, "them" if len(left_out) > 1 else "it"
+                )
+            )
+
+
+def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=None, verbose=False, built_together=()):
     mod_dir = os.path.join(MODS_DIR, mod_name)
     if not os.path.isdir(mod_dir):
         raise RuntimeError("Mod directory not found: {}".format(mod_dir))
@@ -288,6 +318,7 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
                 compile_py2_to_pyc(py2_exe, abs_path, compiled_path, archive_path[:-1])
                 zf.write(compiled_path, archive_path)
             bundle_generated_mod_meta(src_dir, meta, temp_dir, py2_exe, zf)
+            bundle_shared_modules(mod_name, src_dir, temp_dir, py2_exe, zf, built_together, verbose=verbose)
 
         # Stage packaged resources from committed source plus generated build output.
         staged_res_dir = os.path.join(temp_dir, "staged_res")
@@ -337,6 +368,10 @@ def _main():
 
     success("Target WoT client version: {}".format(target_wot_version))
 
+    # The whole repository, also on a partial build: a partial build must never pass what
+    # `--all` would stop on.
+    mods_common.check()
+
     for mod_name in mod_names:
         build_mod(
             mod_name,
@@ -344,6 +379,7 @@ def _main():
             target_wot_version,
             include_companion_bundle=include_companion_bundle,
             verbose=verbose,
+            built_together=mod_names,
         )
 
 

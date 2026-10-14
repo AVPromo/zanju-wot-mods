@@ -273,7 +273,7 @@ Three things to check in game after moving a view to this lifetime. All three we
 **Each mod owns its own overlay view rather than sharing one.** Mods here ship on their own schedules and every combination of them installed has to work, so a shared view would need a version contract between releases. Two views on one band cost nothing that one would not.
 
 For deciding *when* a garage overlay belongs on screen, read the lobby's visible route rather than
-a container alias. See `route_gate.py` in `directives-helper` and the route table in
+a container alias. See `mods-common/route_gate.py` and the route table in
 [Directives And Battle Boosters](directives-and-battle-boosters.md#when-the-window-shows).
 
 ## The Lobby Back Stack

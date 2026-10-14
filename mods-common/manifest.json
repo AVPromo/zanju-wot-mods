@@ -1,0 +1,22 @@
+{
+  "modules": {
+    "localization": [
+      "campaign-tracker",
+      "directives-helper",
+      "premium-time",
+      "research-progress-bar"
+    ],
+    "route_gate": [
+      "campaign-tracker",
+      "directives-helper"
+    ],
+    "storage": [
+      "directives-helper",
+      "research-progress-bar"
+    ],
+    "view_claim": [
+      "campaign-tracker",
+      "directives-helper"
+    ]
+  }
+}

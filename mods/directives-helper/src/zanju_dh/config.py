@@ -2,8 +2,8 @@
 """Remembered window state: where the window sits and whether it is folded.
 
 Stored in AppData rather than next to the package so a modpack reinstall does not reset it
-(see storage.py). The file is written whenever the JS side reports a change, which is on
-drag release and on a fold toggle -- both rare, so there is no write throttling.
+(see storage.py in mods-common/). The file is written whenever the JS side reports a change,
+which is on drag release and on a fold toggle -- both rare, so there is no write throttling.
 
 The viewport the position was captured at is stored alongside it. WoT's UI scale is
 quantized per resolution bucket, so raw pixels stop meaning the same thing when the player
@@ -17,6 +17,7 @@ import json
 import logging
 import os
 
+from .constants import MOD_CONFIG_DIR_NAME
 from .storage import atomic_write_text, resolve_mod_data_dir
 
 _logger = logging.getLogger('zanju.directiveshelper')
@@ -123,7 +124,7 @@ def _as_int(value):
 
 
 def _config_path():
-    data_dir = resolve_mod_data_dir()
+    data_dir = resolve_mod_data_dir(MOD_CONFIG_DIR_NAME)
     if not data_dir:
         return None
     return os.path.join(data_dir, _FILE_NAME)

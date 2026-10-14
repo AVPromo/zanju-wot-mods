@@ -10,31 +10,6 @@ Open work only. When an item is finished, delete it from here and put whatever i
 
 - Broad runtime splitting for `research-progress-bar` is mostly complete; only reopen it if `mods/research-progress-bar/src/zanju_rpb/main.py` or `mods/research-progress-bar/src/zanju_rpb/scaleform/modes.py` grow enough to justify another targeted slice.
 
-## Shared Runtime Modules (Build-Time Staging)
-
-Planned. Do it on the mainline as its own change (not on `premium-time` or `campaign-tracker`) once the in-flight branches land. Context: `zanju_pt/localization.py` and `zanju_rpb/localization.py` are ~98% identical copies (only docstring, logger name, and `get_wg_text` differ), and the empty-value fix already had to be mirrored by hand once.
-
-Scope grew after this was first written. The entry expected a third copy of `localization.py` from `crew-post-progression`. `campaign-tracker` got there first, and it now stands at four. Three more modules are duplicated as well. Plan the staging mechanism for a set of files, not for one:
-
-| Module | Copies | Mods | Notes |
-| --- | --- | --- | --- |
-| `localization.py` | 4 | `pt`, `rpb`, `dh`, `ct` | The original case. Differences are docstring, logger name, and an unused `get_wg_text`. `ct`'s copy also has `absolute_import`, which the others lack — take `ct`'s as the base, here and for `route_gate.py`. Every module in `zanju_ct` opts into it, because the package has a `constants.py` that shadows the client's own. |
-| `storage.py` | 2 | `rpb`, `dh` | AppData path resolution plus atomic writes. Differs only in the docstring. |
-| `route_gate.py` | 2 | `dh`, `ct` | Lobby visible-route gating. `ct`'s copy differs only in docstring wording. |
-| `view_claim.py` | 2 | `dh`, `ct` | Which hangar sub-view a mod attaches to. The two copies are byte-identical, deliberately. |
-
-Move `view_claim.py` first. Its copies are already identical, so it needs no genericizing and proves the staging path cheaply. It also has the strongest reason to stay in step. It is the rule that stops two mods fighting over the same sub-view, and a version skew between mods is what it exists to prevent.
-
-- Decision: single authored source staged into each mod's package at build time. Rejected alternatives: a shared `.wotmod` library (VFS version-skew between independently installed mods; breaks the self-contained-mods philosophy) and committed copies with a lint sync-check (more tooling, drift is only CI-caught instead of impossible). Precedent for staging: `_mod_meta` is already generated into every package at build, and committed `constants.py` imports it as a sibling that does not exist in the tree.
-- Canonical file location: outside `mods/` (e.g. `runtime-common/<name>.py`) — several tools iterate `mods/` expecting each subdir to be a mod with `meta.xml` (release notes, `build --all`, `deploy`, `cleanup`); otherwise teach all iterators to skip non-mod dirs.
-- Genericize each file. For `localization.py`, derive the logger via `MOD_ID + '.i18n'` (yields the exact current names for every mod), keep `get_wg_text` everywhere (harmless where unused), and write a neutral docstring. `storage.py` and `route_gate.py` need only the neutral docstring. `view_claim.py` needs nothing.
-- Import rule: the shared module imports `from ._mod_meta import MOD_ID` directly (the only sibling guaranteed in every package by the build itself) — not `.constants`.
-- Build change: mirror `bundle_generated_mod_meta` — compile each shared file into every internal package as `<pkg>/<name>.pyc`; hard error if a mod's own `src/` contains a colliding filename (silent shadowing would reintroduce drift). Stage per mod, not every file everywhere. `salvo-reticle-fix` needs none of them, and `view_claim.py` belongs only in the two Gameface mods.
-- Lint: add the canonical path to the py2.7 flake8 coverage (current glob is `mods/*/src`).
-- Delete the per-mod copies (ten files, across the four rows in the table above).
-- Accepted consequences: IDE shows unresolved `.localization` imports in callers (cosmetic; flake8 does not resolve imports — verified green); `game.log` tracebacks cite `mods/<pkg>/localization.py`, a path with no matching file under `src/`; one-time modify/delete merge conflicts with any branch still carrying a copy (resolve by taking the delete); future per-mod divergence requires parameterizing the shared file or an explicit opt-out (defer until needed).
-- Verified non-issues: nothing outside the game imports the mod packages (no py3 probes/tests reach into `src/`); deploy ships the built `.wotmod`, untouched.
-
 ## Campaign Tracker: Input And Notification Report (open)
 
 A player reported two faults on 1.1.1 over Discord, on 10 September 2026. They named `campaign-tracker` after they disabled every other mod one at a time. No GitHub issue carries this yet. Ask them to open one before it goes cold. Nothing ties the two faults to one cause, so treat them apart.
@@ -77,8 +52,6 @@ and `directives-helper` are covered; `research-progress-bar` has one suite so fa
   client to reach it would encode more assumptions than the tests verify.
   - Worth applying deliberately when splitting modules: "no client import at module scope" is
     what decides whether something can be tested at all.
-- When the shared `localization.py` lands (see above), move its tests to the canonical copy so the
-  parser is covered once rather than per mod.
 
 ## CI / Toolchain Backlog
 
@@ -197,6 +170,6 @@ Rule 5 is the one that hides the bar in Onslaught. It also hides it in Frontline
 
 ### What to do
 
-- Replace the log scraping with the `onVisibleRouteChanged` subscription in `mods/campaign-tracker/src/zanju_ct/route_gate.py`. Same signal, no parsing.
+- Replace the log scraping with the `onVisibleRouteChanged` subscription in the shared `mods-common/route_gate.py`: add `research-progress-bar` to `mods-common/manifest.json`. Same signal, no parsing.
 - Then settle the rule itself. **Decide this first, it is not obvious.** One option matches a trailing `hangar` segment the way the tracker does, then subtracts Onslaught by name, because the reason to hide there is the shape of that mode's UI. The other gates on the battle mode.
 - Do not copy the tracker's mode gate. It answers "random battles alone". Ranked earns vehicle XP and must keep the bar.

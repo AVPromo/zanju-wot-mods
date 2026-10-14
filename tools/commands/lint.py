@@ -154,12 +154,14 @@ def get_py3_targets():
 
 
 def get_py27_targets():
-    # Mod tests run on Python 2.7 against the mod runtime, and testing/ holds the shared
-    # 2.7 launcher, so all three are linted with the same 2.7 rules as mods/<name>/src.
+    # Mod tests run on Python 2.7 against the mod runtime, testing/ holds the shared 2.7
+    # launcher, and mods-common/ holds runtime modules that several mods take. Thus all of
+    # them are linted with the same 2.7 rules as mods/<name>/src.
     return expand_patterns(
         [
             os.path.join("mods", "*", "src"),
             os.path.join("mods", "*", "tests"),
+            "mods-common",
             "testing",
         ]
     )

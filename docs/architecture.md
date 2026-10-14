@@ -28,6 +28,17 @@ mods/<mod-name>/
   ui/
 ```
 
+Runtime modules that several mods share live next to `mods/`, not in it:
+
+```text
+mods-common/
+  manifest.json   (which mods take which module)
+  <name>.py
+  tests/
+```
+
+`zwm build` compiles each of these modules into the package of every mod that takes it. See [Shared Modules](reference/runtime-layout-and-packaging.md#shared-modules).
+
 ## Python Entry Points
 
 In this client stack, the stable pattern is:

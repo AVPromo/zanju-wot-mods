@@ -8,7 +8,7 @@ import os
 from collections import OrderedDict
 from numbers import Integral
 
-from .constants import MOD_NAME
+from .constants import MOD_CONFIG_DIR_NAME, MOD_NAME
 from .localization import get_text as _loc
 from .localization import make_tooltip as _loc_tooltip
 from .storage import atomic_write_text, resolve_mod_data_dir
@@ -151,7 +151,7 @@ _mods_settings_sync_in_progress = False
 
 
 def _get_config_path():
-    base_dir = resolve_mod_data_dir()
+    base_dir = resolve_mod_data_dir(MOD_CONFIG_DIR_NAME)
     if not base_dir:
         return None
     return os.path.join(base_dir, 'config.json')

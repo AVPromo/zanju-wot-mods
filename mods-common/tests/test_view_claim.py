@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Tests for the rule that keeps this mod from starving other mods of a hangar sub-view.
+"""Tests for the rule that keeps a mod from starving other mods of a hangar sub-view.
 
-The regression these guard against: the mod attached to every free candidate rather than one,
+The regression these guard against: a mod attached to every free candidate rather than one,
 so whichever mod's patch ran first took them all and `directives-helper` never appeared.
 """
 from __future__ import absolute_import, print_function, unicode_literals
 
 import unittest
 
-from zanju_ct import view_claim
+from mods_common import view_claim
 
 
 class _ModeState(object):
