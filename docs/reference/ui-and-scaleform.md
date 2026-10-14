@@ -13,6 +13,17 @@ For custom lobby UI, the stable pattern is:
 
 A plain `Sprite` root is not enough for this load path.
 
+**The view settings go to the registry of the GUI loader service.** It has `addSettings`, `getSettings` and `removeSettings`:
+
+```python
+from helpers import dependency
+from skeletons.gui.impl import IGuiLoader
+
+dependency.instance(IGuiLoader).entitiesFactory.addSettings(ViewSettings(...))
+```
+
+`ScopeTemplates` and `ViewSettings` come from `gui.Scaleform.framework`.
+
 ### GUIFlash, Considered And Not Adopted
 
 Checked at v0.6.6 on 2 September 2026. [GUIFlash](https://github.com/CH4MPi/GUIFlash) is the
@@ -36,11 +47,11 @@ masked to disjoint slices, runtime colour transforms on bitmaps, and marker hit 
 
 The other mods here are not candidates either. Three are Gameface, and the fourth has no UI.
 
-What it is worth is reading. GUIFlash registers its view with the same call this repo makes:
+What it is worth is reading. At v0.6.7, GUIFlash registers its view with the same call this repo makes:
 
 ```python
-g_entitiesFactories.addSettings(ViewSettings(
-    VIEW_ALIAS, Flash_UI, FILE_NAME, WindowLayer.WINDOW, None, ScopeTemplates.GLOBAL_SCOPE))
+_settings = ViewSettings(VIEW_ALIAS, Flash_UI, FILE_NAME, WindowLayer.WINDOW, None, ScopeTemplates.GLOBAL_SCOPE)
+dependency.instance(IGuiLoader).entitiesFactory.addSettings(_settings)
 ```
 
 Same call, same scope, and the same `as_*` and `py_*` convention. So it is independent evidence

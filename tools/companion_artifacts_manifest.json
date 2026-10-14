@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-26T15:32:32Z",
+  "updatedAt": "2026-10-14T08:09:46Z",
   "bundles": {
     "research-progress-bar": {
       "description": "In-game settings window and Gameface runtime for Research Progress Bar.",
@@ -33,22 +33,22 @@
       "displayName": "Aslain's Mod Menu",
       "provider": "github-release-api",
       "project": "Aslain/modmenu",
-      "releaseTag": "v2.0.17",
-      "version": "2.0.17",
-      "filename": "aslain.modmenu_2.0.17.wotmod",
-      "downloadUrl": "https://github.com/Aslain/modmenu/releases/download/v2.0.17/aslain.modmenu_2.0.17.wotmod",
-      "sha256": "ad5711a41458afa38055182792773aced86b91add91e11644d6b5c273beea94b",
+      "releaseTag": "v2.1.04",
+      "version": "2.1.04",
+      "filename": "aslain.modmenu_2.1.04.wotmod",
+      "downloadUrl": "https://github.com/Aslain/modmenu/releases/download/v2.1.04/aslain.modmenu_2.1.04.wotmod",
+      "sha256": "674f95cf3526e646cea64be55767a9bfe51b19b109326e8c4132881a7a76a5b4",
       "notes": "In-game settings window for research-progress-bar. Needs OpenWG Gameface 1.1.6 or newer."
     },
     "openwg_gameface": {
       "displayName": "OpenWG Gameface",
       "provider": "gitlab-release-description",
       "project": "openwg/wot.gameface",
-      "releaseTag": "v1.1.6",
-      "version": "1.1.6",
-      "filename": "net.openwg.gameface_1.1.6.wotmod",
-      "downloadUrl": "https://gitlab.com/-/project/68695173/uploads/6e88b411d6fd764448943d0c929bc074/net.openwg.gameface_1.1.6.wotmod",
-      "sha256": "26b190d216c758ccffa824766cbd6bb7cbfc9dfa041e530b99b0d1f02129d5e1",
+      "releaseTag": "v1.2.2",
+      "version": "1.2.2",
+      "filename": "net.openwg.gameface_1.2.2.wotmod",
+      "downloadUrl": "https://gitlab.com/-/project/68695173/uploads/a802bb95952c95d37092baff511bc9e7/net.openwg.gameface_1.2.2.wotmod",
+      "sha256": "2bb65f28663e3ab34b5a1102a1bbd1f6e17a65e1f6a898a8645c4ab732b50184",
       "notes": "Gameface runtime for the configurator, tracked from OpenWG upstream."
     }
   }

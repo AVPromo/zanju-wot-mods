@@ -52,6 +52,14 @@ const MAX_WIDTH_SHARE = 0.60;
 // The height of the title bar until the window can measure it, from the stylesheet: a 1rem
 // border, 6rem of padding above and below, and a 15rem font at a line height of 1.35.
 const HANDLE_FALLBACK_REM = 34;
+// The smallest width and height that this module accepts as the size of the screen. No screen
+// that the client runs on is this small, so a smaller value shows that the page has no layout
+// yet. See viewportSize.
+const MIN_SCREEN_PX = 100;
+// How long the window waits for the screen size before it places itself without it. The size
+// rescales a position stored at another resolution, and the clamps need it. The window stays
+// hidden while it waits.
+const PLACEMENT_WAIT_MS = 3000;
 
 let lastSnapshotJson = null;
 const lastBarJson = { top: null, bottom: null };
@@ -63,6 +71,8 @@ let lastBoxKey = null;
 // Which sub-view turned out to carry our data model, so the push subscription can name it.
 let dataResId = null;
 let pollTimer = null;
+// Set while a tick asked for by scheduleTick waits for its frame, so the ticks do not stack.
+let tickFramePending = false;
 
 function log(message) {
     // console.error reaches game.log, tagged [UI] [Gameface]. console.log is untested here.
@@ -482,12 +492,18 @@ function pxPerRem() {
     return 1;
 }
 
+function isScreenSize(w, h) {
+    return w >= MIN_SCREEN_PX && h >= MIN_SCREEN_PX;
+}
+
 function viewportSize() {
-    // `innerWidth` is still 0 when this module starts, measured on 2.4.0.2, while the engine
-    // already knows the size of the view. The first placement happens at that moment.
-    const w = (typeof window !== 'undefined' && window.innerWidth) || 0;
-    const h = (typeof window !== 'undefined' && window.innerHeight) || 0;
-    if (w > 0 && h > 0) {
+    // The page does not always know its own size when this module starts. On 2.4.1.0
+    // `innerWidth` and `innerHeight` can be 1 at that moment. A size smaller than any screen is
+    // the same as no size: 1 by 1 rescaled a stored position to 0,0 and made the top bar report
+    // look like it did not fit the screen. {0, 0} means that the size is unknown.
+    const w = (typeof window !== 'undefined' && Number(window.innerWidth)) || 0;
+    const h = (typeof window !== 'undefined' && Number(window.innerHeight)) || 0;
+    if (isScreenSize(w, h)) {
         return { w, h };
     }
     try {
@@ -495,14 +511,14 @@ function viewportSize() {
             const size = viewEnv.getClientSizePx();
             const width = Number(size && size.width);
             const height = Number(size && size.height);
-            if (width > 0 && height > 0) {
+            if (isScreenSize(width, height)) {
                 return { w: width, h: height };
             }
         }
     } catch (e) {
         // Unknown size: the callers skip the clamps that need it.
     }
-    return { w, h };
+    return { w: 0, h: 0 };
 }
 
 function viewOriginY() {
@@ -670,6 +686,18 @@ function applyPosition(root, state) {
     // would drag the window back to where it started a moment after each drop.
     if (root._zanjuDhPositioned) {
         return;
+    }
+    // Wait for the screen size, but not for longer than PLACEMENT_WAIT_MS. A window placed
+    // without the size cannot rescale its stored position and cannot keep it on screen.
+    const now = Date.now();
+    if (!viewportSize().w) {
+        if (root._zanjuDhWaitSince === undefined) {
+            root._zanjuDhWaitSince = now;
+            log('the screen size is not known yet, the window waits for it before it is placed');
+        }
+        if (now - root._zanjuDhWaitSince < PLACEMENT_WAIT_MS) {
+            return;
+        }
     }
     root._zanjuDhPositioned = true;
     const x = Number(unwrap(state.x));
@@ -1001,9 +1029,14 @@ function tick() {
     applyPosition(root, data);
     clampToBox(root);
 
-    // Three conditions decide this, all on the Python side; see window_inject.py.
+    // Three conditions decide this, all on the Python side; see window_inject.py. A window that
+    // did not place itself yet also stays hidden, because it shows wherever the stylesheet puts
+    // it, and that is under the top bar.
     const visible = unwrap(data.visible);
-    root.style.display = visible === false ? 'none' : 'flex';
+    root.style.display = visible === false || !root._zanjuDhPositioned ? 'none' : 'flex';
+    if (!root._zanjuDhPositioned) {
+        scheduleTick();
+    }
 
     const raw = unwrap(data.snapshot);
     if (raw === lastSnapshotJson) {
@@ -1022,6 +1055,19 @@ function tick() {
     }
     applyHeaderWarning(root, Boolean(snapshot.resupplyWarning));
     renderBody(root.querySelector('.zanju-dh-body'), snapshot, labels);
+}
+
+function scheduleTick() {
+    // One more tick on the next frame, so a window that waits for the screen size shows the
+    // frame after the size arrives and not at the next poll, up to a second later.
+    if (tickFramePending || typeof requestAnimationFrame !== 'function') {
+        return;
+    }
+    tickFramePending = true;
+    requestAnimationFrame(function () {
+        tickFramePending = false;
+        tick();
+    });
 }
 
 function setPollRate(intervalMs) {

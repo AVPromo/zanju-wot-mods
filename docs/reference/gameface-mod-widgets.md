@@ -121,7 +121,7 @@ than per-control opt-in.
   `stopImmediatePropagation()` for an event that is not yours.
 - Clamp to the viewport so the widget cannot be dragged off-screen.
 - Keep the drag handle between the garage's top bar and bottom bar. Each bar takes every press across its strip, also where it draws nothing. See [The Lobby Bars Take Input Where They Draw Nothing](#the-lobby-bars-take-input-where-they-draw-nothing).
-- Read the screen size from `viewEnv.getClientSizePx()` while `window.innerWidth` is still 0. That is the case when the module starts, which is when a widget places itself.
+- Do not trust the screen size when the module starts, which is when a widget places itself. On 2.4.1.0 `window.innerWidth` can be 1 at that moment. Take a size smaller than any screen as unknown, and wait for a real size before the first placement.
 - Store the viewport size alongside the coordinates, so a later resolution or UI-scale change
   can rescale the position proportionally instead of stranding the widget.
 
@@ -172,7 +172,14 @@ A widget in `main` cannot read the bar documents. `directives-helper` therefore 
 
 The reports come late. In the measured run the window placed itself, and the first reports arrived one second after that. Until then a widget has two choices: fixed limits copied from the stylesheets, or the screen edges alone. `directives-helper` uses the screen edges, so it keeps no client numbers to maintain. A window saved under a bar shows there for about a second, and then moves when the report arrives. If no report ever comes, the window loses only the protection from the bars. When a report arrives, move the widget only if it is outside the new limits.
 
-The first placement has a trap of its own. When a module in `main` starts, `window.innerWidth` and `window.innerHeight` are still 0, but `viewEnv.getClientSizePx()` already reports the size of the view. A placement that reads `innerWidth` at that moment picks the smallest breakpoint, and it skips every clamp that needs the screen size.
+The first placement has a trap of its own. When a module in `main` starts on 2.4.1.0, `window.innerWidth` and `window.innerHeight` can be 1. In the first 2.4.1.0 session, all five garage loads read 1 by 1. In the next session, the one garage load read the real size. A check for a size above 0 takes 1 by 1 as the screen. The 2.4.1.0 `game.log` shows what follows:
+
+```text
+[zanju.directiveshelper] placed the window at 0,0 from the stored 1326,187 (stored at 1920x1200, now 1x1), ...
+[zanju.directiveshelper] ignoring a top bar report that does not fit the screen: {"bottom": 76.0, ...}
+```
+
+The stored position rescales to 0,0. The top bar report looks like it does not fit a screen 1 pixel high. A placement that reads the size at that moment also picks the smallest breakpoint. It skips every clamp that needs the screen size too. So take a width or height under 100 pixels as an unknown size. `directives-helper` keeps the window hidden until the size is real, for at most three seconds. While the size is unknown, it uses the bar reports without the check against the screen height. On 2.4.0.2, `viewEnv.getClientSizePx()` gave the real size at that moment. On 2.4.1.0 nobody measured it, because the `innerWidth` of 1 hid it.
 
 For a draggable widget the result is direct: a drag handle under a strip is lost. Keep the whole handle between the bars, and keep enough of it on screen sideways. Clamp it on every move and when the widget places itself at start. That start clamp frees a widget that a player already dropped there. Measured: a window stored at y=10 came back at y=77, directly under a top bar of 76 pixels. Clamp it again when the limits change: a bar report, a new screen size or interface scale, or a new size of the widget. `directives-helper` keeps the window's narrowest width on screen sideways, so only a wider window can hang off the right edge.
 

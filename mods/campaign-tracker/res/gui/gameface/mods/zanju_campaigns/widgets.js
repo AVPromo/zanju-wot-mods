@@ -106,6 +106,10 @@ const ANCHOR_OFFSET_Y_PX = 10;
 // by measured width normally — but without it an unmeasurable pass would stack every banner on
 // the same spot.
 const NOMINAL_WIDGET_WIDTH_PX = 60;
+// The smallest width and height that this module accepts as the size of the screen. No screen
+// that the client runs on is this small, so a smaller value shows that the page has no layout
+// yet. directives-helper's window.js uses the same limit. See clampToViewport.
+const MIN_SCREEN_PX = 100;
 
 let lastSnapshotJson = null;
 // Which sub-view turned out to carry our data model, so the push subscription can name it.
@@ -603,14 +607,16 @@ function refreshHover() {
 }
 
 function clampToViewport(x, y) {
-    const w = window.innerWidth || 0;
-    const h = window.innerHeight || 0;
+    // The clamp needs the size of the screen, and the page does not always know it when this
+    // module starts. On 2.4.1.0 `innerWidth` and `innerHeight` can be 1 then. Taken as the size,
+    // 1 by 1 would put every banner at 0,0 and keep it there until the anchor moves. A size
+    // smaller than any screen is thus the same as no size, and the position stays as it is.
+    const w = Number(window.innerWidth) || 0;
+    const h = Number(window.innerHeight) || 0;
     let left = x;
     let top = y;
-    if (w) {
+    if (w >= MIN_SCREEN_PX && h >= MIN_SCREEN_PX) {
         left = Math.max(0, Math.min(w - 40, left));
-    }
-    if (h) {
         top = Math.max(0, Math.min(h - 20, top));
     }
     return { x: Math.round(left), y: Math.round(top) };
