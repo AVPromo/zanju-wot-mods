@@ -6,13 +6,16 @@ Mod runtime packages cannot be imported outside the running game as-is:
 * every package imports `._mod_meta`, which does not exist in the source tree —
   `zwm build` generates it from `meta.xml` into the package (see
   `bundle_generated_mod_meta` in tools/commands/build.py);
+* the shared modules live in mods-common/, not in the package — `zwm build`
+  compiles them into it (see `bundle_shared_modules`);
 * some modules import WoT client APIs (`BigWorld`, `ResMgr`, `gui.*`, ...) at
   import time, which only exist inside the client.
 
 `install()` recreates just enough of that: it synthesizes `_mod_meta` for every
-internal package of the mod under test, and registers stub modules for the client
-APIs listed in `GAME_STUB_MODULES`. It is called by `run_py27_tests.py` before test
-discovery, so test files themselves import mod modules directly with no boilerplate.
+internal package of the mod under test, loads the shared modules that the mod takes
+into each of those packages, and registers stub modules for the client APIs listed
+in `GAME_STUB_MODULES`. It is called by `run_py27_tests.py` before test discovery,
+so test files themselves import mod modules directly with no boilerplate.
 
 Keep the stubs minimal: they exist so that *import* succeeds for modules whose logic
 is pure. Anything that needs real client behaviour should be faked by the test itself,
@@ -20,6 +23,8 @@ not blessed here — a stub that quietly returns plausible data turns a failing 
 """
 from __future__ import print_function, unicode_literals
 
+import imp
+import importlib
 import os
 import sys
 import types
@@ -41,21 +46,32 @@ GAME_STUB_MODULES = {
 }
 
 
-def install(src_dir=None, mod_id=None, mod_name=None):
-    """Make the mod under test importable. Safe to call more than once."""
-    src_dir = src_dir or os.environ.get("ZWM_MOD_SRC", "")
+def install(src_dir=None, mod_id=None, mod_name=None, shared_dir=None, shared_names=(),
+            stand_in_package=None):
+    """Make the mod under test importable. Safe to call more than once.
+
+    With `stand_in_package`, there is no mod: the shared modules load into an empty package
+    of that name, so that their own tests can import them.
+    """
     mod_id = mod_id or os.environ.get("ZWM_MOD_ID", "")
     mod_name = mod_name or os.environ.get("ZWM_MOD_NAME", "")
-    if not src_dir:
-        raise RuntimeError("ZWM_MOD_SRC is not set; run tests through `zwm test`")
 
-    src_dir = os.path.abspath(src_dir)
-    if src_dir not in sys.path:
-        sys.path.insert(0, src_dir)
+    if stand_in_package:
+        packages = [_install_stand_in_package(stand_in_package)]
+    else:
+        src_dir = src_dir or os.environ.get("ZWM_MOD_SRC", "")
+        if not src_dir:
+            raise RuntimeError("ZWM_MOD_SRC is not set; run tests through `zwm test`")
+
+        src_dir = os.path.abspath(src_dir)
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+        packages = list(_iter_internal_packages(src_dir))
 
     _install_game_stubs()
-    for package in _iter_internal_packages(src_dir):
+    for package in packages:
         _install_mod_meta(package, mod_id, mod_name)
+        _install_shared_modules(package, shared_dir, shared_names)
 
 
 def _iter_internal_packages(src_dir):
@@ -76,6 +92,34 @@ def _install_mod_meta(package, mod_id, mod_name):
     module.MOD_ID = mod_id
     module.MOD_NAME = mod_name
     sys.modules[full_name] = module
+
+
+def _install_shared_modules(package, shared_dir, names):
+    """Load each shared module as `<package>.<name>`, the place where `zwm build` puts it.
+
+    Only the modules that the mod takes, so a mod that is not in the manifest for a module
+    fails its tests here as it would fail in the game. Python finds a module in sys.modules
+    before it searches a path, so nothing in src/ can hide a module loaded here.
+    """
+    if not names:
+        return
+    # The relative `from ._mod_meta import ...` in a shared module needs its package loaded.
+    parent = importlib.import_module(package)
+    for name in names:
+        full_name = "{0}.{1}".format(package, name)
+        if full_name in sys.modules:
+            continue
+        module = imp.load_source(str(full_name), os.path.join(shared_dir, "{0}.py".format(name)))
+        setattr(parent, name, module)
+
+
+def _install_stand_in_package(name):
+    """Register an empty package to hold the shared modules while their own tests run."""
+    if name not in sys.modules:
+        package = types.ModuleType(str(name))
+        package.__path__ = []
+        sys.modules[name] = package
+    return name
 
 
 def _install_game_stubs():

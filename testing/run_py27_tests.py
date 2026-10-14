@@ -4,7 +4,11 @@
 Invoked by `zwm test` (tools/commands/test.py) with the mod's paths and identity:
 
     python2.7 testing/run_py27_tests.py --src mods/<name>/src --tests mods/<name>/tests \\
-        --mod-id <meta id> --mod-name <meta name>
+        --mod-id <meta id> --mod-name <meta name> \\
+        [--shared-dir mods-common --shared <module> ...]
+
+The tests of the shared modules themselves run with `--package <stand-in name>` in place of
+`--src`, because they belong to no mod.
 
 It installs the import environment (see zwm_test_env) and then runs stdlib unittest
 discovery over `test_*.py`. Tests are plain `unittest.TestCase` classes so the same
@@ -18,6 +22,11 @@ import os
 import sys
 import unittest
 
+# `zwm test` sets PYTHONDONTWRITEBYTECODE, but a direct run of this script does not. Python 2.7
+# then writes a .pyc next to each source it imports, and it imports such a .pyc even after its
+# source is gone. Old bytecode then passes the tests in place of the code under test.
+sys.dont_write_bytecode = True
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import zwm_test_env  # noqa: E402  (path set up above)
@@ -25,7 +34,10 @@ import zwm_test_env  # noqa: E402  (path set up above)
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--src", required=True, help="mod src/ directory")
+    parser.add_argument("--src", help="mod src/ directory")
+    parser.add_argument("--package", help="stand-in package name, used in place of --src")
+    parser.add_argument("--shared-dir", help="directory that holds the shared modules")
+    parser.add_argument("--shared", action="append", default=[], help="shared module to install (repeatable)")
     parser.add_argument("--tests", required=True, help="mod tests/ directory")
     parser.add_argument("--mod-id", default="", help="meta.xml id")
     parser.add_argument("--mod-name", default="", help="meta.xml name")
@@ -36,12 +48,21 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
+    if bool(args.src) == bool(args.package):
+        raise SystemExit("Give exactly one of --src and --package.")
     # Mod code logs through the stdlib logger; without a handler Python 2.7 prints
     # "No handlers could be found for logger ..." into the middle of the test report.
     # Tests that exercise error paths log on purpose, so swallow it rather than see it.
     logging.getLogger().addHandler(logging.NullHandler())
 
-    zwm_test_env.install(src_dir=args.src, mod_id=args.mod_id, mod_name=args.mod_name)
+    zwm_test_env.install(
+        src_dir=args.src,
+        mod_id=args.mod_id,
+        mod_name=args.mod_name,
+        shared_dir=args.shared_dir,
+        shared_names=args.shared,
+        stand_in_package=args.package,
+    )
 
     tests_dir = os.path.abspath(args.tests)
     if tests_dir not in sys.path:

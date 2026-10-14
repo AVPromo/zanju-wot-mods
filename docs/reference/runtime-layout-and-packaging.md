@@ -82,6 +82,25 @@ In this repository:
 - config is not shipped: each mod self-creates its config in AppData on first run, so it survives modpack reinstalls
 - authored `i18n/*.yml` files are bundled inside the `.wotmod` at `res/mods/<meta.id>/text/*.yml` (the single localisation destination — no loose config copies); the runtime reads them from the mounted package VFS via `ResMgr` at `mods/<meta.id>/text/<lang>.yml`
 - `ui/compile_ui.py` is auto-run by `zwm build` when present
+- runtime modules that several mods share live in `mods-common/`, and `zwm build` compiles each one into the package of every mod that takes it (see [Shared Modules](#shared-modules))
+
+## Shared Modules
+
+Some runtime modules are the same in several mods. Each of them has one authored copy in `mods-common/<name>.py`, and `mods-common/manifest.json` says which mods take it. `zwm build` compiles the module into the internal package of each of those mods, at `res/scripts/client/gui/mods/<pkg>/<name>.pyc`, the same way it adds `_mod_meta`. A mod imports it as a sibling that is not in its `src/` tree, for example `from .. import view_claim`.
+
+**Each `.wotmod` stays self-contained.** The module goes into the package of each mod, so the game sees one file per mod at different paths. Python also loads one module per mod, for example `zanju_dh.view_claim` and `zanju_ct.view_claim`. No mod needs another of ours, and we ship no companion package of our own. A player can mix releases from before and after a module moved to `mods-common/`. The packages built after `view_claim` moved hold the same code as the packages built before it.
+
+**A shared module holds no state for more than one mod.** Each mod has its own copy, so a variable at module level belongs to one mod only. If two mods must agree on something, they agree through an object of the client. `view_claim` is the example: the mark that a sub-view is taken is the client's `gf_mod_inject` field. A module that needs one instance for the whole game process cannot live here. It needs a library package of its own, and that brings back version skew between mods that a player updates one at a time.
+
+**A change to a shared module waits in each mod until the next release of that mod.** CI publishes only the mods that have a new version in `meta.xml`. When you change a shared module, decide for each mod that takes it whether to release that mod now. On a partial `zwm build`, a warning names the other mods that take the same shared modules but are not in the build. `view_claim` is also a contract between mods, and old releases stay installed. Thus a change to how a mod decides that a sub-view is taken must still work next to the previous release of every other mod.
+
+**`zwm build` and `zwm test` stop on an inconsistent manifest.** Both examine the whole repository, also on a partial run. They stop in these cases:
+
+- The manifest names a module or a mod that does not exist.
+- A file in `mods-common/` is not in the manifest.
+- A mod has a file with the name of a shared module in its package. This rule also covers mods that do not take the module, so that a private copy cannot start to drift again.
+
+**Accepted consequences.** An IDE cannot resolve the sibling import in the source of a mod. A traceback in `game.log` names `res/scripts/client/gui/mods/<pkg>/<name>.py`, but the source is `mods-common/<name>.py`.
 
 ## Entry Point Rule
 

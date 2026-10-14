@@ -14,6 +14,9 @@ Discovery inside `mods/<name>/tests/`:
     run_tests.py     Escape hatch: if present, it is executed with Python 3 and owns the
                      whole run for that mod; nothing else is auto-discovered.
 
+The shared modules in mods-common/ have their tests in mods-common/tests/. They run once per
+command, after the mods, when at least one of the targeted mods takes a shared module.
+
 Node is optional: mods without JavaScript never need it, and when JS tests exist but
 Node is missing the suite is reported as SKIPPED rather than failing, so the command
 stays usable on toolchain images built before Node was added. Pass --strict (CI may
@@ -27,6 +30,7 @@ import os
 import subprocess
 import sys
 
+from ..core import mods_common
 from ..core.console import detail, section, success, warning
 from ..core.env import subprocess_env
 from ..core.mod_cli import (
@@ -36,7 +40,7 @@ from ..core.mod_cli import (
     run_entrypoint,
 )
 from ..core.mod_meta import read_meta
-from ..core.paths import MODS_DIR, REPO_ROOT
+from ..core.paths import MODS_COMMON_DIR, MODS_DIR, REPO_ROOT
 from .lint import format_command, resolve_py27_python
 
 try:
@@ -48,6 +52,10 @@ PY27_TEST_PATTERN = "test_*.py"
 JS_TEST_PATTERN = "*.test.js"
 HOOK_NAME = "run_tests.py"
 PY27_RUNNER = os.path.join(REPO_ROOT, "testing", "run_py27_tests.py")
+SHARED_TESTS_DIR = os.path.join(MODS_COMMON_DIR, "tests")
+SHARED_SUITE_LABEL = "mods-common"
+# The tests of the shared modules import them from this package, which exists only in the test run.
+SHARED_STAND_IN_PACKAGE = "mods_common"
 
 PASSED = "passed"
 FAILED = "failed"
@@ -67,6 +75,13 @@ def run_command(cmd, cwd=None, verbose=False):
     return subprocess.call(cmd, cwd=cwd or REPO_ROOT, env=subprocess_env())
 
 
+def shared_module_args(names):
+    args = ["--shared-dir", MODS_COMMON_DIR]
+    for name in names:
+        args.extend(["--shared", name])
+    return args
+
+
 def run_py27_suite(mod_name, tests_dir, verbose):
     meta = read_meta(mod_name)
     cmd = [
@@ -83,6 +98,29 @@ def run_py27_suite(mod_name, tests_dir, verbose):
         "--pattern",
         PY27_TEST_PATTERN,
     ]
+    cmd.extend(shared_module_args(mods_common.modules_for(mod_name)))
+    if verbose:
+        cmd.append("--verbose")
+    return PASSED if run_command(cmd, verbose=verbose) == 0 else FAILED
+
+
+def run_shared_suite(verbose):
+    """Run the tests of every shared module once, in a stand-in package that belongs to no mod."""
+    cmd = [
+        resolve_py27_python(None),
+        PY27_RUNNER,
+        "--package",
+        SHARED_STAND_IN_PACKAGE,
+        "--tests",
+        SHARED_TESTS_DIR,
+        "--mod-id",
+        SHARED_STAND_IN_PACKAGE,
+        "--mod-name",
+        SHARED_SUITE_LABEL,
+        "--pattern",
+        PY27_TEST_PATTERN,
+    ]
+    cmd.extend(shared_module_args(sorted(mods_common.read_manifest())))
     if verbose:
         cmd.append("--verbose")
     return PASSED if run_command(cmd, verbose=verbose) == 0 else FAILED
@@ -159,12 +197,21 @@ def _main():
     if mod_names is None:
         return 0
     ensure_mod_dirs_exist(mod_names)
+    mods_common.check()
 
     outcomes = []
     for mod_name in mod_names:
         section("Testing {}".format(mod_name))
         for label, outcome in test_mod(mod_name, verbose, strict):
             outcomes.append((mod_name, label, outcome))
+
+    # A partial run still tests the shared modules that its mods take, so that a test of one
+    # mod after a change to a shared module does not skip the tests of that module.
+    if any(mods_common.modules_for(mod_name) for mod_name in mod_names) and find_test_files(
+        SHARED_TESTS_DIR, PY27_TEST_PATTERN
+    ):
+        section("Testing {}".format(SHARED_SUITE_LABEL))
+        outcomes.append((SHARED_SUITE_LABEL, "python2.7", run_shared_suite(verbose)))
 
     section("Test summary")
     if not outcomes:

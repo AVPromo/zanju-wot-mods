@@ -1,0 +1,8 @@
+{
+  "modules": {
+    "view_claim": [
+      "campaign-tracker",
+      "directives-helper"
+    ]
+  }
+}

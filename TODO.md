@@ -10,30 +10,37 @@ Open work only. When an item is finished, delete it from here and put whatever i
 
 - Broad runtime splitting for `research-progress-bar` is mostly complete; only reopen it if `mods/research-progress-bar/src/zanju_rpb/main.py` or `mods/research-progress-bar/src/zanju_rpb/scaleform/modes.py` grow enough to justify another targeted slice.
 
-## Shared Runtime Modules (Build-Time Staging)
+## Shared Runtime Modules: Phase 2
 
-Planned. Do it on the mainline as its own change (not on `premium-time` or `campaign-tracker`) once the in-flight branches land. Context: `zanju_pt/localization.py` and `zanju_rpb/localization.py` are ~98% identical copies (only docstring, logger name, and `get_wg_text` differ), and the empty-value fix already had to be mirrored by hand once.
+Phase 1 is in place: the staging mechanism, with `view_claim` as its first module. [Shared Modules](docs/reference/runtime-layout-and-packaging.md#shared-modules) describes it. The CT and DH packages built after the move hold the same code as the release builds. Thus one launch with all five new builds (R1 below) is enough as the live check for Phase 1.
 
-Scope grew after this was first written. The entry expected a third copy of `localization.py` from `crew-post-progression`. `campaign-tracker` got there first, and it now stands at four. Three more modules are duplicated as well. Plan the staging mechanism for a set of files, not for one:
+Three modules still have a copy in each mod that uses them:
 
 | Module | Copies | Mods | Notes |
 | --- | --- | --- | --- |
-| `localization.py` | 4 | `pt`, `rpb`, `dh`, `ct` | The original case. Differences are docstring, logger name, and an unused `get_wg_text`. `ct`'s copy also has `absolute_import`, which the others lack — take `ct`'s as the base, here and for `route_gate.py`. Every module in `zanju_ct` opts into it, because the package has a `constants.py` that shadows the client's own. |
-| `storage.py` | 2 | `rpb`, `dh` | AppData path resolution plus atomic writes. Differs only in the docstring. |
-| `route_gate.py` | 2 | `dh`, `ct` | Lobby visible-route gating. `ct`'s copy differs only in docstring wording. |
-| `view_claim.py` | 2 | `dh`, `ct` | Which hangar sub-view a mod attaches to. The two copies are byte-identical, deliberately. |
+| `localization.py` | 4 | `pt`, `rpb`, `dh`, `ct` | The copies differ in the docstring, the logger name, `absolute_import`, and `get_wg_text`. Take `ct`'s copy as the base, because it has `absolute_import`. Every module in `zanju_ct` needs it, because the package has a `constants.py` that shadows the client's own. Add `get_wg_text`, which `rpb`'s `scaleform/modes.py` uses. Import `MOD_ID` from `._mod_meta` and use `MOD_ID + '.i18n'` as the logger name. This gives the same logger names as now. |
+| `storage.py` | 2 | `rpb`, `dh` | The copies differ only in the docstring, but both import `MOD_CONFIG_DIR_NAME` from `.constants`. Give `resolve_mod_data_dir` the folder name as an argument, and change its four callers. Do not derive the name from the folder under `mods/`: it decides where player settings are stored, and a rename of the folder would lose them. |
+| `route_gate.py` | 2 | `dh`, `ct` | Take `ct`'s copy as the base, for `absolute_import`. Keep `dh`'s measured table of garage roots in the docstring. Merge the two `test_route_gate.py` fixtures. `ct`'s fixture covers all 58 states. |
 
-Move `view_claim.py` first. Its copies are already identical, so it needs no genericizing and proves the staging path cheaply. It also has the strongest reason to stay in step. It is the rule that stops two mods fighting over the same sub-view, and a version skew between mods is what it exists to prevent.
+- Move the tests to `mods-common/tests/`: PT's `test_localization.py` and the merged `test_route_gate.py`. They import from `mods_common`.
+- Delete the eight per-mod copies and add the three modules to `mods-common/manifest.json`.
+- Compare the new packages with the builds in `.tmp/dist` (`.tmp/shared-modules/compare_packages.py`, local only, run with Python 2.7). Every entry must stay. Code may differ only in the three modules, and only in the ways that the table gives. The SWFs of `rpb` differ on every build, also with no change to the source.
 
-- Decision: single authored source staged into each mod's package at build time. Rejected alternatives: a shared `.wotmod` library (VFS version-skew between independently installed mods; breaks the self-contained-mods philosophy) and committed copies with a lint sync-check (more tooling, drift is only CI-caught instead of impossible). Precedent for staging: `_mod_meta` is already generated into every package at build, and committed `constants.py` imports it as a sibling that does not exist in the tree.
-- Canonical file location: outside `mods/` (e.g. `runtime-common/<name>.py`) — several tools iterate `mods/` expecting each subdir to be a mod with `meta.xml` (release notes, `build --all`, `deploy`, `cleanup`); otherwise teach all iterators to skip non-mod dirs.
-- Genericize each file. For `localization.py`, derive the logger via `MOD_ID + '.i18n'` (yields the exact current names for every mod), keep `get_wg_text` everywhere (harmless where unused), and write a neutral docstring. `storage.py` and `route_gate.py` need only the neutral docstring. `view_claim.py` needs nothing.
-- Import rule: the shared module imports `from ._mod_meta import MOD_ID` directly (the only sibling guaranteed in every package by the build itself) — not `.constants`.
-- Build change: mirror `bundle_generated_mod_meta` — compile each shared file into every internal package as `<pkg>/<name>.pyc`; hard error if a mod's own `src/` contains a colliding filename (silent shadowing would reintroduce drift). Stage per mod, not every file everywhere. `salvo-reticle-fix` needs none of them, and `view_claim.py` belongs only in the two Gameface mods.
-- Lint: add the canonical path to the py2.7 flake8 coverage (current glob is `mods/*/src`).
-- Delete the per-mod copies (ten files, across the four rows in the table above).
-- Accepted consequences: IDE shows unresolved `.localization` imports in callers (cosmetic; flake8 does not resolve imports — verified green); `game.log` tracebacks cite `mods/<pkg>/localization.py`, a path with no matching file under `src/`; one-time modify/delete merge conflicts with any branch still carrying a copy (resolve by taking the delete); future per-mod divergence requires parameterizing the shared file or an explicit opt-out (defer until needed).
-- Verified non-issues: nothing outside the game imports the mod packages (no py3 probes/tests reach into `src/`); deploy ships the built `.wotmod`, untouched.
+**Live check.** Keep the third-party modpack and the Gameface companion installed in every run. If a run fails, repeat it without the modpack. Save `game.log` after each run. The builds in `.tmp/dist` hold the same code as CT 1.2.2, DH 1.0.6, PT 1.0.3, RPB 1.4.5 and SRF 1.0.1, so they serve as the release builds.
+
+| Run | Our mods installed | What it can catch |
+| --- | --- | --- |
+| R0 | All five from `.tmp/dist` | Baseline log |
+| R1 | All five, new builds | Faults in the genericized modules, and DH and CT on the same sub-view |
+| R2–R5 | One mod alone: PT, RPB, DH, then CT | A missing manifest entry, or a hidden dependency on another of our mods |
+| R6 | New DH, CT from `.tmp/dist` | Mixed releases, as players have them after a release |
+| R7 | DH from `.tmp/dist`, new CT | The same, the other way round |
+
+- Every run: no `Traceback` or `ImportError` from a `zanju.*` logger, and each installed mod writes its startup lines.
+- `localization`: PT's header, RPB's tooltips, the DH window and the CT banners show text, not i18n keys.
+- `storage`: RPB logs `Mode selection state path:` with `\zanju_wot_mods_cache\research-progress-bar\cache.json`, and the same `vehicles=N` as in R0. DH logs `placed the window at X from the stored X`. Move the DH window, restart, and make sure that the window opens at the new position.
+- `route_gate`: DH and CT log `Garage is the visible route: False` on the directives, tank setup and personal missions screens, and `True` back in the garage.
+- `view_claim` (R1, R6, R7): the two `subscribed to model updates on sub-view N` lines show two different values of N. DH logs `Directives window attached to` once per garage build. The window and the banners show at the same time.
 
 ## Campaign Tracker: Input And Notification Report (open)
 
@@ -77,8 +84,6 @@ and `directives-helper` are covered; `research-progress-bar` has one suite so fa
   client to reach it would encode more assumptions than the tests verify.
   - Worth applying deliberately when splitting modules: "no client import at module scope" is
     what decides whether something can be tested at all.
-- When the shared `localization.py` lands (see above), move its tests to the canonical copy so the
-  parser is covered once rather than per mod.
 
 ## CI / Toolchain Backlog
 

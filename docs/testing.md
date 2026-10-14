@@ -26,12 +26,13 @@ Suites are reported per mod, and the command exits non-zero if any of them fail.
 
 ## Python 2.7 tests
 
-Mod runtime code cannot simply be imported outside the game, for two reasons:
+Mod runtime code cannot simply be imported outside the game, for three reasons:
 
 - every package imports `._mod_meta`, which `zwm build` generates from `meta.xml` and which therefore does not exist in the source tree;
+- the shared modules are in `mods-common/`, and only `zwm build` puts them into the package (see [Shared Modules](reference/runtime-layout-and-packaging.md#shared-modules));
 - some modules import client APIs (`BigWorld`, `ResMgr`, `gui.*`) at module scope.
 
-`testing/run_py27_tests.py` handles both before discovery: it puts the mod's `src/` on the path, synthesizes `_mod_meta` from the mod's own `meta.xml`, and installs the stub modules listed in `testing/zwm_test_env.py`. Test files therefore import mod modules directly:
+`testing/run_py27_tests.py` handles all three before discovery: it puts the mod's `src/` on the path, synthesizes `_mod_meta` from the mod's own `meta.xml`, loads into the package the shared modules that `mods-common/manifest.json` gives the mod, and installs the stub modules listed in `testing/zwm_test_env.py`. Test files therefore import mod modules directly:
 
 ```python
 from zanju_pt import localization
@@ -48,7 +49,17 @@ Write tests as plain `unittest.TestCase` classes so they stay runnable by any un
 
 **Non-ASCII source needs `# -*- coding: utf-8 -*-`.** Python 2 defaults to ASCII source, so a stray en dash in a docstring makes the module unimportable. This is easy to miss because neither other gate reports it: flake8 stays quiet, and `py_compile` — what `zwm build` uses — accepts the file and emits a working `.pyc`, so the mod still runs in-game. It surfaces only when something imports the source, i.e. the moment you write a test for it. `zwm lint py27-lint` now fails on it directly.
 
-Both `mods/*/tests` and `testing/` are linted as Python 2.7 (`zwm lint py27-lint`), so test code is held to the same standard as the runtime it covers.
+Both `mods/*/tests` and `testing/` are linted as Python 2.7 (`zwm lint py27-lint`), so test code is held to the same standard as the runtime it covers. `mods-common/` is linted with the same rules.
+
+## Shared module tests
+
+The tests for a shared module live once, in `mods-common/tests/test_*.py`, not in each mod that takes the module. They belong to no mod, so the runner loads the shared modules into a stand-in package, `mods_common`, that exists only during the run:
+
+```python
+from mods_common import view_claim
+```
+
+`zwm test` runs this suite once, after the mods, when at least one of the mods in the run takes a shared module. Thus `zwm test directives-helper` also runs the tests for `view_claim`, and a test run of one mod after a change to a shared module does not skip them.
 
 ## JavaScript tests
 

@@ -27,6 +27,7 @@ extend-exclude = '''
   | mods/.+/src
   | mods/.+/tests
   | mods/.+/ui/build
+  | mods-common
   | testing
 )/
 '''
@@ -41,6 +42,7 @@ extend-exclude = [
     "mods/*/src",
     "mods/*/tests",
     "mods/*/ui/build",
+    "mods-common",
     "testing",
 ]
 
