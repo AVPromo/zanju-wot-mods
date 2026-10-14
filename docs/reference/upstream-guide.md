@@ -77,7 +77,7 @@ HangarState, DefaultHangarState, AllVehiclesState, EasyTankEquipState = \
 
 Each call builds a different class object, so `getStateByCls(DefaultHangarState)` matches the core garage and nothing else. A mode garage answers False and the overlay stays hidden there. The client's own `OverlapCtrlMixin._onVisibleRouteChanged` makes this exact comparison and carries the same limit.
 
-Read the route string instead. It names the mode as a prefix and the screen as a suffix, so one test covers every mode. See `is_bare_hangar_route` in `mods/directives-helper/src/zanju_dh/route_gate.py`, and the route table in [Directives And Battle Boosters](directives-and-battle-boosters.md#when-the-window-shows).
+Read the route string instead. It names the mode as a prefix and the screen as a suffix, so one test covers every mode. See `is_bare_hangar_route` in `mods-common/route_gate.py`, and the route table in [Directives And Battle Boosters](directives-and-battle-boosters.md#when-the-window-shows).
 
 Probe tag: `U2`. Each route the lobby reports is logged with the answer the guide's test gives, and every registered hangar state is listed with its class.
 

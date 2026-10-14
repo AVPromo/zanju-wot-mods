@@ -10,52 +10,6 @@ Open work only. When an item is finished, delete it from here and put whatever i
 
 - Broad runtime splitting for `research-progress-bar` is mostly complete; only reopen it if `mods/research-progress-bar/src/zanju_rpb/main.py` or `mods/research-progress-bar/src/zanju_rpb/scaleform/modes.py` grow enough to justify another targeted slice.
 
-## Shared Runtime Modules: Live Check And Release
-
-All four shared modules are now in `mods-common/`. [Shared Modules](docs/reference/runtime-layout-and-packaging.md#shared-modules) describes the mechanism. Phase 1 (`view_claim`) passed R1 on 2.4.1.0 on 14 October 2026. Phase 2 moved `localization`, `storage` and `route_gate`. A bytecode diff against `.tmp/dist` shows only these changes:
-
-- docstrings;
-- `absolute_import` in each copy that did not have it;
-- `localization` reads `MOD_ID` from `._mod_meta` in place of `.constants`, and names its logger `MOD_ID + '.i18n'`, which gives the same names as before. PT, DH and CT now also have `get_wg_text`, which only RPB calls;
-- `resolve_mod_data_dir` takes the folder name as an argument, and the four callers in DH and RPB give `MOD_CONFIG_DIR_NAME`.
-
-The scripts are `.tmp/shared-modules/compare_packages.py` and `.tmp/shared-modules/diff_code.py`. They are local only, and they run with Python 2.7.
-
-**Release.** PT, RPB, DH and CT now ship changed code, but a player sees no change. CI publishes a mod only when `meta.xml` has a new version. Decide whether to release the four now, or to let each mod carry the change into its next release. CT and DH also carry `f745804`, which is not released.
-
-**Baseline.** `.tmp/dist` is a build of `master` at `f745804` for 2.4.1.0: CT 1.2.3, DH 1.0.7, PT 1.0.3, RPB 1.4.6 and SRF 1.0.1. It is not the exact release build of CT 1.2.3 and DH 1.0.7, because `f745804` changes CT's `zanju_campaigns/widgets.js` and a comment in DH's `zanju_directives/window.js`. Neither file is a shared module, so these builds serve as the release in R0, R6 and R7. To make the baseline again:
-
-1. Export the commit: `git archive f745804 | tar -x -C <dir>`.
-2. Copy `.env` and `.cache/companion-wotmods/` into `<dir>`.
-3. In `<dir>`, run `PYTHONPATH=<dir> python3 -m tools.cli build --all`. The tools find the repository root from their own location, so the build uses the export.
-
-**Live check.** Keep the third-party modpack and the Gameface companion installed in every run. The modpack needs the 2.4.1.0 versions of `izeberg.modssettingsapi` (1.7.1) and `me.poliroid.modslistapi` (1.8.0). `game.log` lists `net.openwg.gameface_1.2.2.wotmod` two times, once from the modpack and once from our deploy. If a run fails, repeat it without the modpack. Save `game.log` after each run.
-
-| Run | Our mods installed | What it can catch |
-| --- | --- | --- |
-| R0 | All five from `.tmp/dist` | Baseline log |
-| R1 | All five, new builds | Faults in the genericized modules, and DH and CT on the same sub-view |
-| R2–R5 | One mod alone: PT, RPB, DH, then CT | A missing manifest entry, or a hidden dependency on another of our mods |
-| R6 | New DH, CT from `.tmp/dist` | Mixed releases, as players have them after a release |
-| R7 | DH from `.tmp/dist`, new CT | The same, the other way round |
-
-- Every run: no `Traceback` or `ImportError` from a `zanju.*` logger, and each installed mod writes its startup lines.
-- `localization`: PT's header, RPB's tooltips, the DH window and the CT banners show text, not i18n keys.
-- `storage`: RPB logs `Mode selection state path:` with `\zanju_wot_mods_cache\research-progress-bar\cache.json`, and the same `vehicles=N` as in R0. DH logs `placed the window at L,T from the stored X,Y (stored at WxH, now WxH)`. If the page reads 1 by 1 at start, the line `the screen size is not known yet, the window waits for it before it is placed` comes first. A line with `now 1x1` means that the build does not have `f745804`. Move the DH window, restart, and make sure that the window opens at the new position.
-- `route_gate`: open the directives, tank setup and personal missions screens in each run that has DH or CT. The Phase 1 run did not open them, so its log had only the exit route. DH and CT must log `Garage is the visible route: False` on each screen, and `True` back in the garage.
-- `view_claim` (R1, R6, R7): the two `subscribed to model updates on sub-view N` lines show two different values of N. DH logs `Directives window attached to` once per garage build. The window and the banners show at the same time.
-
-**Results.** The logs are in `.tmp/shared-modules/` (local only).
-
-- R0 (`R0.log`): the Phase 1 session at 12:23 on 14 October 2026. Its packages hold the same code as `.tmp/dist`, so it serves as R0. It opened no screen over the garage.
-- R1 (`R1.log`, 17:08 on 14 October 2026): pass.
-  - No traceback, and all five mods started.
-  - `route_gate`: DH and CT logged `False` on the shop (two times), the account dashboard, the directives screen (`hangar/loadout/instructions`), the equipment screen (`hangar/loadout/equipment`) and personal missions (`personalMissions3/...`), and `True` back in the garage each time.
-  - `view_claim`: in all five garage builds, CT took `MainMenuModel` on sub-view 139318 and DH took `VehicleMenuModel` on sub-view 139319.
-  - `storage`: RPB read `config.json` and `cache.json` from the same folder as in R0, with `vehicles=143`. DH placed the window from the stored 1303,181 in all five builds. DH writes no log line when it saves, so R4 shows whether the new position from the drag was stored.
-  - `localization`: no fault seen in the PT header, the RPB tooltips, the DH window or the CT banner.
-  - Not related to shared modules: the DH count in `Directives window attached to VehicleMenuModel (N live)` went from 1 to 5, one per garage build. CT trims its list to four. The open Campaign Tracker report below already asks for the same trim in DH.
-
 ## Campaign Tracker: Input And Notification Report (open)
 
 A player reported two faults on 1.1.1 over Discord, on 10 September 2026. They named `campaign-tracker` after they disabled every other mod one at a time. No GitHub issue carries this yet. Ask them to open one before it goes cold. Nothing ties the two faults to one cause, so treat them apart.
@@ -216,6 +170,6 @@ Rule 5 is the one that hides the bar in Onslaught. It also hides it in Frontline
 
 ### What to do
 
-- Replace the log scraping with the `onVisibleRouteChanged` subscription in `mods/campaign-tracker/src/zanju_ct/route_gate.py`. Same signal, no parsing.
+- Replace the log scraping with the `onVisibleRouteChanged` subscription in the shared `mods-common/route_gate.py`: add `research-progress-bar` to `mods-common/manifest.json`. Same signal, no parsing.
 - Then settle the rule itself. **Decide this first, it is not obvious.** One option matches a trailing `hangar` segment the way the tracker does, then subtracts Onslaught by name, because the reason to hide there is the shape of that mode's UI. The other gates on the battle mode.
 - Do not copy the tracker's mode gate. It answers "random battles alone". Ranked earns vehicle XP and must keep the bar.

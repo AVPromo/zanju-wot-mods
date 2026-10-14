@@ -2,8 +2,8 @@
 """Remembered window state: where the window sits and whether it is folded.
 
 Stored in AppData rather than next to the package so a modpack reinstall does not reset it
-(see storage.py). The file is written whenever the JS side reports a change, which is on
-drag release and on a fold toggle -- both rare, so there is no write throttling.
+(see storage.py in mods-common/). The file is written whenever the JS side reports a change,
+which is on drag release and on a fold toggle -- both rare, so there is no write throttling.
 
 The viewport the position was captured at is stored alongside it. WoT's UI scale is
 quantized per resolution bucket, so raw pixels stop meaning the same thing when the player

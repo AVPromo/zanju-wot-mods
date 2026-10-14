@@ -35,12 +35,12 @@ Mod runtime code cannot simply be imported outside the game, for three reasons:
 `testing/run_py27_tests.py` handles all three before discovery: it puts the mod's `src/` on the path, synthesizes `_mod_meta` from the mod's own `meta.xml`, loads into the package the shared modules that `mods-common/manifest.json` gives the mod, and installs the stub modules listed in `testing/zwm_test_env.py`. Test files therefore import mod modules directly:
 
 ```python
-from zanju_pt import localization
+from zanju_pt import formatting
 
 
-class ParseFlatYamlTest(unittest.TestCase):
-    def test_skips_untranslated_empty_values(self):
-        self.assertEqual(localization._parse_flat_yaml('KEY: ""'), {})
+class ServerTimeTest(unittest.TestCase):
+    def test_offset_is_zero_without_a_client(self):
+        self.assertAlmostEqual(formatting.server_time_offset(), 0.0, delta=1)
 ```
 
 Write tests as plain `unittest.TestCase` classes so they stay runnable by any unittest-compatible runner rather than being tied to `zwm test`.
@@ -60,6 +60,25 @@ from mods_common import view_claim
 ```
 
 `zwm test` runs this suite once, after the mods, when at least one of the mods in the run takes a shared module. Thus `zwm test directives-helper` also runs the tests for `view_claim`, and a test run of one mod after a change to a shared module does not skip them.
+
+### In-game check after a change to a shared module
+
+Unit tests cannot show how a module behaves next to the client or next to another mod. After a change to a shared module, run the game in these combinations, with a fresh `game.log` for each (`zwm cycle --fresh-log` clears it):
+
+| Run | Mods of ours installed | What it can catch |
+| --- | --- | --- |
+| Together | All mods, new builds | A fault in the changed module, and two mods on the same sub-view |
+| Alone | Each mod that takes the module, by itself | A missing manifest entry, or a hidden dependency on another of our mods |
+| Mixed | The new build of one mod next to the last release of another mod that takes the module, in both directions | A change that breaks a contract between mods (`view_claim`) or a shared file format (`storage`) |
+
+Each mod already writes the log lines that decide a run:
+
+- No `Traceback` or `ImportError` from a `zanju.*` logger, and each installed mod writes `initialized`.
+- `route_gate`: DH and CT write `Garage is the visible route: False` on a screen over the garage, and `True` back in the garage.
+- `view_claim`: the `subscribed to model updates on sub-view N` lines of DH and CT show two different values of N.
+- `storage`: RPB writes `Mode selection state saved` and `Config saved to`. DH writes `placed the window at L,T from the stored X,Y`.
+
+DH writes no line when it saves the window position. To see a save, drag the window, then open a screen that rebuilds the garage: the shop, the account dashboard, the campaign selector or personal missions. The directives and equipment screens do not rebuild it. Back in the garage, DH places the window from the stored position, and the log line shows that position.
 
 ## JavaScript tests
 

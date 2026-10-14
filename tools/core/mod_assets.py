@@ -4,7 +4,7 @@ The packaging (build) flow copies mod source trees, including the `i18n/` layout
 into the runtime package shape. These helpers keep that copy logic in one place.
 
 Mods ship no loose files alongside the package: each mod self-creates its config
-in AppData on first run (see its `src/.../storage.py`), and `i18n/*.yml` is bundled
+in AppData on first run (see `mods-common/storage.py`), and `i18n/*.yml` is bundled
 inside the `.wotmod` at `res/mods/<id>/text/` rather than staged into a config folder.
 """
 

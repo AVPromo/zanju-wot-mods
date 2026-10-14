@@ -93,6 +93,8 @@ Some runtime modules are the same in several mods. Each of them has one authored
 - A file in `mods-common/` is not in the manifest.
 - A mod has a file with the name of a shared module in its package. This rule also covers mods that do not take the module, so that a private copy cannot start to drift again.
 
+**Checked in game on 2.4.1.0, on 14 October 2026.** All four modules ran in PT, RPB, DH and CT, each mod alone and all together. With DH and CT both installed, CT took `MainMenuModel` and DH took `VehicleMenuModel` in every garage build. Each of them alone took `MainMenuModel`. The new DH and CT also each ran next to the other mod's build from before the move. The old and new copies of `view_claim` kept the same split, and the old and new copies of `storage` read the window position that the other one wrote. [Testing](../testing.md#in-game-check-after-a-change-to-a-shared-module) lists the runs.
+
 **Accepted consequences.** An IDE cannot resolve the sibling import in the source of a mod. A traceback in `game.log` names `res/scripts/client/gui/mods/<pkg>/<name>.py`, but the source is `mods-common/<name>.py`.
 
 ## Entry Point Rule
