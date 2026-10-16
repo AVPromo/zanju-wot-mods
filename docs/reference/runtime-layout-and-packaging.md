@@ -81,6 +81,8 @@ In this repository:
 
 Some runtime modules are the same in several mods. Each of them has one authored copy in `mods-common/<name>.py`, and `mods-common/manifest.json` says which mods take it. `zwm build` compiles the module into the internal package of each of those mods, at `res/scripts/client/gui/mods/<pkg>/<name>.pyc`, the same way it adds `_mod_meta`. A mod imports it as a sibling that is not in its `src/` tree, for example `from .. import view_claim`.
 
+**A Gameface script can be shared too.** `mods-common/gameface/<name>.js` has one authored copy, and the `gameface` section of the manifest says which mods take it. `zwm build` copies the script into the one Gameface folder of each of those mods, `res/gui/gameface/mods/<namespace>/<name>.js`, so the mod's own modules import it as `./<name>.js`. A mod that takes a script must have exactly one folder under `res/gui/gameface/mods/`. `tray.js` is the first: the banner row that campaign-tracker and crucible-tracker share. See [Sharing the row beside the vehicle name](gameface-mod-widgets.md#sharing-the-row-beside-the-vehicle-name).
+
 **Each `.wotmod` stays self-contained.** The module goes into the package of each mod, so the game sees one file per mod at different paths. Python also loads one module per mod, for example `zanju_dh.view_claim` and `zanju_ct.view_claim`. No mod needs another of ours, and we ship no companion package of our own. A player can mix releases from before and after a module moved to `mods-common/`. The packages built after `view_claim` moved hold the same code as the packages built before it.
 
 **A shared module holds no state for more than one mod.** Each mod has its own copy, so a variable at module level belongs to one mod only. If two mods must agree on something, they agree through an object of the client. `view_claim` is the example: the mark that a sub-view is taken is the client's `gf_mod_inject` field. A module that needs one instance for the whole game process cannot live here. It needs a library package of its own, and that brings back version skew between mods that a player updates one at a time.
@@ -92,6 +94,7 @@ Some runtime modules are the same in several mods. Each of them has one authored
 - The manifest names a module or a mod that does not exist.
 - A file in `mods-common/` is not in the manifest.
 - A mod has a file with the name of a shared module in its package. This rule also covers mods that do not take the module, so that a private copy cannot start to drift again.
+- The same three rules hold for a shared Gameface script. A mod that takes a script must also have exactly one Gameface folder.
 
 **Checked in game on 2.4.1.0, on 14 October 2026.** All four modules ran in PT, RPB, DH and CT, each mod alone and all together. With DH and CT both installed, CT took `MainMenuModel` and DH took `VehicleMenuModel` in every garage build. Each of them alone took `MainMenuModel`. The new DH and CT also each ran next to the other mod's build from before the move. The old and new copies of `view_claim` kept the same split, and the old and new copies of `storage` read the window position that the other one wrote. [Testing](../testing.md#in-game-check-after-a-change-to-a-shared-module) lists the runs.
 

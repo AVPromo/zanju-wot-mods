@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Whether the battle mode the player has picked earns campaign progress.
+"""Whether the battle mode the player has picked is random battles.
 
-Only a random battle counts towards a personal mission, so the banners belong to that mode and
-to no other. This is one half of the widgets' visibility. The other half is whether the garage
-is on screen at all -- see route_gate.
+Only a random battle counts towards a personal mission or a Crucible mission, so the banners of
+campaign-tracker and crucible-tracker belong to that mode and to no other. This is one half of
+their visibility. The other half is whether the garage is on screen at all -- see route_gate.
 
 The garage cannot answer this, which is why the mode is not read off the lobby route. Onslaught,
 Frontline, Steel Hunter and Last Stand each bring a garage of their own, but Ranked, Mapbox,

@@ -53,6 +53,11 @@ class FakeNode {
         this.attributes[name] = value;
     }
 
+    // The shared tray reads its entries back through this.
+    getAttribute(name) {
+        return Object.prototype.hasOwnProperty.call(this.attributes, name) ? this.attributes[name] : null;
+    }
+
     getBoundingClientRect() {
         return this._rect || { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
     }
@@ -69,14 +74,17 @@ class FakeNode {
         if (selector.startsWith('.')) {
             return this.className.split(' ').includes(selector.slice(1));
         }
-        // `[attr="value"]` and the substring form `[attr*="value"]`, which is how the widgets
-        // match the game's content-hashed class names.
-        const attribute = selector.match(/^\[([a-z-]+)(\*?)="(.*)"\]$/);
+        // `[attr="value"]`, the substring form `[attr*="value"]`, which is how the widgets
+        // match the game's content-hashed class names, and the bare `[attr]` the tray uses.
+        const attribute = selector.match(/^\[([a-z-]+)(\*?)(?:="(.*)")?\]$/);
         if (attribute) {
             const [, name, operator, value] = attribute;
             const actual = name === 'class' ? this.className : this.attributes[name];
             if (actual === undefined || actual === null) {
                 return false;
+            }
+            if (value === undefined) {
+                return true;
             }
             return operator === '*' ? String(actual).includes(value) : actual === value;
         }
@@ -1352,19 +1360,12 @@ test('banners are reconciled, so a campaign that stays keeps its element', () =>
     assert.equal(root.querySelector('[data-branch="pm2"]'), kept);
 });
 
-test('a position is clamped so a banner can never sit off-screen', () => {
-    assert.deepEqual(widgets.clampToViewport(-50, -50), { x: 0, y: 0 });
-    assert.deepEqual(widgets.clampToViewport(99999, 99999), { x: 1880, y: 1060 });
-});
-
 test('a page that reads 1 by 1 does not pin the banners to the corner', () => {
     // Measured on 2.4.1.0: innerWidth and innerHeight can be 1 when a module starts. Taken as the
     // size of the screen, they clamp every banner to 0,0.
     const realWindow = global.window;
     global.window = { innerWidth: 1, innerHeight: 1 };
     try {
-        assert.deepEqual(widgets.clampToViewport(1030, 100), { x: 1030, y: 100 });
-
         const root = document.createElement('div');
         const branches = widgets.renderWidgets(root, { campaigns: [entry({})], labels: {} });
         widgets.applyLayout(root, branches, { x: 1030, y: 100 });
@@ -1394,21 +1395,93 @@ test('banners are laid out in a row from the origin, one margin apart', () => {
     assert.equal(second.style.top, '100px');
 });
 
+// The row of this mod, measured: two banners of 84 pixels and the gap between them.
+function measuredRow(root) {
+    widgets.renderWidgets(root, {
+        labels: {},
+        campaigns: [entry({ branch: 'regular' }), entry({ branch: 'pm2' })],
+    });
+    for (const branch of ['regular', 'pm2']) {
+        root.querySelector('[data-branch="' + branch + '"]')._rect =
+            { left: 0, top: 0, right: 84, bottom: 40, width: 84, height: 40 };
+    }
+}
+
+function trayEntry(owner) {
+    const list = document.getElementById('zanju-banner-tray');
+    return list ? list.querySelector('[data-owner="' + owner + '"]') : null;
+}
+
 test('the row starts down and right of the anchor top-right corner', () => {
     clearBody();
     addAnchor({ left: 900, top: 100, right: 1020, bottom: 160, width: 120, height: 60 });
-    assert.deepEqual(widgets.anchorOrigin(), {
-        x: 1020 + widgets.ANCHOR_OFFSET_X_PX,
-        y: 100 + widgets.ANCHOR_OFFSET_Y_PX,
-    });
+    const root = document.createElement('div');
+    measuredRow(root);
+    widgets.updateLayout(root, ['regular', 'pm2']);
+    const first = root.querySelector('[data-branch="regular"]');
+    assert.equal(first.style.left, (1020 + 25) + 'px');
+    assert.equal(first.style.top, (100 + 10) + 'px');
     clearBody();
 });
 
-test('there is no origin at all while the anchor is off stage', () => {
+test('the row publishes its width and side to the shared tray', () => {
+    clearBody();
+    addAnchor({ left: 900, top: 100, right: 1020, bottom: 160, width: 120, height: 60 });
+    const root = document.createElement('div');
+    measuredRow(root);
+    widgets.updateLayout(root, ['regular', 'pm2']);
+    const own = trayEntry('zanju.campaigntracker');
+    assert.equal(own.getAttribute('data-width'), String(84 + widgets.BANNER_GAP_PX + 84));
+    assert.equal(own.getAttribute('data-side'), 'right');
+    assert.equal(own.getAttribute('data-rank'), '10');
+    clearBody();
+});
+
+test('on the left side, the row ends before the vehicle name and reads left to right', () => {
+    clearBody();
+    addAnchor({ left: 900, top: 100, right: 1020, bottom: 160, width: 120, height: 60 });
+    const root = document.createElement('div');
+    measuredRow(root);
+    widgets.updateLayout(root, ['regular', 'pm2'], 'left');
+    const rowWidth = 84 + widgets.BANNER_GAP_PX + 84;
+    assert.equal(root.querySelector('[data-branch="regular"]').style.left, (900 - 25 - rowWidth) + 'px');
+    assert.equal(root.querySelector('[data-branch="pm2"]').style.left,
+        (900 - 25 - 84) + 'px');
+    assert.equal(trayEntry('zanju.campaigntracker').getAttribute('data-side'), 'left');
+    clearBody();
+});
+
+test('a row of another mod with a lower rank pushes this row outward', () => {
+    clearBody();
+    addAnchor({ left: 900, top: 100, right: 1020, bottom: 160, width: 120, height: 60 });
+    const list = document.createElement('div');
+    list.id = 'zanju-banner-tray';
+    const other = document.createElement('i');
+    other.setAttribute('data-owner', 'zanju.earlier');
+    other.setAttribute('data-rank', '5');
+    other.setAttribute('data-side', 'right');
+    other.setAttribute('data-width', '100');
+    list.appendChild(other);
+    body.appendChild(list);
+    const root = document.createElement('div');
+    measuredRow(root);
+    widgets.updateLayout(root, ['regular', 'pm2']);
+    assert.equal(root.querySelector('[data-branch="regular"]').style.left,
+        (1020 + 25 + 100 + widgets.BANNER_GAP_PX) + 'px');
+    clearBody();
+});
+
+test('there is no position and no tray entry while the anchor is off stage', () => {
     // No fallback position: that is what keeps the banners hidden until the garage mounts the
     // block, rather than showing them somewhere else first and moving them across.
     clearBody();
-    assert.equal(widgets.anchorOrigin(), null);
+    const root = document.createElement('div');
+    measuredRow(root);
+    const widget = root.querySelector('[data-branch="regular"]');
+    widget.style.left = '500px';
+    widgets.updateLayout(root, ['regular', 'pm2']);
+    assert.equal(widget.style.left, '500px');
+    assert.equal(trayEntry('zanju.campaigntracker'), null);
 });
 
 test('the poll stays fast until a push has arrived and the banners are placed', () => {
@@ -1493,14 +1566,6 @@ test('the layout leaves the banners alone when there is no origin', () => {
     widget.style.left = '500px';
     widgets.applyLayout(root, branches, null);
     assert.equal(widget.style.left, '500px');
-});
-
-test('a detached anchor is not mistaken for one still on stage', () => {
-    clearBody();
-    const anchor = addAnchor({ left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 });
-    assert.equal(widgets.isAttached(anchor), true);
-    body.removeChild(anchor);
-    assert.equal(widgets.isAttached(anchor), false);
 });
 
 test('the anchor search can tell an element inside another from a stray one', () => {

@@ -1,6 +1,14 @@
 Changelog
 =========
 
+## 1.3.0 (unreleased)
+
+- New setting: the banners can stand on the left or the right side of the vehicle name.
+- The banners now share their row with the banner of the new Crucible Tracker, on the same side.
+- Settings in the game's settings window, with Aslain's Mod Menu installed, or in `config.json`.
+- The banners no longer take one of the game's own garage views, so they can no longer block another mod, or be blocked by one.
+- The download now ships Aslain's Mod Menu 2.1.04, for the new in-game settings.
+
 ## 1.2.3 (14 October 2026)
 
 - Updated for World of Tanks 2.4.1.0.

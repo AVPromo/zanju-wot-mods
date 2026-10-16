@@ -1,0 +1,6 @@
+{
+  "name": "zanju-mods-common",
+  "private": true,
+  "type": "module",
+  "description": "Declares the shared Gameface scripts in gameface/ as ES modules, so Node's test runner parses them the same way Gameface does. Not an npm package: there are no dependencies, and the build copies each script into the mods that take it."
+}

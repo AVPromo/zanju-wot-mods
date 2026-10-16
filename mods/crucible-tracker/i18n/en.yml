@@ -1,0 +1,39 @@
+# Time left, as in Premium Time: "3d 05h", "2h 11m", "5m 12s". Keep each unit to one or two letters.
+UNIT_DAY_SHORT: "d"
+UNIT_HOUR_SHORT: "h"
+UNIT_MINUTE_SHORT: "m"
+UNIT_SECOND_SHORT: "s"
+
+# Hover card
+LABEL_NO_ACTIVE: "No active series"
+# {stage} is the number of the current mission, {total} the number of missions in the series.
+LABEL_MISSION: "Mission {stage} of {total}"
+# Above the conditions of one mission in the list of the active series. {stage} is the number of the mission.
+LABEL_MISSION_NUMBER: "Mission {stage}"
+# {done} is how many times the player completed the series, {allowed} how many times the series allows.
+LABEL_COMPLETIONS: "Completions: {done} / {allowed}"
+# The series can be started.
+LABEL_AVAILABLE: "Available"
+# The series ran out of shields, and the next restart costs nothing.
+LABEL_FREE_RESTART: "Free restart available"
+# The series ran out of shields. The price and the currency icon follow this text.
+LABEL_RESTART_FOR: "Restart available for:"
+# Above a list of vehicle names, one per line.
+LABEL_IN_BATTLE: "Vehicles in battle:"
+# A vehicle that can play the Crucible is in a battle that has not ended yet.
+LABEL_IN_BATTLE_WARNING: "A series that you start now completes or fails with the result of a battle that is still in progress."
+# The same warning while a series is active.
+LABEL_IN_BATTLE_ACTIVE: "The current mission completes or fails with the result of a battle that is still in progress."
+# The last line of the hover card.
+LABEL_HINT_OPEN: "Click to open the Crucible"
+
+# Settings, in Mod Menu
+SETTING_GARAGE: "Garage banner"
+TOOLTIP_GARAGE_BODY: "Show the Crucible banner beside the vehicle name in the garage, with its hover card."
+SETTING_BATTLE: "Battle panel"
+TOOLTIP_BATTLE_BODY: "Show the progress of the current Crucible mission in battle. Hold Ctrl and drag the panel to move it."
+SETTING_TRAY_SIDE: "Banner position"
+SETTING_TRAY_SIDE_RIGHT: "Right of the vehicle name"
+SETTING_TRAY_SIDE_LEFT: "Left of the vehicle name"
+# The banners of other Zanju mods, such as Campaign Tracker, share the row on the same side.
+TOOLTIP_TRAY_SIDE_BODY: "The side of the vehicle name where the banner stands. Banners of other Zanju mods on the same side share the row with it."

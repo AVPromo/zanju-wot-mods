@@ -12,12 +12,13 @@ one thing they send back is a click: the JS reports which campaign was clicked a
 were held with it, and Python either opens the client's own screen for that campaign's mission
 (see navigation) or pauses or resets it (see mission_actions).
 
-Placement is collision-aware. `gf_mod_inject` always writes to the fixed field name
-`ModInjectModel`, so two mods that pick the same sub-view silently clobber each other, last
-writer wins. We hook several candidate hangar sub-views, attach to the first free one, and
-then leave the others alone for the next mod -- see view_claim for why that last part is not
-optional. The JS finds our data by scanning sub-views, so which candidate we land on does not
-matter to it.
+The models ride on a child sub-view of the mod's own, which hangar_child adds to the random
+garage. `gf_mod_inject` always writes to one fixed field, so a sub-view holds one mod at most. A
+child of our own takes no sub-view that another mod could want, and no other mod writes to it.
+The JS finds our data by scanning sub-views, so where the child sits does not matter to it.
+
+The banners stand in the shared banner tray, on the side the config names. tray.js holds the
+row arithmetic that this mod and crucible-tracker share.
 
 See docs/reference/gameface-mod-widgets.md for the wider set of rules this follows.
 """
@@ -28,8 +29,8 @@ import logging
 
 from frameworks.wulf import ViewModel
 
-from .. import (collector, held_keys, mission_actions, mode_gate, navigation, route_gate,
-                view_claim)
+from .. import (collector, config, hangar_child, held_keys, mission_actions, mode_gate, navigation,
+                route_gate)
 from . import card_window
 from ..constants import LOGGER_NAME
 from ..localization import get_text as _loc
@@ -38,20 +39,10 @@ _MODULE_URL = 'coui://gui/gameface/mods/zanju_campaigns/widgets.js'
 _STYLE_URL = 'coui://gui/gameface/mods/zanju_campaigns/widgets.css'
 _INJECT_NAME = 'zanju_ct_widgets'
 _DATA_PROPERTY = 'zanjuCtWidgets'
-# The field gf_mod_inject always writes to; its presence means a mod already claimed the view.
-_INJECT_FIELD = 'ModInjectModel'
-
-# Hangar sub-views to try, most preferred first. All live in the persistent
-# `mono/hangar/main` document, which loads once per garage session.
-#
-# The order is only a preference: the client decides which of these it builds first, and we
-# attach to whichever free one reaches us first. Coexisting with other mods rests on attaching
-# to exactly one of them, not on the order -- see view_claim.
-_CANDIDATE_MODELS = (
-    ('gui.impl.gen.view_models.views.lobby.hangar.mode_state_model', 'ModeStateModel'),
-    ('gui.impl.gen.view_models.views.lobby.hangar.vehicle_menu_model', 'VehicleMenuModel'),
-    ('gui.impl.gen.view_models.views.lobby.hangar.main_menu_model', 'MainMenuModel'),
-)
+# Where the mod's own child sits among the children of the random garage view: 'ZNCT' in ASCII.
+# Far above the client's resource IDs, which were near 136,000 on 2.4.0.2. Each of our mods has
+# its own ID, listed in docs/reference/gameface-mod-widgets.md.
+_POS_ID = 0x5A4E4354
 
 _module_logger = logging.getLogger(LOGGER_NAME)
 
@@ -71,10 +62,7 @@ _KEY_SECONDARY = '#personal_missions:detailedView/conditionsFullylabel'
 _KEY_OR = '#personal_missions:conditions/orGroup'
 _KEY_IMPROVING = '#ingame_gui:statistics/tab/quests/status/increaseResult'
 
-# The view model class this mod attached to, so it never takes a second one. See view_claim.
-_claimed_class = None
-
-_patched = []
+_installed = []
 # How many data models to keep, newest last. The client builds one hangar document at a time,
 # so only the last entry is ever on screen. The others cover the frame or two that a rebuild
 # can overlap in, and leave a margin for a mode that builds two.
@@ -206,6 +194,8 @@ def _build_payload(logger):
     try:
         snapshot = collector.collect(logger)
         _log_payload_change(snapshot, logger)
+        # Which side of the vehicle name the row stands on. widgets.js hands it to tray.js.
+        snapshot['layout'] = {'side': config.tray_side()}
         snapshot['labels'] = {
             'noMission': _loc('LABEL_NO_MISSION'),
             'paused': _loc('LABEL_PAUSED'),
@@ -263,19 +253,6 @@ def _log_payload_change(snapshot, logger):
     _last_logged_count = count
     logger.info('Snapshot has %d active campaign(s), vehicle in garage: %s',
                 count, bool(snapshot.get('hasVehicle')))
-
-
-def _is_claimed(model, logger):
-    """True when another mod already attached its inject model to this view.
-
-    There is no getter for a child model by name, but the native proxy serialises its field
-    names, which is enough to spot the fixed field gf_mod_inject writes to.
-    """
-    try:
-        return _INJECT_FIELD in '{0}'.format(model)
-    except Exception:
-        logger.exception('Failed to inspect a candidate view model')
-        return False
 
 
 def refresh(logger):
@@ -338,8 +315,8 @@ def _on_held_keys_changed():
 
 
 def _widgets_visible():
-    """Both halves of the answer: the garage on screen, and a mode the banners belong to."""
-    return route_gate.is_visible() and mode_gate.is_visible()
+    """The settings allow the banners, the garage is on screen, and the mode is one they belong to."""
+    return config.is_enabled() and route_gate.is_visible() and mode_gate.is_visible()
 
 
 def _apply_visibility(logger):
@@ -471,18 +448,9 @@ def _on_missions_synced(*args):
 
 
 def install(logger):
-    """Patch the candidate hangar views. Returns True when at least one was hooked."""
-    if _patched:
+    """Give the random garage a child view that carries the widgets. Returns True on success."""
+    if _installed:
         return True
-
-    try:
-        from openwg_gameface import gf_mod_inject
-    except ImportError:
-        logger.info(
-            'net.openwg.gameface not found; the campaign widgets are disabled '
-            '(install the OpenWG Gameface library to enable it)'
-        )
-        return False
 
     # Almost certainly a no-op here -- neither the lobby app that owns the state machine nor
     # the prebattle dispatcher exists this early -- but both cost nothing, and `_bind_events`
@@ -493,77 +461,43 @@ def install(logger):
     # lobby teardown, so it is made once here and never retried.
     held_keys.install(logger, _on_held_keys_changed)
 
-    for module_path, class_name in _CANDIDATE_MODELS:
-        model_class = _import_model(module_path, class_name, logger)
-        if model_class is None:
-            continue
-        _patch(model_class, gf_mod_inject, logger)
-
-    if not _patched:
-        logger.warning('No hangar view could be hooked; the campaign widgets are disabled')
+    route = hangar_child.install(logger, _POS_ID, _INJECT_NAME, [_STYLE_URL], [_MODULE_URL],
+                                 _DATA_PROPERTY, _build_data_model)
+    if route is None:
+        logger.warning('The garage child view could not be set up; the campaign widgets are disabled')
         return False
-
-    logger.info('Campaign widgets installed (%d candidate views)', len(_patched))
+    _installed.append(route)
+    logger.info('Campaign widgets installed (route %s)', route)
     return True
 
 
-def _import_model(module_path, class_name, logger):
-    try:
-        module = __import__(module_path, globals(), locals(), [str(class_name)])
-        return getattr(module, class_name)
-    except Exception:
-        logger.info('Hangar view %s.%s not found; skipping it', module_path, class_name)
-        return None
+def _build_data_model():
+    """The data model for one garage build. hangar_child calls this from the child's model."""
+    global _attached_total
+    # Subscribed before the snapshot is read, not after. A mission sync landing between the two
+    # would otherwise be missed twice over: too early for the subscription to hear it, too late
+    # for a payload that was already built.
+    _bind_events(_module_logger)
+    data_model = _WidgetsDataModel(_build_payload(_module_logger))
+    _models.append(data_model)
+    del _models[:-_MAX_LIVE_MODELS]
+    _attached_total += 1
+    _module_logger.info('Campaign widgets attached (%d built, %d kept)', _attached_total, len(_models))
+    return data_model
 
 
-def _patch(model_class, gf_mod_inject, logger):
-    original = model_class._initialize
-
-    def _initialize_with_widgets(self):
-        global _claimed_class, _attached_total
-        original(self)
-        try:
-            claim, _claimed_class = view_claim.decide(
-                model_class, _is_claimed(self, logger), _claimed_class)
-            if not claim:
-                return
-            gf_mod_inject(
-                self,
-                str(_INJECT_NAME),
-                styles=[str(_STYLE_URL)],
-                modules=[str(_MODULE_URL)],
-            )
-            # Subscribed before the snapshot is read, not after. A mission sync landing between
-            # the two would otherwise be missed twice over: too early for the subscription to
-            # hear it, too late for a payload that was already built.
-            _bind_events(logger)
-            data_model = _WidgetsDataModel(_build_payload(logger))
-            self._addViewModelProperty(str(_DATA_PROPERTY), data_model)
-            _models.append(data_model)
-            del _models[:-_MAX_LIVE_MODELS]
-            _attached_total += 1
-            logger.info('Campaign widgets attached to %s (%d built, %d kept)',
-                        model_class.__name__, _attached_total, len(_models))
-        except Exception:
-            _claimed_class = None
-            logger.exception('Failed to attach the campaign widgets model')
-
-    model_class._initialize = _initialize_with_widgets
-    _patched.append((model_class, original))
+def on_settings_changed(keys):
+    """Mod Menu changed a setting. The side reaches the banners with the next snapshot."""
+    refresh(_module_logger)
+    _apply_visibility(_module_logger)
 
 
 def uninstall(logger):
-    global _claimed_class
-    _claimed_class = None
+    del _installed[:]
     _unbind_events(logger)
     card_window.uninstall(logger)
     route_gate.uninstall(logger)
     mode_gate.uninstall(logger)
     held_keys.uninstall(logger)
+    hangar_child.uninstall(logger)
     del _models[:]
-    while _patched:
-        model_class, original = _patched.pop()
-        try:
-            model_class._initialize = original
-        except Exception:
-            logger.exception('Failed to restore %s._initialize', model_class.__name__)

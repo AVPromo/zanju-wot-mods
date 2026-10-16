@@ -36,7 +36,32 @@ Our side is clear. A grep over all five mods for `AccountSettings`, dossier, ach
 
 **1.2.0 is free to ship.** Fault 1 no longer holds it. The changelog carries the input fix and the trimmed model list, and neither mentions fault 1, which is correct.
 
-**If the candidate list is ever changed, keep the headroom in mind.** `directives-helper` lists it first and `campaign-tracker` lists it last. The preference decides nothing, because the client's build order does. Take `MainMenuModel` off `campaign-tracker` and two candidates remain. Any third mod that injects into the hangar can then leave the banners with no view. The player sees no reason for it. Take it off both and two sub-views serve two mods with no spare. Find more injectable sub-views in `mono/hangar/main` before trading any of them away.
+**The candidate list no longer holds `campaign-tracker`.** From 1.3.0 the banners ride on a child sub-view of the mod's own, so `directives-helper` is the only mod of ours that takes one of the client's garage sub-views. See the next section.
+
+## Gameface Mods: A Sub-View Of Their Own
+
+`directives-helper` takes one of the client's own garage sub-views through `view_claim`. `premium-time` takes `UserAccountModel` in the header document, with no check at all. `view_claim` protects only against mods that check too, and two faults stay open:
+
+- A third-party mod that writes to a fixed sub-view with no check replaces our `ModInjectModel`, because the last writer wins. Our widget then goes away, and nothing in the log says why.
+- A third-party mod that needs one exact sub-view finds it taken by one of ours.
+
+A child sub-view of our own closes both, and the 2.4.1.0 probe proved it in `main`. See [Getting code into a document](docs/reference/gameface-mod-widgets.md#getting-code-into-a-document).
+
+- `directives-helper`: the window also shows in mode garages, and each mode garage is a separate document with a root view of its own. Add a child to `RandomHangar` and to the root view of each mode where the window shows. Keep `view_claim` as the fallback for a root view that the mod does not know.
+- `premium-time`: the bar probe of `directives-helper` already has a child in `LobbyHeader` at `0x5A4E4448`. Give `premium-time` a position ID of its own: two children of one parent need two IDs.
+
+`campaign-tracker` and `crucible-tracker` already have a child of their own, through `mods-common/hangar_child.py`. Both show in the random garage only, so a child of `RandomHangar` covers every place they show. The reference lists the position IDs of all our mods. Remove `view_claim` from `mods-common/` only when no mod uses it as a fallback.
+
+## Gameface Mods: Shared Scripts For The Plumbing
+
+`mods-common/gameface/` can now share a script between mods: `tray.js` was the first, and the in-game check passed for it. Four mods hold copies of the same plumbing, and it should move there too. Each mod would keep only what it draws.
+
+- **The bridge to the data model**: `modelOn`, `findDataModel`, `bindModelPush`, `onPush`, `invokeCommand` and the adaptive poll (`setPollRate`, `pollRateFor`). Copies are in `widgets.js` of `campaign-tracker` and `crucible-tracker`, and in `window.js` of `directives-helper`. `bar_probe.js` of `directives-helper` has a part of it. The flags on `document` carry a prefix for each mod. The shared script must thus take the prefix and the data property as arguments.
+- **The small helpers**: `log`, `unwrap`, `parseJson` and `el`. Copies are in the four mods, `header_patch.js` of `premium-time` too. `log` must take the tag of the mod.
+- **The countdown format**: `formatRemaining`, the two largest units of a time left. `premium-time` has it in `header_patch.js`, and `crucible-tracker` has a copy in `common.js`. The unit labels (`UNIT_DAY_SHORT` and the others) are in the i18n files of both mods.
+- **The standalone card window**: `card_panel.js` (`readModel`, `scheduleMeasure`, `publishSize`, `waitForDomBuilt`, `nextFrame`) and `gameface/card_window.py`. `crucible-tracker` has a near copy of both from `campaign-tracker`. Move the window lifecycle into `mods-common/`, as a script and as a Python module. Each mod then keeps only its payload.
+
+Each move changes a mod that works now. Do one piece at a time, with an in-game check of every mod that takes it. A shared script can import another shared script, because the build puts all of them in the same folder.
 
 ## Testing Backlog
 

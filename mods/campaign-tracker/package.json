@@ -4,6 +4,6 @@
   "type": "module",
   "description": "Declares this mod's JavaScript as ES modules so Node's test runner parses res/ and tests/ the same way Gameface does. Not an npm package: there are no dependencies and nothing here is packaged into the .wotmod.",
   "scripts": {
-    "test": "node --test tests/"
+    "test": "node --import ../../testing/shared_scripts_loader.mjs --test tests/*.test.js"
   }
 }

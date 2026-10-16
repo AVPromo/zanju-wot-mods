@@ -61,6 +61,8 @@ from mods_common import view_claim
 
 `zwm test` runs this suite once, after the mods, when at least one of the mods in the run takes a shared module. Thus `zwm test directives-helper` also runs the tests for `view_claim`, and a test run of one mod after a change to a shared module does not skip them.
 
+The shared Gameface scripts, such as `mods-common/gameface/tray.js`, have their tests in `mods-common/tests/*.test.js`. They run on the same rule, when a mod in the run takes a shared module or a shared script.
+
 ### In-game check after a change to a shared module
 
 Unit tests cannot show how a module behaves next to the client or next to another mod. After a change to a shared module, run the game in these combinations, with a fresh `game.log` for each (`zwm cycle --fresh-log` clears it):
@@ -75,7 +77,8 @@ Each mod already writes the log lines that decide a run:
 
 - No `Traceback` or `ImportError` from a `zanju.*` logger, and each installed mod writes `initialized`.
 - `route_gate`: DH and CT write `Garage is the visible route: False` on a screen over the garage, and `True` back in the garage.
-- `view_claim`: the `subscribed to model updates on sub-view N` lines of DH and CT show two different values of N.
+- `view_claim` and `hangar_child`: the `subscribed to model updates on sub-view N` lines of DH and CT show two different values of N. CT and CRT also write `Garage child view at 0x...` with their own position IDs.
+- `tray.js`: with CT and CRT on the same side of the vehicle name, the two rows stand side by side, and each mod writes `banner tray: observing` once per garage document.
 - `storage`: RPB writes `Mode selection state saved` and `Config saved to`. DH writes `placed the window at L,T from the stored X,Y`.
 
 DH writes no line when it saves the window position. To see a save, drag the window, then open a screen that rebuilds the garage: the shop, the account dashboard, the campaign selector or personal missions. The directives and equipment screens do not rebuild it. Back in the garage, DH places the window from the stored position, and the log line shows that position.
@@ -83,6 +86,8 @@ DH writes no line when it saves the window position. To see a save, drag the win
 ## JavaScript tests
 
 Gameface-side JavaScript is plain ES modules, which Node can import directly. A mod with JS tests carries a minimal `package.json` (`{"type": "module"}`) so Node parses `res/` and `tests/` the same way Gameface does. It declares no dependencies and is not packaged into the `.wotmod`.
+
+A module can import a shared Gameface script as if it lay beside it, for example `import { rowOrigin } from './tray.js'`. The build puts the copy there, but the source tree has no copy. `zwm test` therefore runs Node with `testing/shared_scripts_loader.mjs`, which resolves such an import to `mods-common/gameface/`. The `test` script in the `package.json` of each such mod passes the same loader.
 
 Modules under test must not start themselves on import. The header patch guards its bootstrap on the presence of the Gameface view registry:
 

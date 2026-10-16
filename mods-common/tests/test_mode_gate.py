@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for the battle-mode half of the widgets' visibility.
+"""Tests for the battle-mode half of the visibility of a garage banner.
 
 The banners belong to random battles and to no other mode. The client answers that through the
 prebattle dispatcher, so the dispatcher, its functional state and the listener interface it
@@ -14,7 +14,7 @@ import sys
 import types
 import unittest
 
-from zanju_ct import mode_gate
+from mods_common import mode_gate
 
 # The client's own value for the random battles queue.
 QUEUE_RANDOMS = 1

@@ -1,0 +1,191 @@
+/* The Crucible battle panel.
+ *
+ * This stylesheet belongs to the panel's own document, in a window of the mod's own. The base and
+ * the palette are those of card.css: the document inherits no base style from the client, `1rem`
+ * is one pixel at interface scale 1, and the font changes for the scripts that PFDINMax has no
+ * glyphs for. The background is more transparent than the card's, because the battle stays
+ * behind it.
+ */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+}
+
+body {
+    color: #d7dbe0;
+    font-size: 14rem;
+    line-height: 1.3em;
+    font-family: PFDINMax;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
+html[lang=ja] body,
+html[lang=ko] body,
+html[lang=zh_tw] body,
+html[lang=zh_sg] body,
+html[lang=zh_cn] body,
+html[lang=vi] body,
+html[lang=th] body {
+    font-family: Warhelios;
+    letter-spacing: 0;
+}
+
+/* A fixed width: the condition texts wrap, and the panel grows down. */
+.zanju-crt-panel {
+    display: flex;
+    flex-direction: column;
+    width: 300rem;
+    padding: 6rem 10rem 8rem 10rem;
+    background: rgba(17, 19, 22, 0.82);
+    border: 1rem solid rgba(255, 255, 255, 0.13);
+    border-radius: 3rem;
+}
+
+.zanju-crt-panel-head {
+    display: flex;
+    align-items: center;
+    padding-bottom: 5rem;
+    border-bottom: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+.zanju-crt-panel-shield {
+    display: block;
+    flex: 0 0 16rem;
+    width: 16rem;
+    height: 16rem;
+    margin-right: 3rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.zanju-crt-panel-shields {
+    display: block;
+    margin-right: 8rem;
+    color: #f0f2f5;
+}
+
+.zanju-crt-panel-name {
+    display: block;
+    flex: 1 1 auto;
+    color: #f0f2f5;
+    font-weight: 500;
+}
+
+.zanju-crt-panel-stage {
+    display: block;
+    flex: 0 0 auto;
+    margin-left: 8rem;
+    font-size: 13rem;
+    color: #9ca4ab;
+}
+
+/* A set of conditions is met: the mission is done, as far as the panel can count it. */
+.zanju-crt-panel-done .zanju-crt-panel-name {
+    color: #9ccb68;
+}
+
+.zanju-crt-panel-rows {
+    display: flex;
+    flex-direction: column;
+    padding-top: 4rem;
+}
+
+.zanju-crt-prow {
+    display: block;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+}
+
+.zanju-crt-prow-line {
+    display: flex;
+    align-items: flex-start;
+}
+
+/* The client's own condition icon, from its Crucible screen. */
+.zanju-crt-prow-icon {
+    display: block;
+    flex: 0 0 18rem;
+    width: 18rem;
+    height: 18rem;
+    margin-right: 6rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.zanju-crt-prow-text {
+    display: block;
+    flex: 1 1 auto;
+}
+
+/* The bar, the figures and the time limit, on one line under the text, indented to it. */
+.zanju-crt-prow-meter {
+    display: flex;
+    align-items: center;
+    margin-top: 3rem;
+    margin-left: 24rem;
+}
+
+.zanju-crt-prow-bar {
+    display: block;
+    flex: 1 1 auto;
+    height: 4rem;
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 2rem;
+}
+
+.zanju-crt-prow-fill {
+    display: block;
+    height: 4rem;
+    background: #d7dbe0;
+    border-radius: 2rem;
+}
+
+.zanju-crt-prow-figures {
+    display: block;
+    flex: 0 0 auto;
+    margin-left: 8rem;
+    font-size: 13rem;
+    color: #f0f2f5;
+}
+
+.zanju-crt-prow-clock {
+    display: block;
+    flex: 0 0 auto;
+    margin-left: 8rem;
+    font-size: 13rem;
+    color: #f0cf74;
+}
+
+.zanju-crt-prow-met .zanju-crt-prow-fill {
+    background: #9ccb68;
+}
+
+.zanju-crt-prow-met .zanju-crt-prow-figures,
+.zanju-crt-prow-met .zanju-crt-prow-clock {
+    color: #9ccb68;
+}
+
+/* The condition can no longer be met in this battle. */
+.zanju-crt-prow-closed .zanju-crt-prow-text,
+.zanju-crt-prow-closed .zanju-crt-prow-figures,
+.zanju-crt-prow-closed .zanju-crt-prow-clock {
+    color: #7d848b;
+}
+
+.zanju-crt-prow-closed .zanju-crt-prow-fill {
+    background: #7d848b;
+}
+
+.zanju-crt-panel-or {
+    display: block;
+    margin-left: 24rem;
+    font-size: 13rem;
+    color: #9ca4ab;
+}

@@ -34,3 +34,14 @@ LABEL_HINT_PAUSE: ""
 LABEL_HINT_RESUME: ""
 # en: "Ctrl + Click to reset the mission"
 LABEL_HINT_RESET: ""
+
+# Settings, in Mod Menu
+# en: "Banner position"
+SETTING_TRAY_SIDE: ""
+# en: "Right of the vehicle name"
+SETTING_TRAY_SIDE_RIGHT: ""
+# en: "Left of the vehicle name"
+SETTING_TRAY_SIDE_LEFT: ""
+# The banners of other Zanju mods, such as Crucible Tracker, share the row on the same side.
+# en: "The side of the vehicle name where the banners stand. Banners of other Zanju mods on the same side share the row with these."
+TOOLTIP_TRAY_SIDE_BODY: ""
