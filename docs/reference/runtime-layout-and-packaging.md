@@ -79,9 +79,30 @@ In this repository:
 
 ## Shared Modules
 
-Some runtime modules are the same in several mods. Each of them has one authored copy in `mods-common/<name>.py`, and `mods-common/manifest.json` says which mods take it. `zwm build` compiles the module into the internal package of each of those mods, at `res/scripts/client/gui/mods/<pkg>/<name>.pyc`, the same way it adds `_mod_meta`. A mod imports it as a sibling that is not in its `src/` tree, for example `from .. import view_claim`.
+Some runtime modules are the same in several mods. Each of them has one authored copy in `mods-common/<name>.py`. `zwm build` compiles the module into the internal package of each mod that takes it, at `res/scripts/client/gui/mods/<pkg>/<name>.pyc`, the same way it adds `_mod_meta`. A mod imports it as a sibling that is not in its `src/` tree, for example `from .. import view_claim`.
 
-**A Gameface script can be shared too.** `mods-common/gameface/<name>.js` has one authored copy, and the `gameface` section of the manifest says which mods take it. `zwm build` copies the script into the one Gameface folder of each of those mods, `res/gui/gameface/mods/<namespace>/<name>.js`, so the mod's own modules import it as `./<name>.js`. A mod that takes a script must have exactly one folder under `res/gui/gameface/mods/`. `tray.js` is the first: the banner row that campaign-tracker and crucible-tracker share. See [Sharing the row beside the vehicle name](gameface-mod-widgets.md#sharing-the-row-beside-the-vehicle-name).
+**A Gameface script can be shared too.** `mods-common/gameface/<name>.js` has one authored copy. `zwm build` copies the script into the one Gameface folder of each mod that takes it, `res/gui/gameface/mods/<namespace>/<name>.js`, so the mod's own modules import it as `./<name>.js`. A mod that takes a script must have exactly one folder under `res/gui/gameface/mods/`. A shared script can import another shared script, because the build puts all of them in the same folder.
+
+**A mod takes a shared file by importing it.** No list declares it. `zwm build` and `zwm test` read the imports of each mod (`tools/core/mods_common.py`):
+
+- Python: a relative import that reaches the root of the mod's package and names a shared module, such as `from .. import hangar_child` in a subpackage, or `from .localization import get_text` at the root. An absolute import through the package name counts too.
+- Gameface: `import ... from './<name>.js'` or `import './<name>.js'` in a script of the mod's Gameface folder.
+
+The shared files import each other too, so a mod also takes what its shared files import. `countdown.js` imports `helpers.js`, so a mod that imports only `countdown.js` gets both. Only these static forms count. A shared module that a mod loads with `__import__` and a string, or with a dynamic `import()`, does not ship.
+
+Before this rule, `mods-common/manifest.json` listed the mods of each file, apart from the code. Nothing checked that it matched the imports: a mod could import a shared script that the list did not give it, pass the build and its tests, and fail in the game. On 16 October 2026 the imports gave the same sets as the list for all six mods, and the list was deleted.
+
+`zwm shared` prints which mods take each shared file, and `zwm shared <mod>` what one mod takes. The shared scripts on 16 October 2026:
+
+| Script | What it holds |
+| --- | --- |
+| `tray.js` | the banner row beside the vehicle name, see [Sharing the row beside the vehicle name](gameface-mod-widgets.md#sharing-the-row-beside-the-vehicle-name) |
+| `helpers.js` | `createLog(tag)`, `unwrap`, `parseJson`, `el` |
+| `model_bridge.js` | `createBridge`: find the data model among the sub-views, follow its pushes, poll as a backstop; `invokeCommand` |
+| `countdown.js` | `formatRemaining`, the two largest units of a time left |
+| `card_host.js` | the document side of a hover card in a window of the mod's own, with hooks for what each mod draws |
+
+`card_window.py`, the Python half of the hover card, is a shared module with a `CardWindow` class that each mod builds once, with the path of its layout.
 
 **Each `.wotmod` stays self-contained.** The module goes into the package of each mod, so the game sees one file per mod at different paths. Python also loads one module per mod, for example `zanju_dh.view_claim` and `zanju_ct.view_claim`. No mod needs another of ours, and we ship no companion package of our own. A player can mix releases from before and after a module moved to `mods-common/`. The packages built after `view_claim` moved hold the same code as the packages built before it.
 
@@ -89,12 +110,12 @@ Some runtime modules are the same in several mods. Each of them has one authored
 
 **A change to a shared module waits in each mod until the next release of that mod.** CI publishes only the mods that have a new version in `meta.xml`. When you change a shared module, decide for each mod that takes it whether to release that mod now. On a partial `zwm build`, a warning names the other mods that take the same shared modules but are not in the build. `view_claim` is also a contract between mods, and old releases stay installed. Thus a change to how a mod decides that a sub-view is taken must still work next to the previous release of every other mod.
 
-**`zwm build` and `zwm test` stop on an inconsistent manifest.** Both examine the whole repository, also on a partial run. They stop in these cases:
+**`zwm build`, `zwm test` and `zwm shared` stop on an inconsistent tree.** All three examine the whole repository, also on a partial run. They stop in these cases:
 
-- The manifest names a module or a mod that does not exist.
-- A file in `mods-common/` is not in the manifest.
-- A mod has a file with the name of a shared module in its package. This rule also covers mods that do not take the module, so that a private copy cannot start to drift again.
-- The same three rules hold for a shared Gameface script. A mod that takes a script must also have exactly one Gameface folder.
+- A mod has a file with the name of a shared module in its package, or a Gameface file with the name of a shared script. This rule also covers mods that do not take the file, so that a private copy cannot start to drift again.
+- A shared module imports a name from the package root that is no shared module and not `_mod_meta`, or a shared script imports a script that is not shared.
+- A mod takes a shared script, but it does not have exactly one Gameface folder.
+- A Python file of a mod does not parse, so its imports are unknown.
 
 **Checked in game on 2.4.1.0, on 14 October 2026.** All four modules ran in PT, RPB, DH and CT, each mod alone and all together. With DH and CT both installed, CT took `MainMenuModel` and DH took `VehicleMenuModel` in every garage build. Each of them alone took `MainMenuModel`. The new DH and CT also each ran next to the other mod's build from before the move. The old and new copies of `view_claim` kept the same split, and the old and new copies of `storage` read the window position that the other one wrote. [Testing](../testing.md#in-game-check-after-a-change-to-a-shared-module) lists the runs.
 

@@ -20,9 +20,9 @@
 // attribute. Every version must ignore an attribute that it does not know, and must read a
 // missing side as the right side, which is where the first version stood.
 //
-// The build copies this one file into the Gameface folder of each mod that takes it. Each mod
-// thus has its own copy and its own module state. See mods-common/manifest.json and
-// docs/reference/gameface-mod-widgets.md.
+// The build copies this one file into the Gameface folder of each mod that imports it. Each mod
+// thus has its own copy and its own module state. See
+// docs/reference/runtime-layout-and-packaging.md and docs/reference/gameface-mod-widgets.md.
 
 const TRAY_ID = 'zanju-banner-tray';
 // The garage's own vehicle name and experience block. Matched on the component name, because the

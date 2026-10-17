@@ -1,10 +1,11 @@
 // Zanju Premium Time — live remaining-time counter on the lobby header's Premium button.
 //
-// Injected into the lobby header's Gameface document by net.openwg.gameface (see
-// src/zanju_pt/gameface/header_inject.py). The Premium Account button normally shows a
-// coarse "N d" while premium is running and "Upgrade" when it is not; we replace the
-// running label with a live countdown computed from the game's own view model (see
-// formatRemaining for the format), and leave the inactive label alone.
+// Injected into the lobby header's Gameface document by net.openwg.gameface, from a child
+// view of the mod's own (see src/zanju_pt/gameface/header_inject.py). The Premium Account
+// button normally shows a coarse "N d" while premium is running and "Upgrade" when it is not;
+// we replace the running label with a live countdown computed from the game's own view model
+// (see countdown.js, shared with crucible-tracker, for the format), and leave the inactive
+// label alone.
 //
 // The state machine below is written per subscription rather than for this one button, so
 // the WoT Plus button could be driven from the same code again; see
@@ -21,9 +22,10 @@
 // there looking alive until the server push lands. Instead we hold a zeroed counter and
 // only release once the game itself reports the subscription as no longer running.
 
+import { formatRemaining } from './countdown.js';
+import { createLog, unwrap } from './helpers.js';
+
 const APPLY_INTERVAL_MS = 500;
-// How many time units the label shows at once (see formatRemaining).
-const MAX_UNITS = 2;
 
 // A ticking seconds digit changes width in a proportional font, so the label shimmies
 // several times a second. Two tidier fixes do not work here: swapping in a monospace face
@@ -66,27 +68,33 @@ function newState() {
     };
 }
 
-function log(message) {
-    // console.error, not console.log: error-level output reaches game.log, tagged
-    // [UI] [Gameface], and log-level output is untested there.
-    // OpenWG's own debug helper (mods/libs/debug.js) writes plain debug output the same way.
-    console.error('[zanju.premiumtime] ' + message);
-}
+// OpenWG's own debug helper (mods/libs/debug.js) writes plain debug output the same way.
+const log = createLog('zanju.premiumtime');
 
-function unwrap(value) {
-    return value && typeof value === 'object' && 'value' in value ? value.value : value;
-}
-
-function findAccountModel() {
+// The model of the first sub-view that passes `test`, or null.
+function findModel(test) {
     const ids = window.subViews.ids();
     for (const id of ids) {
         const view = window.subViews.get(id);
         const model = view && view.model;
-        if (model && model.zanjuPtHeader && model.subscriptions) {
+        if (model && test(model)) {
             return model;
         }
     }
     return null;
+}
+
+// Our data rides on a child view of the mod's own, and the subscriptions on the client's own
+// UserAccountModel, so the two are two different sub-views. See header_inject.py.
+function findConfig() {
+    const model = findModel(function (candidate) { return Boolean(candidate.zanjuPtHeader); });
+    return model ? model.zanjuPtHeader : null;
+}
+
+function findAccountModel() {
+    return findModel(function (candidate) {
+        return Boolean(candidate.subscriptions && candidate.subscriptions.premiumAccount);
+    });
 }
 
 function buttonOf(testId) {
@@ -110,34 +118,6 @@ function gameLabelOf(button) {
 
 function counterOf(button) {
     return button ? button.querySelector('.' + COUNTER_CLASS) : null;
-}
-
-function two(n) {
-    return n < 10 ? '0' + n : '' + n;
-}
-
-
-function formatRemaining(seconds, cfg) {
-    const total = Math.max(0, Math.floor(seconds));
-    const units = [
-        [Math.floor(total / 86400), unwrap(cfg.dayUnit)],
-        [Math.floor((total % 86400) / 3600), unwrap(cfg.hourUnit)],
-        [Math.floor((total % 3600) / 60), unwrap(cfg.minuteUnit)],
-        [total % 60, unwrap(cfg.secondUnit)],
-    ];
-    // Show the two most significant units that carry a value: "3d 05h", "2h 11m",
-    // "5m 12s", "45s". Capping at two keeps the label short enough for the header button
-    // and makes seconds appear exactly when under an hour is left, where they are the
-    // only thing still moving. The first unit shown is unpadded, the second keeps two
-    // digits ("2h 05m", never "2h 5m") so the label does not widen as it counts down.
-    const first = units.findIndex(([value]) => value !== 0);
-    if (first === -1) {
-        return '0' + unwrap(cfg.secondUnit);
-    }
-    return units
-        .slice(first, first + MAX_UNITS)
-        .map(([value, unit], index) => (index === 0 ? String(value) : two(value)) + unit)
-        .join(' ');
 }
 
 function digitCellWidth(el) {
@@ -291,12 +271,12 @@ function updateSubscription(key, state, isRunningState, expiry, now, cfg) {
 }
 
 function tick() {
-    const model = findAccountModel();
-    if (!model) {
+    const cfg = findConfig();
+    const account = cfg ? findAccountModel() : null;
+    if (!account) {
         return;
     }
-    const cfg = model.zanjuPtHeader;
-    const subs = model.subscriptions;
+    const subs = account.subscriptions;
     if (!cfg || !subs || !subs.premiumAccount) {
         return;
     }

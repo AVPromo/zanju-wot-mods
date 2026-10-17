@@ -114,10 +114,13 @@ ATTACK_REASON_RAM = 2
 # The awards that the panel can count, by the name of their dossier record. A mission names an
 # award by its record ID, and `DB_ID_TO_RECORD` of the client gives the name, which is the same in
 # every language: 228 is `mainGun`. Each rule gives the result keys that add up to the figure, and
-# a fixed target or a share of the total HP of the enemy team.
+# a fixed target or a share of the total HP of the enemy team, with a floor. `noAllyHits` means
+# that one direct shot on an ally ends the award, also with team damage off: the client's own
+# text of the award says so (`#achievements:mainGun_condition`).
 AWARD_RULES = {
-    # High Caliber: damage of at least 20% of the total HP of the enemy team.
-    'mainGun': {'keys': ['damageDealt'], 'enemyHealthShare': 0.2},
+    # High Caliber: damage of at least 20% of the total HP of the enemy team, and at least 1,000 HP,
+    # with no direct shot on an ally.
+    'mainGun': {'keys': ['damageDealt'], 'enemyHealthShare': 0.2, 'minimum': 1000.0, 'noAllyHits': True},
     # Top Gun: at least 6 kills.
     'warrior': {'keys': ['kills'], 'target': 6.0},
 }
@@ -148,7 +151,8 @@ def parse_condition(name, value, award_name=None):
       (count the hits, not the HP) and `attackReason`.
     - kills: `fullHealth` (only the kills while the vehicle has all its HP count), `classes` (the
       vehicle classes that count, empty for all) and `attackReason`.
-    - achievement: `award`, `keys`, and `target` or `enemyHealthShare`, from AWARD_RULES.
+    - achievement: `award`, `keys`, `target` or `enemyHealthShare` with `minimum`, and
+      `noAllyHits`, from AWARD_RULES.
 
     `attackReason` is None when the condition names no reason, and then every reason counts.
     `award_name(record_id)` gives the dossier record name of an award, or None. Without it, no
@@ -202,8 +206,9 @@ def _parse_award(value, award_name):
         return {'kind': KIND_ACHIEVEMENT, 'live': False, 'award': record}
     spec = {'kind': KIND_ACHIEVEMENT, 'live': True, 'award': record, 'keys': list(rule['keys']),
             'target': rule.get('target')}
-    if 'enemyHealthShare' in rule:
-        spec['enemyHealthShare'] = rule['enemyHealthShare']
+    for key in ('enemyHealthShare', 'minimum', 'noAllyHits'):
+        if key in rule:
+            spec[key] = rule[key]
     return spec
 
 
@@ -478,6 +483,37 @@ def nearest_end(series):
     return min(ends) if ends else 0
 
 
+# The order of the paid groups on the banner: silver, then gold, then any other currency.
+_CURRENCY_ORDER = ('credits', 'gold')
+
+
+def soonest_set(series, soonest):
+    """What the banner counts with no active series: the series that end first and are not
+    completed yet, the same ones that its countdown and the card's highlight follow.
+
+    When every series of the earliest end is completed, `soonest` is already the next end, so the
+    set moves on with it. Returns {'free': n, 'paid': [{'currency': c, 'count': n}, ...]}: how many
+    of them start, or restart, for nothing, and how many restart for a price in each currency.
+    """
+    members = [entry for entry in series
+               if entry['state'] != STATE_COMPLETED and (entry['endTime'] == soonest if soonest else True)]
+    free = 0
+    paid = {}
+    for entry in members:
+        if entry['availability'] in (AVAILABLE_START, AVAILABLE_FREE_RESTART):
+            free += 1
+        elif entry['availability'] == AVAILABLE_PAID_RESTART and entry.get('restartCurrency'):
+            paid[entry['restartCurrency']] = paid.get(entry['restartCurrency'], 0) + 1
+
+    def order(currency):
+        return (_CURRENCY_ORDER.index(currency) if currency in _CURRENCY_ORDER else len(_CURRENCY_ORDER), currency)
+
+    return {
+        'free': free,
+        'paid': [{'currency': currency, 'count': paid[currency]} for currency in sorted(paid, key=order)],
+    }
+
+
 def mission_rows(packed_items, shapes):
     """The rows of the current mission: the client's text, and whether a panel counts it live.
 
@@ -561,6 +597,9 @@ def build_snapshot(enabled, series_raw, mission, vehicle_level, in_battle=None, 
         # The client's own rule for its Crucible banner: a series is open until it is completed.
         'openCount': len([entry for entry in series if entry['state'] != STATE_COMPLETED]),
         'nearestEnd': soonest,
+        # What the banner counts with no active series, and whether nothing is left to play.
+        'soonestSet': soonest_set(series, soonest),
+        'allCompleted': bool(series) and all(entry['state'] == STATE_COMPLETED for entry in series),
         # Whether the vehicle in the garage can play: the tiers of the current mission, or the
         # Crucible floor with no active series. None with no vehicle in the garage.
         'vehicleFits': fits,

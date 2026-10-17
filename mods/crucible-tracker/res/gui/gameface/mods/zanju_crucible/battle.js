@@ -34,8 +34,11 @@ function buildHead(payload) {
     const series = payload.series || {};
     const labels = payload.labels || {};
     const head = el('div', 'zanju-crt-panel-head' + (payload.done ? ' zanju-crt-panel-done' : ''));
-    head.appendChild(icon('zanju-crt-panel-shield', SHIELD_IMAGE));
-    head.appendChild(el('div', 'zanju-crt-panel-shields', String(series.shields === undefined ? '' : series.shields)));
+    // A payload with no shield count shows no shield, rather than an empty or a wrong count.
+    if (typeof series.shields === 'number') {
+        head.appendChild(icon('zanju-crt-panel-shield', SHIELD_IMAGE));
+        head.appendChild(el('div', 'zanju-crt-panel-shields', String(series.shields)));
+    }
     head.appendChild(el('div', 'zanju-crt-panel-name', series.name || ''));
     if (series.stage && series.total) {
         head.appendChild(el('div', 'zanju-crt-panel-stage',
@@ -67,12 +70,23 @@ function buildMeter(row) {
     return meter;
 }
 
-function buildRow(row) {
+// A rule of the condition that the figures cannot show, such as "no direct shot on an ally" of
+// High Caliber, above the figures. Red once the rule is broken.
+function buildRule(rule, labels) {
+    return el('div', 'zanju-crt-prow-rule' + (rule.broken ? ' zanju-crt-prow-rule-broken' : ''),
+        labels[rule.key] || '');
+}
+
+function buildRow(row, labels) {
     const node = el('div', 'zanju-crt-prow' + (row.live ? (STATE_CLASSES[row.state] || '') : ''));
     const line = el('div', 'zanju-crt-prow-line');
     line.appendChild(icon('zanju-crt-prow-icon', row.icon ? conditionImage(row.icon) : ''));
     line.appendChild(el('div', 'zanju-crt-prow-text', row.text || ''));
     node.appendChild(line);
+    const rules = row.rules || [];
+    for (let i = 0; i < rules.length; i += 1) {
+        node.appendChild(buildRule(rules[i], labels || {}));
+    }
     if (row.live || row.timeLimit) {
         node.appendChild(buildMeter(row));
     }
@@ -95,7 +109,7 @@ function renderPanel(node, payload) {
         if (startsSet(mission, i)) {
             list.appendChild(el('div', 'zanju-crt-panel-or', (payload.labels || {}).or || ''));
         }
-        list.appendChild(buildRow(rows[i]));
+        list.appendChild(buildRow(rows[i], payload.labels));
     }
     node.appendChild(list);
     refreshClocks(node, payload);

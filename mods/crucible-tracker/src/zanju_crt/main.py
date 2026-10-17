@@ -3,8 +3,8 @@ zanju_crt.main
 
 Shows a garage banner for the Crucible, the client's sets of demanding missions. The banner
 names the active series, its current mission and the shields left, or, with no active series,
-how many series are still open. Its hover card lists every available series with its state, and
-the conditions of the current mission.
+how many of the series that end first can start for free or restart for a price. Its hover card
+lists every available series with its state, and the conditions of the current mission.
 
 In battle, a panel shows the progress of each condition of the current mission. The garage
 writes the facts that a battle needs about the active series (see transport), and the battle

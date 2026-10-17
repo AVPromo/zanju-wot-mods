@@ -22,6 +22,7 @@ from zanju_crt import battle_record, battle_session, config, crucible, transport
 ACCOUNT = 500725877
 PLAYER_VEHICLE = 10
 ENEMY = 20
+ALLY = 11
 ARENA = 2420717383125650945
 VEHICLE_CD = 8049
 
@@ -167,7 +168,8 @@ class _Client(object):
         self.vehicle_state = _Ns(onVehicleStateUpdated=_Event())
         types_by_id = {PLAYER_VEHICLE: _Ns(level=level, maxHealth=1500, classTag='heavyTank'),
                        ENEMY: _Ns(level=8, maxHealth=1200, classTag='AT-SPG')}
-        arena_dp = _Ns(getVehicleInfo=lambda vehicle_id: _Ns(vehicleType=types_by_id[vehicle_id]))
+        arena_dp = _Ns(getVehicleInfo=lambda vehicle_id: _Ns(vehicleType=types_by_id[vehicle_id]),
+                       isAlly=lambda vehicle_id: vehicle_id in (PLAYER_VEHICLE, ALLY))
         self.provider = _Ns(shared=_Ns(feedback=self.feedback, vehicleState=self.vehicle_state),
                             arenaVisitor=_Ns(getVisibilityMaxRadius=lambda: 445.0),
                             getArenaDP=lambda: arena_dp)
@@ -381,8 +383,31 @@ class BattleSessionTest(unittest.TestCase):
         self._open(client, HIGH_CALIBER, [{'text': 'Earn the High Caliber award', 'icon': 'achievement'}])
         client.hit(450, 950.0)
         row = _Panel.instances[0].payloads[-1]['rows'][0]
-        # A fifth of the 1,200 and 1,800 HP of the two enemies.
-        self.assertEqual((row['live'], row['valueText'], row['targetText']), (True, '450', '600'))
+        # A fifth of the 1,200 and 1,800 HP of the two enemies is 600, under the floor of 1,000.
+        self.assertEqual((row['live'], row['valueText'], row['targetText']), (True, '450', '1,000'))
+        self.assertEqual(row['rules'], [{'key': 'noAllyHits', 'broken': False}])
+        self.assertTrue(_Panel.instances[0].payloads[-1]['labels']['noAllyHits'])
+        self.assertEqual(self.logger.exceptions, [])
+
+    def test_a_direct_shot_on_an_ally_breaks_the_rule_and_a_hit_on_an_enemy_does_not(self):
+        client = _Client()
+        session = self._open(client, HIGH_CALIBER, [{'text': 'Earn the High Caliber award', 'icon': 'achievement'}])
+        session.on_shot_hit(ENEMY, PLAYER_VEHICLE)
+        session.on_shot_hit(ALLY, ENEMY)
+        self.assertFalse(session.tracker.ally_hit)
+        session.on_shot_hit(ALLY, PLAYER_VEHICLE)
+        row = _Panel.instances[0].payloads[-1]['rows'][0]
+        self.assertEqual((row['state'], row['rules']), ('closed', [{'key': 'noAllyHits', 'broken': True}]))
+        self.assertTrue(any('hit the ally 11' in line for line in self.logger.lines))
+
+    def test_the_panel_logs_its_figures_at_the_end_of_the_battle(self):
+        client = _Client()
+        self._open(client)
+        client.start_battle()
+        client.hit(400, 1100.0)
+        battle_session._end()
+        end = [line for line in self.logger.lines if line.startswith('Battle panel at the end: ')]
+        self.assertEqual(end, ['Battle panel at the end: 1: 400/2500 open | totals: damageDealt 400'])
         self.assertEqual(self.logger.exceptions, [])
 
 

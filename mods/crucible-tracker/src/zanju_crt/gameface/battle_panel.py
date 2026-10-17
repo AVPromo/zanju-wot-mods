@@ -24,7 +24,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import json
 
-from .. import config
+from .. import card_window, config
 
 LAYOUT_PATH = ('mods', 'zanju', 'crucibletracker', 'views', 'CruciblePanel')
 
@@ -97,28 +97,6 @@ def _build_classes():
 
     _classes.update(model=_PanelModel, view=_PanelView, window=_PanelWindow)
     return _classes
-
-
-def _layout_id():
-    from gui.impl.gen import R
-    try:
-        node = R
-        for name in LAYOUT_PATH:
-            node = getattr(node, name)
-        layout_id = int(node())
-    except Exception:
-        return None
-    return layout_id if layout_id >= 0 else None
-
-
-def _main_window():
-    from frameworks.wulf import WindowStatus
-    from helpers import dependency
-    from skeletons.gui.impl import IGuiLoader
-    parent = dependency.instance(IGuiLoader).windowsManager.getMainWindow()
-    if parent is None or parent.proxy is None or parent.windowStatus != WindowStatus.LOADED:
-        return None
-    return parent
 
 
 def to_parent(cursor, screen, parent):
@@ -230,7 +208,7 @@ class Panel(object):
         self.retry_id = None
         if self.closed or self.window is not None:
             return
-        parent = _main_window()
+        parent = card_window.main_window()
         if parent is None:
             if retry < _MAX_PARENT_RETRIES:
                 self.retry_id = BigWorld.callback(
@@ -238,7 +216,7 @@ class Panel(object):
             else:
                 self.logger.error('The main window did not load in %d tries; no battle panel', _MAX_PARENT_RETRIES)
             return
-        layout_id = _layout_id()
+        layout_id = card_window.layout_id(LAYOUT_PATH)
         if layout_id is None:
             self.logger.error('The client has no resource R.%s; no battle panel. The client reads it from '
                               'gui/gen_resources/zanju.crucibletracker.json in this mod at start.',
@@ -257,8 +235,8 @@ class Panel(object):
         self._apply_visibility()
 
     def on_sized(self, arg):
-        width = _int(_map_get(arg, 'width'))
-        height = _int(_map_get(arg, 'height'))
+        width = _int(card_window.read_arg(arg, 'width'))
+        height = _int(card_window.read_arg(arg, 'height'))
         if not width or not height or self.window is None:
             return
         self.size = (width, height)
@@ -342,7 +320,7 @@ class Panel(object):
     # -- drag ---------------------------------------------------------------------------------
 
     def on_drag(self, arg):
-        phase = _map_get(arg, 'phase')
+        phase = card_window.read_arg(arg, 'phase')
         if phase == 'start':
             self._drag_start()
         elif phase == 'end':
@@ -394,19 +372,6 @@ class Panel(object):
         parent_w, parent_h = self._parent_size()
         config.set_panel_position({'x': x, 'y': y, 'parentWidth': parent_w, 'parentHeight': parent_h}, self.logger)
         self.logger.info('Battle panel moved to %d,%d', x, y)
-
-
-def _map_get(arg, key):
-    """Read one key from the single map argument a Wulf command carries."""
-    if isinstance(arg, dict):
-        return arg.get(key)
-    getter = getattr(arg, 'get', None)
-    if callable(getter):
-        try:
-            return getter(key)
-        except Exception:
-            return None
-    return None
 
 
 def _int(value):

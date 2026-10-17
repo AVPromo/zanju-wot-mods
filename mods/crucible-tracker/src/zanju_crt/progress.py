@@ -41,6 +41,8 @@ class Tracker(object):
         self.battle_start = None
         # The total HP of the enemy team at the start, for an award that asks for a share of it.
         self.enemy_health = None
+        # Whether a direct shot of the player hit an ally, which ends an award with `noAllyHits`.
+        self.ally_hit = False
         # The attack reason of the last hit of the player on each enemy, so a kill can be told
         # by its reason. The client kill event carries none.
         self.last_reason = {}
@@ -106,6 +108,10 @@ class Tracker(object):
                 continue
             self.counted[index] += 1 if spec['eventCount'] else amount
 
+    def on_ally_hit(self):
+        """A direct shot of the player hit an ally, with or without damage."""
+        self.ally_hit = True
+
     def on_kill(self, target_id, vehicle_class):
         """The player destroyed an enemy of this vehicle class, by any means.
 
@@ -142,7 +148,9 @@ class Tracker(object):
         if spec['kind'] == crucible.KIND_HEALTH_MULTIPLE:
             return spec['multiplier'] * self.max_health if self.max_health else None
         if spec.get('enemyHealthShare'):
-            return spec['enemyHealthShare'] * self.enemy_health if self.enemy_health else None
+            if not self.enemy_health:
+                return None
+            return max(spec.get('minimum') or 0, spec['enemyHealthShare'] * self.enemy_health)
         return spec.get('target')
 
     def deadline(self, index):
@@ -160,7 +168,10 @@ class Tracker(object):
             return {'live': False, 'state': OPEN, 'set': self.set_of[index]}
         value = self.value(index)
         deadline = self.deadline(index)
-        if value >= target:
+        if spec.get('noAllyHits') and self.ally_hit:
+            # Before the figure: the hit on the ally ends the award whatever the damage.
+            state = CLOSED
+        elif value >= target:
             state = MET
         elif deadline is not None and now is not None and now >= deadline:
             state = CLOSED
@@ -171,6 +182,7 @@ class Tracker(object):
         return {
             'live': True,
             'set': self.set_of[index],
+            'allyHit': bool(spec.get('noAllyHits')) and self.ally_hit,
             'value': value,
             'target': target,
             'state': state,
@@ -218,6 +230,23 @@ def _in_range(spec, distance, view_range):
     return distance <= -wanted
 
 
+def summary(tracker, now):
+    """One line for the log: the figure, the target and the state of each condition, in order,
+    then the result totals that are not 0."""
+    parts = []
+    for index in range(len(tracker.specs)):
+        item = tracker.condition(index, now)
+        if item['live']:
+            parts.append('{0}: {1}/{2} {3}'.format(
+                index + 1, int(round(item['value'])), int(round(item['target'])), item['state']))
+        else:
+            parts.append('{0}: not counted'.format(index + 1))
+    totals = ', '.join('{0} {1}'.format(key, int(round(value)))
+                       for key, value in sorted(tracker.totals.items()) if value)
+    line = '; '.join(parts) + ' | totals: ' + (totals or 'none')
+    return line + (' | an ally was hit by a direct shot' if tracker.ally_hit else '')
+
+
 def panel_rows(tracker, rows, now, number_format=None, counting=True):
     """The rows of the battle panel: the client text of each condition with its progress.
 
@@ -250,6 +279,9 @@ def panel_rows(tracker, rows, now, number_format=None, counting=True):
                     'valueText': number_format(item['value']),
                     'targetText': number_format(item['target']),
                 })
+                if tracker.specs[index].get('noAllyHits'):
+                    # The rule shows above the figures, and turns red once an ally is hit.
+                    entry['rules'] = [{'key': 'noAllyHits', 'broken': item['allyHit']}]
         result.append(entry)
     return result
 

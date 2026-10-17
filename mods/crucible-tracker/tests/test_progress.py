@@ -205,6 +205,36 @@ class AwardTest(unittest.TestCase):
         item = tracker.condition(0, 0)
         self.assertEqual((item['value'], item['target'], item['state']), (1500, 4000.0, progress.OPEN))
 
+    def test_high_caliber_never_asks_for_less_than_1000(self):
+        tracker = progress.Tracker(HIGH_CALIBER, AWARD_NAMES)
+        tracker.set_enemy_health(3000)
+        self.assertEqual(tracker.condition(0, 0)['target'], 1000.0)
+
+    def test_a_direct_shot_on_an_ally_ends_high_caliber_whatever_the_damage(self):
+        tracker = progress.Tracker(HIGH_CALIBER, AWARD_NAMES)
+        tracker.set_enemy_health(20000)
+        tracker.on_damage(1, 5000, SHOT)
+        self.assertEqual(tracker.condition(0, 0)['state'], progress.MET)
+        tracker.on_ally_hit()
+        item = tracker.condition(0, 0)
+        self.assertEqual((item['state'], item['allyHit']), (progress.CLOSED, True))
+        self.assertTrue(progress.summary(tracker, 0).endswith('an ally was hit by a direct shot'))
+
+    def test_the_rule_on_allies_shows_on_the_row_and_breaks_with_a_hit(self):
+        tracker = progress.Tracker(HIGH_CALIBER, AWARD_NAMES)
+        tracker.set_enemy_health(20000)
+        rows = [{'text': 'Earn the High Caliber award', 'icon': 'achievement'}]
+        self.assertEqual(progress.panel_rows(tracker, rows, 0)[0]['rules'], [{'key': 'noAllyHits', 'broken': False}])
+        tracker.on_ally_hit()
+        self.assertEqual(progress.panel_rows(tracker, rows, 0)[0]['rules'], [{'key': 'noAllyHits', 'broken': True}])
+
+    def test_an_ally_hit_does_not_touch_other_conditions(self):
+        tracker = progress.Tracker(DAMAGE_OR_KILLS)
+        tracker.on_ally_hit()
+        tracker.on_damage(1, 4000, SHOT)
+        self.assertEqual(tracker.condition(0, 0)['state'], progress.MET)
+        self.assertNotIn('rules', progress.panel_rows(tracker, [{'text': 'a'}, {'text': 'b'}], 0)[0])
+
     def test_top_gun_asks_for_six_kills(self):
         tracker = progress.Tracker(_conditions('[["achievements", [["value", [34]]]]]'), AWARD_NAMES)
         for target in range(6):
@@ -233,6 +263,15 @@ class SetTest(unittest.TestCase):
         tracker.set_health(1500, 1500)
         tracker.set_health(1000, 1500)
         self.assertEqual(tracker.set_states(0), [progress.CLOSED, progress.OPEN])
+
+
+class SummaryTest(unittest.TestCase):
+
+    def test_the_end_line_has_each_condition_and_the_totals(self):
+        tracker = progress.Tracker(DAMAGE_OR_KILLS)
+        tracker.on_damage(1, 1750, SHOT)
+        self.assertEqual(progress.summary(tracker, 0), '1: 1750/3500 open; 2: 0/3 open | totals: damageDealt 1750')
+        self.assertEqual(progress.summary(progress.Tracker(TOP_FIVE), 0), '1: not counted | totals: none')
 
 
 class PanelRowsTest(unittest.TestCase):

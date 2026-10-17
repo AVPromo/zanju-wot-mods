@@ -19,7 +19,9 @@ The tracker (see progress) counts each condition from the client's battle contro
 - The start of the battle: the arena period. The battle starts at `periodEndTime - periodLength`
   of the period BATTLE, in the clock of `BigWorld.serverTime()`.
 - An award: the result keys of its rule in crucible.AWARD_RULES, and for High Caliber, the total
-  HP of the enemy team from the arena.
+  HP of the enemy team from the arena, and every direct shot of the player that hits an ally.
+  The client calls `Vehicle.showDamageFromShot(attackerID, ...)` on each vehicle that a shell
+  hits, to draw the hit, also when team damage is off and the hit does no damage.
 
 After a reconnect, the client has lost the events from before it, so no figure is sure. The
 panel then shows the conditions with no progress, and only a time limit still counts down. A
@@ -35,12 +37,16 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import time
 
-from . import battle_record, collector, config, crucible, progress, transport
+from . import battle_record, card_window, collector, config, crucible, progress, transport
 from .gameface import battle_panel
 from .localization import get_text as _loc
 
 # The client string between two sets of conditions, the same one that the hover card uses.
 _OR_KEY = '#user_missions:hub/challenge_missions/card/or'
+# The client's own terms of High Caliber, one per line. The third is the rule on hitting allies.
+_HIGH_CALIBER_TERMS_KEY = '#achievements:mainGun_condition'
+_ALLY_RULE_LINE = 2
+_ALLY_RULE_FALLBACK = 'The player must not hit any allies by direct shots.'
 # Each hit and kill is logged while a condition depends on the distance, the time or the HP, so
 # the log shows what the panel counted. At most this many lines per battle.
 _MAX_HIT_LOGS = 40
@@ -88,12 +94,19 @@ class _Session(object):
         self._subscribe(g_playerEvents.onArenaPeriodChange, self._on_period)
         # The JavaScript counts the time limit down against its own clock.
         self.time_offset = round(BigWorld.serverTime() - time.time(), 1)
-        self.labels = {'mission': _loc('LABEL_MISSION'), 'or': _client_text(_OR_KEY, self.logger)}
+        self.labels = {'mission': _loc('LABEL_MISSION'), 'or': _client_text(_OR_KEY, self.logger),
+                       'noAllyHits': _ally_rule(self.logger)}
         self._read_period()
         self._read_health()
         self.panel.open(self.payload())
 
     def stop(self):
+        import BigWorld
+        try:
+            # The figures of the panel at the end, to compare with the hits above and with the result.
+            self.logger.info('Battle panel at the end: %s', progress.summary(self.tracker, BigWorld.serverTime()))
+        except Exception:
+            self.logger.exception('Failed to log the figures of the battle panel')
         while self.subscriptions:
             event, handler = self.subscriptions.pop()
             try:
@@ -120,7 +133,7 @@ class _Session(object):
         now = BigWorld.serverTime()
         active = self.active
         return {
-            'lang': _client_language(),
+            'lang': card_window.client_language(),
             'labels': self.labels,
             'timeOffset': self.time_offset,
             'series': {
@@ -170,6 +183,22 @@ class _Session(object):
         self._log_hit('Hit on %s: %s HP, reason %s, distance %s, view range %s, %s s into the battle',
                       target, damage, reason, _metres(distance), _metres(view_range),
                       int(now - start) if start is not None else '?')
+
+    def on_shot_hit(self, target_id, attacker_id):
+        """A shell hit a vehicle. A direct shot of the player on an ally ends High Caliber."""
+        import BigWorld
+        player_vehicle = getattr(BigWorld.player(), 'playerVehicleID', None)
+        if attacker_id != player_vehicle or target_id == player_vehicle or self.tracker.ally_hit:
+            return
+        try:
+            is_ally = self.provider.getArenaDP().isAlly(target_id)
+        except Exception:
+            return
+        if not is_ally:
+            return
+        self.tracker.on_ally_hit()
+        self.logger.info('A direct shot of the player hit the ally %s', target_id)
+        self.push()
 
     def _on_kill(self, target):
         vehicle_class = self._vehicle_class(target)
@@ -252,7 +281,9 @@ class _Session(object):
         return (target.position - own_position).length
 
     def _view_range(self):
-        """The view range of the player's vehicle, as the minimap draws it."""
+        """The view range of the player's vehicle, as the minimap draws it: capped at the arena's
+        maximum, `VISIBILITY.MAX_RADIUS` (445 m) unless an arena modifier changes it. The garage
+        can show more, but the battle uses the capped range."""
         try:
             radius = self.provider.shared.feedback.getVehicleAttrs().get('circularVisionRadius')
         except Exception:
@@ -283,6 +314,46 @@ def _rejoined(logger):
     account, int_cd, _, arena_id = battle
     entered = battle_record.first_entry(account, int_cd, arena_id, logger)
     return entered is not None and time.time() - entered > _REJOIN_SECONDS
+
+
+def _ally_rule(logger):
+    """The client's own words for the rule on hitting allies, in the language of the client."""
+    text = _client_text(_HIGH_CALIBER_TERMS_KEY, logger)
+    if isinstance(text, bytes):
+        # The client can return UTF-8 bytes on Python 2, and the bullet below is not ASCII.
+        text = text.decode('utf-8', 'replace')
+    lines = [line.strip().lstrip('\u2022').strip() for line in text.split('\n')]
+    lines = [line for line in lines if line]
+    return lines[_ALLY_RULE_LINE] if len(lines) > _ALLY_RULE_LINE else _ALLY_RULE_FALLBACK
+
+
+def _on_show_damage_from_shot(vehicle, attacker_id):
+    session = _state['session']
+    if session is None:
+        return
+    try:
+        session.on_shot_hit(getattr(vehicle, 'id', None), attacker_id)
+    except Exception:
+        _state['logger'].exception('Failed to follow a hit on a vehicle')
+
+
+def _patch_vehicle_hits(logger):
+    """Follow each shell that hits a vehicle. Patched once, and a hit outside a session costs one
+    check. The original runs first and whole, so the patch never changes what the client draws."""
+    try:
+        from Vehicle import Vehicle
+    except Exception:
+        logger.exception('Failed to reach the vehicle class; the panel cannot see hits on allies')
+        return
+    original = Vehicle.showDamageFromShot
+
+    def showDamageFromShot(self, attackerID, *args, **kwargs):
+        result = original(self, attackerID, *args, **kwargs)
+        _on_show_damage_from_shot(self, attackerID)
+        return result
+
+    Vehicle.showDamageFromShot = showDamageFromShot
+    _patched.append((Vehicle, 'showDamageFromShot', original))
 
 
 def _vehicle_type(provider, vehicle_id, name):
@@ -321,16 +392,6 @@ def _client_text(key, logger):
         return i18n.makeString(key)
     except Exception:
         logger.exception('Failed to read the client string %s', key)
-        return ''
-
-
-def _client_language():
-    """The language code for `<html lang>`, so the panel selects a font with the right glyphs.
-    See card_window._client_language."""
-    try:
-        from helpers import getClientLanguage
-        return getClientLanguage() or ''
-    except Exception:
         return ''
 
 
@@ -442,6 +503,7 @@ def install(logger):
     SharedPage._dispose = _dispose
     _patched.append((SharedPage, '_populate', original_populate))
     _patched.append((SharedPage, '_dispose', original_dispose))
+    _patch_vehicle_hits(logger)
     g_playerEvents.onAvatarBecomeNonPlayer += _on_avatar_left
     _state['installed'] = True
 

@@ -164,13 +164,17 @@ describe('subscription countdown and expiry', () => {
     function makeEnv(premium) {
         const buttons = { premium: makeButton(true) };
         const labels = { premium: buttons.premium.querySelector('div[class*="Premiums_text"]') };
-        const model = {
-            zanjuPtHeader: Object.assign({ timeOffset: 0 }, UNITS),
+        // Two sub-views, as in the game: the client's own account model with the subscriptions,
+        // and the child of the mod with its data. `model` holds both parts for the tests.
+        const account = {
             subscriptions: {
                 premiumAccount: Object.assign({ state: 'Inactive', expiryTime: 0 }, premium),
             },
         };
-        globalThis.window = { subViews: { ids: () => [1], get: () => ({ model }) } };
+        const child = { zanjuPtHeader: Object.assign({ timeOffset: 0 }, UNITS) };
+        const model = { zanjuPtHeader: child.zanjuPtHeader, subscriptions: account.subscriptions };
+        const views = { 7: { model: {} }, 8: { model: child }, 9: { model: account } };
+        globalThis.window = { subViews: { ids: () => [7, 8, 9], get: (id) => views[id] } };
         const head = new FakeNode('head');
         globalThis.document = {
             head,

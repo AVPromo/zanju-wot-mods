@@ -32,7 +32,8 @@ Two consequences that are easy to get wrong:
   `ModInjectModel`, so two mods targeting the same sub-view silently clobber each other,
   last writer wins. A widget that wants to coexist should keep a priority list of candidate
   sub-views and inject onto the first *free* one; occupancy can be detected by serialising
-  the view model (`toString()` yields its field names as JSON).
+  the view model (`toString()` yields its field names as JSON). A child view of the mod's own,
+  below, is the better answer, and every mod of ours now uses one.
 
 **A mod can add a sub-view of its own instead.** A `ViewComponent` attaches each child with `setChildView(posId, child)`. The client then lists that child in `window.subViews`, also when the document's own code never uses it. OpenWG's bootstrap finds an inject model on such a child as on any other sub-view. Thus the mod takes no sub-view that another mod could want, and no other mod can clobber it.
 
@@ -56,13 +57,26 @@ Our mods use these position IDs, each one the ASCII of a short name. Two childre
 
 | Mod | Parent | Position ID |
 | --- | --- | --- |
-| `directives-helper` | `LobbyHeader`, `LobbyFooter` | `0x5A4E4448` (`ZNDH`) |
+| `directives-helper` | `LobbyHeader`, `LobbyFooter` (bar probe), `RandomHangar` and each mode garage (window) | `0x5A4E4448` (`ZNDH`) |
 | `campaign-tracker` | `RandomHangar` | `0x5A4E4354` (`ZNCT`) |
 | `crucible-tracker` | `RandomHangar` | `0x5A435254` (`ZCRT`) |
+| `premium-time` | `LobbyHeader` | `0x5A4E5054` (`ZNPT`) |
 
-`mods-common/hangar_child.py` holds both routes for a child of `RandomHangar`. It tries the dynamic presenter list first and falls back to the patch. A factory that raises breaks the build of the whole garage, because `ViewComponent._constructChild` logs and raises again, so every step inside the child catches its own errors.
+`mods-common/hangar_child.py` holds both routes. `install` adds a child to `RandomHangar`: it tries the dynamic presenter list first and falls back to the patch. `attach` patches the `_onLoading` of any root view, from a list of (module, class) pairs, and skips a class that the client does not have. `make_factory` builds the child for both. A factory that raises breaks the build of the whole garage, because `ViewComponent._constructChild` logs and raises again, so every step inside the child catches its own errors.
 
-**A child of `RandomHangar` reaches the random garage only.** Each mode extension (`comp7`, `comp7_light`, `frontline`, `last_stand`, `fun_random`) builds a root view of its own, with a layout of its own, such as `R.views.comp7.mono.lobby.hangar()`. Each mode garage is thus a separate document. A widget that shows in a mode garage needs a child in the root view of that mode too.
+**A child of `RandomHangar` reaches the random garage only.** Each mode extension builds a root view of its own, with a layout of its own, such as `R.views.comp7.mono.lobby.hangar()`. Each mode garage is thus a separate document. A widget that shows in a mode garage needs a child in the root view of that mode too. `hangar_child.MODE_GARAGES` names them on 2.4.1.0:
+
+| Mode | Root view |
+| --- | --- |
+| `comp7` | `comp7.gui.impl.lobby.hangar.comp7_hangar.Comp7Hangar` |
+| `comp7_light` | `comp7_light.gui.impl.lobby.hangar.comp7_light_hangar.Comp7LightHangar` |
+| `frontline` | `frontline.gui.impl.lobby.hangar_view.FrontlineHangar` |
+| `fun_random` | `fun_random.gui.impl.lobby.hangar.fun_random_hangar.FunRandomHangar` |
+| `last_stand` | `last_stand.gui.impl.lobby.hangar_view.HangarView` |
+
+Each of them builds the same `MainMenuPresenter` and `VehicleMenuPresenter` as `RandomHangar`. `FunRandomHangar` inherits `_onLoading`, so `uninstall` deletes the patch there instead of putting a method back.
+
+**A root view builds every child inside its `_onLoading`.** `ViewComponent._onLoading` calls `_initChildren`, which constructs each presenter, and each presenter builds its model. So the client's own sub-view models, such as `MainMenuModel`, are created while the root's `_onLoading` runs. `hangar_child.inside_patched_root()` is true in that time. `directives-helper` uses it for its fallback: the window claims a client sub-view with `view_claim` only in a garage root view that it has no child in, such as the garage of a mode that is new to the mod.
 
 Documents worth knowing (`mono/hangar/...`): `main` is the persistent garage document and
 loads exactly once per garage session; `header` and `footer` likewise; `tooltips` and

@@ -45,8 +45,9 @@ const COLUMNS = [
 ];
 
 // What the player can do with a series now. Python works the answer out (`availability` in
-// crucible.py), and this only draws it. A start or a free restart reads green, but grey while
-// another series is active, because the client refuses both until that series ends.
+// crucible.py), and this only draws it, in the regular white. A start or a free restart reads
+// grey while another series is active, because the client refuses both until that series ends.
+// A paid restart keeps the colour of its currency.
 function buildAvailability(entry, labels) {
     const node = el('div', 'zanju-crt-series-avail');
     const muted = entry.blocked ? ' zanju-crt-avail-blocked' : '';
@@ -54,10 +55,10 @@ function buildAvailability(entry, labels) {
         node.className += ' zanju-crt-avail-active';
         node.textContent = labels.active || '';
     } else if (entry.availability === 'start') {
-        node.className += ' zanju-crt-avail-good' + muted;
+        node.className += muted;
         node.textContent = labels.available || '';
     } else if (entry.availability === 'freeRestart') {
-        node.className += ' zanju-crt-avail-good' + muted;
+        node.className += muted;
         node.textContent = labels.freeRestart || '';
     } else if (entry.availability === 'paidRestart') {
         node.appendChild(el('div', 'zanju-crt-avail-label', labels.restartFor || ''));
@@ -182,26 +183,25 @@ function appendFocus(card, active, labels) {
 
 // One series: its name, its shields, its completions, what the player can do with it now, and
 // the time left.
-// The warnings, in the yellow of the campaign-tracker card, at the top where the player reads
-// first: the vehicle in the garage cannot play, and a battle in progress decides the current
-// mission, or a series that starts now.
+// The warning that the vehicle in the garage cannot play, in the yellow of the campaign-tracker
+// card, at the top where the player reads first.
 function appendWarnings(card, snapshot, labels) {
     if (snapshot.vehicleFits === false) {
         card.appendChild(el('div', 'zanju-crt-note-warning', labels.vehicleRestriction || ''));
     }
-    if ((snapshot.inBattle || []).length) {
-        const text = snapshot.active ? labels.inBattleActive : labels.inBattleWarning;
-        card.appendChild(el('div', 'zanju-crt-note-warning', text || ''));
-    }
 }
 
 // The vehicles in a battle that has not ended, one per row, the way the campaign-tracker card
-// lists locked vehicles. Each row carries the crossed swords that the banner counts.
-function appendInBattle(card, names, labels) {
+// lists locked vehicles. Each row carries the crossed swords that the banner counts. The warning
+// of what that battle decides, the current mission or a series that starts now, heads the list.
+function appendInBattle(card, snapshot, labels) {
+    const names = snapshot.inBattle || [];
     if (!names.length) {
         return;
     }
     const block = el('div', 'zanju-crt-battles');
+    block.appendChild(el('div', 'zanju-crt-battles-warning',
+        (snapshot.active ? labels.inBattleActive : labels.inBattleWarning) || ''));
     block.appendChild(el('div', 'zanju-crt-battles-label', labels.inBattle || ''));
     for (let i = 0; i < names.length; i += 1) {
         const row = el('div', 'zanju-crt-battles-row');
@@ -212,17 +212,20 @@ function appendInBattle(card, names, labels) {
     card.appendChild(block);
 }
 
+// The list shows a series as the player would start it, so the shields are the full set of the
+// series, not the shields left from an earlier run. A series completed as often as it allows
+// reads green in its completions.
 function buildSeriesRow(entry, labels) {
     const row = el('div', 'zanju-crt-series' + (entry.state === 'active' ? ' zanju-crt-series-active' : ''));
     row.appendChild(el('div', 'zanju-crt-series-name', entry.name || ''));
 
-    const shields = el('div', 'zanju-crt-series-shields' + (entry.state === 'active' && entry.shields <= 1
-        ? ' zanju-crt-series-shields-last' : ''));
+    const shields = el('div', 'zanju-crt-series-shields');
     shields.appendChild(icon('zanju-crt-series-icon', SHIELD_IMAGE));
-    shields.appendChild(el('div', 'zanju-crt-series-number', String(entry.shields)));
+    shields.appendChild(el('div', 'zanju-crt-series-number', String(entry.shieldsLimit || entry.shields || 0)));
     row.appendChild(shields);
 
-    row.appendChild(el('div', 'zanju-crt-series-completions',
+    const complete = entry.allowedCompletions > 0 && entry.wins >= entry.allowedCompletions;
+    row.appendChild(el('div', 'zanju-crt-series-completions' + (complete ? ' zanju-crt-series-complete' : ''),
         fill(labels.completions, { done: entry.wins, allowed: entry.allowedCompletions })));
     row.appendChild(buildAvailability(entry, labels));
     row.appendChild(countdown('zanju-crt-series-time', entry.endTime, '', entry.soonest));
@@ -334,7 +337,7 @@ function renderCard(card, snapshot) {
     } else {
         card.appendChild(el('div', 'zanju-crt-note', labels.noActive || ''));
     }
-    appendInBattle(card, (snapshot && snapshot.inBattle) || [], labels);
+    appendInBattle(card, snapshot || {}, labels);
     const series = (snapshot && snapshot.series) || [];
     if (!active && series.length) {
         appendSeries(card, series, labels);

@@ -124,6 +124,20 @@ html[lang=th] body {
     flex: 1 1 auto;
 }
 
+/* A rule of the condition, such as no direct shot on an ally, under the text and above the
+   figures. Dim while it holds, red once it is broken. */
+.zanju-crt-prow-rule {
+    display: block;
+    margin-top: 2rem;
+    margin-left: 24rem;
+    font-size: 13rem;
+    color: #9ca4ab;
+}
+
+.zanju-crt-prow-rule-broken {
+    color: #cc6b5a;
+}
+
 /* The bar, the figures and the time limit, on one line under the text, indented to it. */
 .zanju-crt-prow-meter {
     display: flex;

@@ -24,8 +24,8 @@ Internal .wotmod layout:
     LICENSE.md                              (repo-root license, when present)
     res/scripts/client/gui/mods/<file>.pyc  (compiled from mods/<name>/src/)
     res/scripts/client/gui/mods/<pkg>/_mod_meta.pyc  (generated from meta.xml: MOD_ID/MOD_NAME)
-    res/scripts/client/gui/mods/<pkg>/<name>.pyc     (compiled from mods-common/<name>.py, per manifest.json)
-    res/gui/gameface/mods/<namespace>/<name>.js      (copied from mods-common/gameface/<name>.js, per manifest.json)
+    res/scripts/client/gui/mods/<pkg>/<name>.pyc     (compiled from mods-common/<name>.py, when the mod imports it)
+    res/gui/gameface/mods/<namespace>/<name>.js      (copied from mods-common/gameface/<name>.js, when the mod imports it)
     res/...                                 (from mods/<name>/res/ plus generated ui/build/res/)
 
 Additional release output:

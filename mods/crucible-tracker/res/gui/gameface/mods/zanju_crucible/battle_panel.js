@@ -6,6 +6,7 @@
 // gameface/battle_panel.py.
 
 import { refreshClocks, renderPanel } from './battle.js';
+import { applyLanguage, callCommand, nextFrame, readModel, waitForDomBuilt } from './card_host.js';
 import { log, parseJson, unwrap } from './common.js';
 
 // A standalone view owns its whole document, so its model is the root one.
@@ -21,23 +22,11 @@ function panelNode() {
 }
 
 function command(name, arg) {
-    const model = window.model;
-    const target = model && model[name];
-    try {
-        if (typeof target === 'function') {
-            target.call(model, arg || {});
-        } else if (target && typeof target.value === 'function') {
-            target.value.call(target, arg || {});
-        } else {
-            log('the ' + name + ' command is missing on the panel model');
-        }
-    } catch (error) {
-        log('the ' + name + ' command failed: ' + error);
-    }
+    callCommand(readModel(), name, arg, log);
 }
 
 function render() {
-    const model = window.model;
+    const model = readModel();
     const node = panelNode();
     if (!model || !node) {
         return;
@@ -49,21 +38,14 @@ function render() {
     lastPayload = raw;
     const payload = parseJson(raw, 'panel payload');
     currentPayload = payload;
-    // The client's own documents set `lang` on the root element, and battle.css reads it to
-    // select the font. This document does not run that code, so Python sends the code.
-    if (payload && payload.lang && document.documentElement.getAttribute('lang') !== payload.lang) {
-        document.documentElement.setAttribute('lang', payload.lang);
-    }
+    // battle.css reads `lang` to select the font, as the card does. See card_host.js.
+    applyLanguage(payload && payload.lang);
     renderPanel(node, payload);
     scheduleMeasure();
 }
 
-function nextFrame() {
-    return new Promise(function (resolve) { requestAnimationFrame(resolve); });
-}
-
 // Measured after layout, never in the frame that changed the DOM, and once more a frame later
-// for a late settle. card_panel.js explains why.
+// for a late settle. card_host.js explains why.
 function scheduleMeasure() {
     nextFrame()
         .then(nextFrame)
@@ -113,16 +95,6 @@ function bindDrag() {
             command('onDrag', { phase: 'end' });
         }
     }, true);
-}
-
-function waitForDomBuilt() {
-    return new Promise(function (resolve) {
-        if (window.isDomBuilt) {
-            resolve();
-            return;
-        }
-        engine.on('self.onDomBuilt', resolve);
-    });
 }
 
 engine.whenReady

@@ -7,24 +7,28 @@ view model exposes the text itself. To change those labels we inject JS into the
 document via `net.openwg.gameface`: its bootstrap runs in every Gameface view and loads
 the modules listed in a `ModInjectModel` attached to any sub-view's view model.
 
-We attach that marker by wrapping `UserAccountModel._initialize` (the model behind the
-header's account panel, which contains both subscription buttons), together with a small
-data model (`zanjuPtHeader`) carrying what the JS side cannot know by itself: localized
-unit labels and the client-to-server clock offset. The injected JS (header_patch.js)
-computes and renders the countdowns from the game's own `expiryTime`. If the OpenWG
-library is not installed the mod keeps working without the header counters.
+The inject model rides on a child view of the mod's own in `LobbyHeader`, at a position ID
+that no client resource and no other mod uses (see hangar_child). An earlier version wrote it
+onto the client's own `UserAccountModel`, with no check, so a mod that did the same removed
+ours, or found the view taken by ours. Beside the inject model sits a small data model
+(`zanjuPtHeader`) carrying what the JS side cannot know by itself: localized unit labels and
+the client-to-server clock offset. The injected JS (header_patch.js) reads the game's own
+`expiryTime` from `UserAccountModel` and renders the countdown. If the OpenWG library is not
+installed the mod keeps working without the header counters.
 """
 from __future__ import print_function, unicode_literals
 
 from frameworks.wulf import ViewModel
 
+from .. import hangar_child
 from ..formatting import build_header_payload
 
 _MODULE_URL = 'coui://gui/gameface/mods/zanju_premiumtime/header_patch.js'
 _INJECT_NAME = 'zanju_pt_header'
 _DATA_PROPERTY = 'zanjuPtHeader'
-
-_original_initialize = None
+# The position of the child in LobbyHeader: `ZNPT`. directives-helper has a child of its own in
+# the same bar at `ZNDH`, and two children of one parent need two IDs.
+_POS_ID = 0x5A4E5054
 
 
 class _HeaderDataModel(ViewModel):
@@ -45,55 +49,19 @@ class _HeaderDataModel(ViewModel):
 
 
 def install(logger):
-    """Patch UserAccountModel to carry our inject marker and data. Returns True when active."""
-    global _original_initialize
-
-    if _original_initialize is not None:
-        return True
-
-    try:
-        from openwg_gameface import gf_mod_inject
-    except ImportError:
-        logger.info(
-            'net.openwg.gameface not found; lobby header integration disabled '
-            '(install the OpenWG Gameface library to enable it)'
-        )
+    """Give the lobby header a child that carries our inject marker and data. Returns True when
+    active."""
+    factory = hangar_child.make_factory(
+        logger, _INJECT_NAME, [], [_MODULE_URL], _DATA_PROPERTY,
+        lambda: _HeaderDataModel(build_header_payload()))
+    if factory is None:
         return False
-
-    try:
-        from gui.impl.gen.view_models.views.lobby.page.header.user_account_model import (
-            UserAccountModel,
-        )
-    except ImportError:
-        logger.exception('Lobby header model not found; header integration disabled')
+    if not hangar_child.attach(logger, [hangar_child.LOBBY_HEADER], _POS_ID, factory, 'Premium time counter'):
+        logger.warning('The client has no lobby header to patch; the header counter is disabled')
         return False
-
-    original = UserAccountModel._initialize
-
-    def _initialize_with_inject(self):
-        original(self)
-        try:
-            gf_mod_inject(self, str(_INJECT_NAME), modules=[str(_MODULE_URL)])
-            self._addViewModelProperty(str(_DATA_PROPERTY), _HeaderDataModel(build_header_payload()))
-        except Exception:
-            logger.exception('Failed to attach header inject model')
-
-    UserAccountModel._initialize = _initialize_with_inject
-    _original_initialize = original
     logger.info('Lobby header integration installed (%s)', _MODULE_URL)
     return True
 
 
 def uninstall(logger):
-    global _original_initialize
-
-    if _original_initialize is None:
-        return
-    try:
-        from gui.impl.gen.view_models.views.lobby.page.header.user_account_model import (
-            UserAccountModel,
-        )
-        UserAccountModel._initialize = _original_initialize
-    except Exception:
-        logger.exception('Failed to restore UserAccountModel._initialize')
-    _original_initialize = None
+    hangar_child.uninstall(logger)

@@ -236,6 +236,14 @@ html[lang=th] body {
     border-top: 1rem solid rgba(255, 255, 255, 0.1);
 }
 
+/* What the battle decides, in the warning yellow, above the list it belongs to. */
+.zanju-crt-battles-warning {
+    display: block;
+    margin-bottom: 4rem;
+    color: #f0cf74;
+    font-weight: 500;
+}
+
 .zanju-crt-battles-label {
     display: block;
     color: #9ca4ab;
@@ -324,12 +332,19 @@ html[lang=th] body {
     color: #9ca4ab;
 }
 
+/* Completed as often as the series allows: the green of the card's other good news. */
+.zanju-crt-series-complete {
+    color: #9ccb68;
+}
+
+/* What the player can do now, in the regular white. A paid restart keeps the colour of its
+   currency, below. */
 .zanju-crt-series-avail {
     display: flex;
     align-items: center;
     margin-left: 16rem;
     font-size: 13rem;
-    color: #9ca4ab;
+    color: #d7dbe0;
 }
 
 /* Set by card.js once the columns are fitted: the spare width of the card goes here, so the time
@@ -341,10 +356,6 @@ html[lang=th] body {
 .zanju-crt-avail-active {
     color: #f0f2f5;
     font-weight: 500;
-}
-
-.zanju-crt-avail-good {
-    color: #9ccb68;
 }
 
 /* Another series is active, and the client refuses a start or a restart until it ends. */
@@ -379,10 +390,6 @@ html[lang=th] body {
     color: #d7dbe0;
 }
 
-.zanju-crt-series-shields-last .zanju-crt-series-number {
-    color: #cc6b5a;
-}
-
 /* Gold reads gold, as on the client's own price tags. Credits keep the plain grey. */
 .zanju-crt-currency-gold .zanju-crt-series-number {
     color: #f0cf74;
@@ -396,8 +403,9 @@ html[lang=th] body {
     color: #7d848b;
 }
 
-/* The countdown the banner shows: the first end of an open series, or the end of the active one.
-   The other times are dim, and this one takes the regular colour of a live value. */
+/* The countdown the banner shows: the first end of a series that is not completed, or the end of
+   the active one. When every series of the first end is completed, that is the next end. The
+   other times are dim, and this one takes the regular colour of a live value. */
 .zanju-crt-soonest {
     color: #d7dbe0;
 }

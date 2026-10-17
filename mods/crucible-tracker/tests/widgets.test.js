@@ -184,6 +184,7 @@ function inSeconds(seconds) {
 function snapshot(overrides) {
     return Object.assign({
         enabled: true, active: null, series: [series({})], openCount: 1, labels: LABELS,
+        soonestSet: { free: 1, paid: [] }, allCompleted: false,
         nearestEnd: inSeconds(5 * 86400 + 3 * 3600 + 1800), timeOffset: 0,
         vehicleFits: true, inBattle: [],
     }, overrides);
@@ -230,10 +231,54 @@ test('vehicles in battle show as crossed swords and a count', () => {
     assert.equal(battle.className.includes('zanju-crt-battle-empty'), true);
 });
 
-test('with no active series, the banner counts the open series and keeps its colour', () => {
-    const data = snapshot({ openCount: 5 });
+test('with no active series, the banner counts the series that end first and keeps its colour', () => {
+    const data = snapshot({ openCount: 5, soonestSet: { free: 2, paid: [] } });
     const model = banner.bannerModel(data);
-    assert.deepEqual(model, { idle: false, shields: null, value: '5', endTime: data.nearestEnd, inBattle: 0 });
+    assert.deepEqual(model, {
+        idle: false, shields: null, value: '', groups: [{ count: 2, currency: '' }], done: false,
+        endTime: data.nearestEnd, inBattle: 0,
+    });
+});
+
+test('the count reads free, then silver, then gold, and leaves a group of 0 out', () => {
+    const paid = [{ currency: 'credits', count: 1 }, { currency: 'gold', count: 0 }];
+    assert.deepEqual(banner.soonestGroups(snapshot({ soonestSet: { free: 2, paid: paid } })),
+        [{ count: 2, currency: '' }, { count: 1, currency: 'credits' }]);
+    assert.deepEqual(banner.soonestGroups(snapshot({ soonestSet: { free: 0, paid: [{ currency: 'gold', count: 3 }] } })),
+        [{ count: 3, currency: 'gold' }]);
+    assert.deepEqual(banner.soonestGroups(snapshot({ soonestSet: { free: 0, paid: [] } })), [{ count: 0, currency: '' }]);
+});
+
+test('the count draws its groups with slashes and the currency icons', () => {
+    const node = document.createElement('div');
+    banner.renderValue(node, { groups: [{ count: 2, currency: '' }, { count: 1, currency: 'credits' },
+        { count: 1, currency: 'gold' }] });
+    assert.deepEqual(node.children.map((child) => child.className), [
+        'zanju-crt-value-count', 'zanju-crt-value-slash', 'zanju-crt-value-count', 'zanju-crt-value-currency',
+        'zanju-crt-value-slash', 'zanju-crt-value-count', 'zanju-crt-value-currency',
+    ]);
+    assert.equal(node.children[3].style.backgroundImage,
+        "url('R.images.gui.maps.icons.library.currency.credits_24x24')");
+    // Three groups do not fit the width of a campaign banner at the normal size.
+    assert.ok(parseInt(node.style.fontSize, 10) < 15);
+});
+
+test('one or two short groups keep the normal size', () => {
+    assert.equal(banner.valueSize([{ count: 3, currency: '' }]), 15);
+    assert.equal(banner.valueSize([{ count: 2, currency: '' }, { count: 1, currency: 'gold' }]), 15);
+    assert.ok(banner.valueSize([{ count: 2, currency: '' }, { count: 1, currency: 'credits' },
+        { count: 1, currency: 'gold' }]) >= 9);
+});
+
+test('with every series completed, a green check takes the place of the count and the time', () => {
+    const root = document.createElement('div');
+    const model = banner.bannerModel(snapshot({ allCompleted: true, nearestEnd: 0 }));
+    assert.equal(model.done, true);
+    assert.equal(model.endTime, 0);
+    banner.renderWidgets(root, snapshot({ allCompleted: true, nearestEnd: 0 }));
+    const value = root.querySelector('.zanju-crt-value');
+    assert.deepEqual(value.children.map((child) => child.className), ['zanju-crt-done']);
+    assert.equal(root.querySelector('.zanju-crt-time').className.includes('zanju-crt-time-empty'), true);
 });
 
 test('the banner counts down to the nearest end, in the two largest units', () => {
@@ -355,16 +400,16 @@ test('a template takes all three placeholder forms of the client', () => {
     assert.equal(common.fill(undefined, {}), '');
 });
 
-test('a series that can start says so in green', () => {
+test('a series that can start says so in the regular white of the column', () => {
     const node = card.buildAvailability(series({}), LABELS);
     assert.equal(node.textContent, LABELS.available);
-    assert.equal(node.className.includes('zanju-crt-avail-good'), true);
+    assert.equal(node.className, 'zanju-crt-series-avail');
 });
 
-test('a free restart says so in green', () => {
+test('a free restart says so in the same white', () => {
     const node = card.buildAvailability(series({ availability: 'freeRestart' }), LABELS);
     assert.equal(node.textContent, LABELS.freeRestart);
-    assert.equal(node.className.includes('zanju-crt-avail-good'), true);
+    assert.equal(node.className, 'zanju-crt-series-avail');
 });
 
 test('a paid restart names its price, with the currency icon', () => {
@@ -451,7 +496,8 @@ test('every mission of the series is listed, the done ones marked completed', ()
 
 test('a series row reads name, shields, completions, availability, then time', () => {
     const node = document.createElement('div');
-    card.renderCard(node, snapshot({ series: [series({ shields: 6, wins: 1, allowedCompletions: 2 })] }));
+    // Two shields lost in an earlier run: the list still shows the full set of the series.
+    card.renderCard(node, snapshot({ series: [series({ shields: 2, shieldsLimit: 6, wins: 1, allowedCompletions: 2 })] }));
     const row = node.querySelector('.zanju-crt-series');
     assert.deepEqual(row.children.map((child) => child.className.split(' ')[0]), [
         'zanju-crt-series-name', 'zanju-crt-series-shields', 'zanju-crt-series-completions',
@@ -459,7 +505,16 @@ test('a series row reads name, shields, completions, availability, then time', (
     ]);
     assert.equal(row.querySelector('.zanju-crt-series-shields').textContent, '6');
     assert.equal(row.querySelector('.zanju-crt-series-completions').textContent, 'Completions: 1 / 2');
+    assert.equal(row.querySelector('.zanju-crt-series-completions').className, 'zanju-crt-series-completions');
     assert.equal(row.querySelector('.zanju-crt-series-time').textContent, '13d 05h');
+});
+
+test('a series completed as often as it allows reads green in its completions', () => {
+    const node = document.createElement('div');
+    card.renderCard(node, snapshot({ series: [series({ wins: 2, allowedCompletions: 2, availability: 'none' })] }));
+    const completions = node.querySelector('.zanju-crt-series-completions');
+    assert.equal(completions.textContent, 'Completions: 2 / 2');
+    assert.equal(completions.className, 'zanju-crt-series-completions zanju-crt-series-complete');
 });
 
 test('the columns fit their widest cell, and the card fits the columns', () => {
@@ -550,12 +605,16 @@ test('the card warns when the vehicle cannot play, with or without an active ser
     }
 });
 
-test('vehicles in battle bring the warning and a list of their names', () => {
+test('vehicles in battle bring a list of their names, headed by the warning', () => {
     const node = document.createElement('div');
     card.renderCard(node, snapshot({ inBattle: ['IS-3A', 'LHMTV'] }));
-    assert.deepEqual(node.querySelectorAll('.zanju-crt-note-warning').map((n) => n.textContent),
-        [LABELS.inBattleWarning]);
-    assert.equal(node.querySelector('.zanju-crt-battles-label').textContent, LABELS.inBattle);
+    // The warning belongs to the list, not to the warnings at the top of the card.
+    assert.equal(node.querySelector('.zanju-crt-note-warning'), null);
+    const block = node.querySelector('.zanju-crt-battles');
+    assert.deepEqual(block.children.map((child) => child.className),
+        ['zanju-crt-battles-warning', 'zanju-crt-battles-label', 'zanju-crt-battles-row', 'zanju-crt-battles-row']);
+    assert.equal(block.children[0].textContent, LABELS.inBattleWarning);
+    assert.equal(block.children[1].textContent, LABELS.inBattle);
     assert.deepEqual(node.querySelectorAll('.zanju-crt-battles-name').map((n) => n.textContent),
         ['IS-3A', 'LHMTV']);
     assert.equal(node.querySelectorAll('.zanju-crt-battles-icon').length, 2);
@@ -564,9 +623,16 @@ test('vehicles in battle bring the warning and a list of their names', () => {
 test('with an active series, the battle warning speaks of the current mission', () => {
     const node = document.createElement('div');
     card.renderCard(node, snapshot({ active: activeSeries({}), inBattle: ['IS-3A'] }));
-    assert.deepEqual(node.querySelectorAll('.zanju-crt-note-warning').map((n) => n.textContent),
-        [LABELS.inBattleActive]);
+    assert.equal(node.querySelector('.zanju-crt-battles-warning').textContent, LABELS.inBattleActive);
     assert.equal(node.querySelectorAll('.zanju-crt-battles-name').length, 1);
+});
+
+test('the warning about the vehicle in the garage stays at the top, apart from the list', () => {
+    const node = document.createElement('div');
+    card.renderCard(node, snapshot({ vehicleFits: false, inBattle: ['IS-3A'] }));
+    assert.deepEqual(node.querySelectorAll('.zanju-crt-note-warning').map((n) => n.textContent),
+        [LABELS.vehicleRestriction]);
+    assert.equal(node.children[1].className, 'zanju-crt-note-warning');
 });
 
 test('no vehicle in battle means no warning and no list', () => {
@@ -609,6 +675,30 @@ test('the panel heads with the shields, the series and the mission', () => {
     assert.equal(node.querySelector('.zanju-crt-panel-shields').textContent, '4');
     assert.equal(node.querySelector('.zanju-crt-panel-name').textContent, 'Spark');
     assert.equal(node.querySelector('.zanju-crt-panel-stage').textContent, 'Mission 1 of 3');
+});
+
+test('a rule of a condition stands above its figures, and turns red once broken', () => {
+    const node = document.createElement('div');
+    const row = { text: 'Earn the High Caliber award', live: true, state: 'open', ratio: 0.2, valueText: '800',
+        targetText: '4,000', rules: [{ key: 'noAllyHits', broken: false }] };
+    const labels = { noAllyHits: 'The player must not hit any allies by direct shots.' };
+    battle.renderPanel(node, panelPayload({ labels: labels, rows: [row] }));
+    const prow = node.querySelector('.zanju-crt-prow');
+    assert.deepEqual(prow.children.map((child) => child.className),
+        ['zanju-crt-prow-line', 'zanju-crt-prow-rule', 'zanju-crt-prow-meter']);
+    assert.equal(node.querySelector('.zanju-crt-prow-rule').textContent, labels.noAllyHits);
+    const broken = document.createElement('div');
+    battle.renderPanel(broken, panelPayload({ labels: labels, rows: [Object.assign({}, row, {
+        state: 'closed', rules: [{ key: 'noAllyHits', broken: true }] })] }));
+    assert.equal(broken.querySelector('.zanju-crt-prow-rule').className,
+        'zanju-crt-prow-rule zanju-crt-prow-rule-broken');
+});
+
+test('a payload with no shield count shows no shield', () => {
+    const node = document.createElement('div');
+    battle.renderPanel(node, panelPayload({ series: { name: 'Test', stage: 1, total: 1, shields: null } }));
+    assert.equal(node.querySelector('.zanju-crt-panel-shields'), null);
+    assert.equal(node.querySelector('.zanju-crt-panel-shield'), null);
 });
 
 test('a counted condition has a bar filled to its ratio, and its figures', () => {

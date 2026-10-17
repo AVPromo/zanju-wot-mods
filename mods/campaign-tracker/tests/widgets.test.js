@@ -564,43 +564,6 @@ test('an objective already at its total shows no pace line', () => {
     assert.equal(card.querySelectorAll('.zanju-ct-pace').length, 1);
 });
 
-test('the push subscription follows the sub-view when the garage replaces it', () => {
-    // The regression: the garage rebuilds the sub-view our model rides on whenever the player
-    // picks another tank. The subscription kept naming the destroyed one, so every push after
-    // the first tank change went nowhere and everything fell back to the slow poll.
-    const subscribed = [];
-    const saved = {
-        engine: global.engine, viewEnv: global.viewEnv, subViews: global.window.subViews,
-    };
-    let model = { zanjuCtWidgets: { snapshot: '{}', visible: true, heldKeys: '' } };
-    let handlers = 0;
-    global.engine = { on: () => { handlers += 1; } };
-    global.viewEnv = { addDataChangedCallback: (_kind, id) => subscribed.push(id) };
-    global.window.subViews = { ids: () => [7], get: (id) => (id === 7 ? { model } : null) };
-
-    try {
-        widgets.findDataModel();
-        assert.equal(widgets.bindModelPush(), true);
-        assert.deepEqual(subscribed, [7]);
-        // Nothing moved, so nothing is renewed — this runs on every tick.
-        assert.equal(widgets.bindModelPush(), false);
-        assert.deepEqual(subscribed, [7]);
-
-        // The tank changes: the old view is gone and our model rides a new one.
-        global.window.subViews = { ids: () => [9], get: (id) => (id === 9 ? { model } : null) };
-        widgets.findDataModel();
-        assert.equal(widgets.bindModelPush(), true);
-        assert.deepEqual(subscribed, [7, 9]);
-        // The engine-level handler belongs to the document and is registered only once, or the
-        // tick would run once per registration.
-        assert.equal(handlers, 1);
-    } finally {
-        global.engine = saved.engine;
-        global.viewEnv = saved.viewEnv;
-        global.window.subViews = saved.subViews;
-    }
-});
-
 test('the key poll runs faster than the snapshot is ever rebuilt', () => {
     // The regression this guards: the highlight used to ride the main tick, which stands down
     // to a one-second backstop once the banners have settled, so a key took up to a second to

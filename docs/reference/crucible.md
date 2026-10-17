@@ -83,8 +83,12 @@ An `achievements` condition names an award by its dossier record ID. `DB_ID_TO_R
 
 | Award | Record | Rule in the panel |
 | --- | --- | --- |
-| High Caliber | `mainGun` (228) | damage dealt of at least 20% of the total HP of the enemy team |
+| High Caliber | `mainGun` (228) | damage dealt of at least 20% of the total HP of the enemy team, and at least 1,000 HP, with no direct shot on an ally |
 | Top Gun | `warrior` (34) | at least 6 kills |
+
+The terms of High Caliber are in the client's own text, `#achievements:mainGun_condition`. One direct shot on an ally ends the award, also with team damage off and a hit that does no damage. The panel shows the third line of that text, "The player must not hit any allies by direct shots", above the figures of the award, in the language of the client, and turns it red after such a hit. The condition then closes, whatever the damage.
+
+The client calls `Vehicle.showDamageFromShot(attackerID, ...)` on each vehicle that a shell hits, to draw the hit. `battle_session` wraps it: a call on an ally, with the player's vehicle as the attacker, is a direct shot on an ally. A splash of high explosive arrives through `showDamageFromExplosion` instead, so it does not count. Measured on 17 October 2026, with the same test mission: one direct shot on an ally, with team damage off and no damage done, reached the wrapper, and the rule line turned red. High Caliber closed at 2,261 of 4,472 HP.
 
 An award with no rule shows its text only. The panel counts the threshold, not every term of the award. High Caliber also asks for the most damage in the battle, for example, and the client has no damage figure for another player. To add an award, add its record name and its rule to `AWARD_RULES`. The other battle hero awards are in `BATTLE_HERO_MEDAL_SET` of the same client file.
 
@@ -139,18 +143,25 @@ The panel counts each condition from the battle controllers of `sessionProvider.
 | crits | `PLAYER_DAMAGED_DEVICE_ENEMY`, the crits count of each event |
 | damage received, full HP | the HP of the player's vehicle entity, read on each `VEHICLE_VIEW_STATE.HEALTH` |
 | the start of the battle | `arena.periodEndTime - arena.periodLength` in the period `BATTLE` |
-| the view range | `feedback.getVehicleAttrs()['circularVisionRadius']`, capped as the minimap caps it |
+| the view range | `feedback.getVehicleAttrs()['circularVisionRadius']`, capped at `arenaVisitor.getVisibilityMaxRadius()`, as the minimap caps it |
 | the total HP of the enemy team | the sum of `maxHealth` in `arena.vehicles` for the other team |
 
 `personalEfficiencyCtrl` is not a source. Its damage total also adds damage to destructible objects, and it has no split of radio and track assist.
 
 The figures are an estimate, and the battle results decide the mission. These are the known gaps:
 
+- **View range.** The client caps the view range at `VISIBILITY.MAX_RADIUS`, 445 m, and an arena modifier (`BattleParams.VISION_MAX_RADIUS`) can change that cap. The garage can show a higher view range, but the battle uses the capped one. The player expects the server to check "within the view range of your vehicle" against the capped range too, and the panel does the same. No battle has measured that yet.
 - **Distance.** The panel reads the positions when the hit arrives, not when the shot leaves. A hit on an enemy that is not in the client's world has no distance, and it counts for no condition with a distance.
 - **Kills by reason.** The kill event has no attack reason. For a condition that names a reason, a kill takes the reason of the player's last hit on that enemy.
 - **Reconnect.** The client loses the events from before a reconnect, so no figure is sure after it. The panel then shows the conditions with no bars and no figures, and a time limit still counts down. A reconnect is an entry into an arena that the same vehicle first entered more than 30 s before. `battle_record` keeps the time of the first entry for this. In the battle of 16 October 2026, the battle page populated 4.3 s before `onAvatarReady` wrote the record. Thus at a first entry, the record of this arena is not there yet when the panel opens, and at a reconnect, the record of the first entry is.
-- **Summary.** The server sends a battle summary (`onPlayerSummaryFeedbackReceived`) with the totals of damage, assist, blocked damage and stun. The panel takes a total from it when the total is higher, and logs the first summary beside its own totals. In the battle of 16 October 2026, the summary came 0.6 s after `onAvatarReady`, before the battle started, with every total at 0.
+- **Summary.** The server sends a battle summary (`onPlayerSummaryFeedbackReceived`) with the totals of damage, assist, blocked damage and stun. The panel takes a total from it when the total is higher, and logs the first summary beside its own totals. In two battles on 16 October 2026, the summary came once, about 1 s after `onAvatarReady` and before the battle started, with every total at 0, and never during the battle. In a normal battle it thus changes nothing. It can matter only after a reconnect, where the counters are off anyway.
 - **Crits.** The panel adds the crits count of each event. No battle has compared that sum with `critsCount` in the results yet.
+
+**Measured on 16 October 2026.** Series 56, mission 1 asked for 2,500 HP of damage dealt. The panel counted the damage while the battle ran, the server completed the mission, and the next garage showed mission 2 with no shield lost. The panel opened at the position that the player had dragged it to in an earlier session. Mission 2, among the top 5 players of the team by damage, then completed too. The panel showed its text only, as it does for every condition that it cannot count. Mission 3 asked for 3,000 HP of damage within the view range. The panel counted three hits of 527, 485 and 454 HP, at 22 to 26 m, against the capped view range of 445 m: 1,466 HP. The server failed the mission and took a shield, which agrees. No hit came from beyond the view range, so that case is still not measured.
+
+**Measured with a test mission on 16 October 2026.** The server judges only the missions of a real series, so a temporary build put a mission of its own on the panel, armed by a file, with every form of condition that the panel counts. The build is gone, and the log lines that it used stay: each hit and kill with its distance, the view range and the time into the battle, and `Battle panel at the end:` with the figure of each condition and the totals. One random battle, in a vehicle with a view range of 393 m. The log listed five hits: 140, 119 and 764 HP at 473 to 550 m, beyond the view range, and 734 and 840 HP at 117 and 74 m. The panel counted 1,574 HP within the view range and 1,023 HP from 200 m or more, which is exactly the split of the hits. It counted all 2,597 HP for the first 5 minutes, because every hit came in the first 164 s. The kill at full HP closed when the vehicle took damage, and damage with assist read 2,840 HP: 2,597 dealt and 243 by radio. So the panel counts each hit by its rules in the game too. Whether the server checks the capped view range, as the player expects, is still open: only a real mission that the hits beyond the range decide can show it.
+
+The battle results screen gives no figure for a Crucible condition. `ChallengesMissionsProgressPresenter` shows the mission number and the text of the conditions from the same packer, so the only answer from the server is whether the mission completed. A condition with a distance can thus be checked only by a battle where the hits beyond the range decide the result.
 
 The time limit counts down in the panel's own JavaScript. Python sends the deadline in the clock of `BigWorld.serverTime()`, with the offset of that clock from the system clock. Before the battle starts, the panel shows the whole limit.
 

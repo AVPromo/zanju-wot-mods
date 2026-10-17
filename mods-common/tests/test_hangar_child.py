@@ -106,18 +106,46 @@ def _install_modules(with_dynamic=True, with_openwg=True):
     return registered, injected
 
 
+class _BaseRoot(object):
+    """A root view whose _onLoading is inherited, as FunRandomHangar's is."""
+
+    def __init__(self):
+        self.children = {}
+        self.seen_inside = None
+
+    def _onLoading(self, *args, **kwargs):
+        # A root view builds its children here, so a fallback asks the marker at this point.
+        self.seen_inside = hangar_child.inside_patched_root()
+
+    def getChildView(self, pos_id):
+        return self.children.get(pos_id)
+
+    def _registerChild(self, pos_id, child):
+        self.children[pos_id] = child
+
+
+class _ModeHangar(_BaseRoot):
+    pass
+
+
+def _put_mode_module():
+    module = types.ModuleType(str('zanju_test_modes.hangar'))
+    module.ModeHangar = _ModeHangar
+    _put_module('zanju_test_modes.hangar', module)
+
+
 class HangarChildTest(unittest.TestCase):
 
     def setUp(self):
         self.saved = dict(sys.modules)
         self.original_on_loading = _RandomHangar._onLoading
-        hangar_child._state['route'] = None
-        hangar_child._state['patch'] = None
+        hangar_child._state.update(route=None, patches=[], depth=0)
         self.logger = _Logger()
 
     def tearDown(self):
         hangar_child.uninstall(self.logger)
         _RandomHangar._onLoading = self.original_on_loading
+        _ModeHangar.__dict__.get('_onLoading') and delattr(_ModeHangar, '_onLoading')
         sys.modules.clear()
         sys.modules.update(self.saved)
 
@@ -184,6 +212,52 @@ class HangarChildTest(unittest.TestCase):
         self._install(lambda: 'data')
         self.assertEqual(self._install(lambda: 'other'), hangar_child.ROUTE_DYNAMIC_PRESENTER)
         self.assertEqual(len(registered), 1)
+
+    def test_attach_adds_the_child_to_every_root_the_client_has(self):
+        _install_modules()
+        _put_mode_module()
+        factory = hangar_child.make_factory(self.logger, 'zanju_test', [], ['a.js'], 'zanjuTest', lambda: 'data')
+        parents = [hangar_child.RANDOM_GARAGE, ('zanju_test_modes.hangar', 'ModeHangar'),
+                   ('zanju_test_modes.gone', 'Gone')]
+        patched = hangar_child.attach(self.logger, parents, 0x5A4E4448, factory, 'Test child')
+        self.assertEqual(patched, ['RandomHangar', 'ModeHangar'])
+        mode = _ModeHangar()
+        mode._onLoading()
+        self.assertEqual(mode.getChildView(0x5A4E4448).model.properties, {'zanjuTest': 'data'})
+        # A second load of the same root view adds no second child.
+        child = mode.getChildView(0x5A4E4448)
+        mode._onLoading()
+        self.assertIs(mode.getChildView(0x5A4E4448), child)
+
+    def test_the_marker_is_up_only_while_a_patched_root_builds_its_children(self):
+        _install_modules()
+        _put_mode_module()
+        factory = hangar_child.make_factory(self.logger, 'zanju_test', [], ['a.js'], 'zanjuTest', lambda: 'data')
+        mode = _ModeHangar()
+        mode._onLoading()
+        self.assertFalse(mode.seen_inside)
+        hangar_child.attach(self.logger, [('zanju_test_modes.hangar', 'ModeHangar')], 0x5A4E4448, factory, 'Test child')
+        mode = _ModeHangar()
+        mode._onLoading()
+        self.assertTrue(mode.seen_inside)
+        self.assertFalse(hangar_child.inside_patched_root())
+
+    def test_an_inherited_on_loading_is_inherited_again_after_uninstall(self):
+        _install_modules()
+        _put_mode_module()
+        factory = hangar_child.make_factory(self.logger, 'zanju_test', [], ['a.js'], 'zanjuTest', lambda: 'data')
+        hangar_child.attach(self.logger, [('zanju_test_modes.hangar', 'ModeHangar')], 0x5A4E4448, factory, 'Test child')
+        self.assertIn('_onLoading', _ModeHangar.__dict__)
+        hangar_child.uninstall(self.logger)
+        self.assertNotIn('_onLoading', _ModeHangar.__dict__)
+        mode = _ModeHangar()
+        mode._onLoading()
+        self.assertIsNone(mode.getChildView(0x5A4E4448))
+
+    def test_no_openwg_means_no_factory(self):
+        _install_modules(with_openwg=False)
+        self.assertIsNone(hangar_child.make_factory(self.logger, 'zanju_test', [], ['a.js'], 'zanjuTest',
+                                                    lambda: 'data'))
 
 
 if __name__ == '__main__':

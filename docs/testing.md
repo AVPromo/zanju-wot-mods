@@ -32,7 +32,7 @@ Mod runtime code cannot simply be imported outside the game, for three reasons:
 - the shared modules are in `mods-common/`, and only `zwm build` puts them into the package (see [Shared Modules](reference/runtime-layout-and-packaging.md#shared-modules));
 - some modules import client APIs (`BigWorld`, `ResMgr`, `gui.*`) at module scope.
 
-`testing/run_py27_tests.py` handles all three before discovery: it puts the mod's `src/` on the path, synthesizes `_mod_meta` from the mod's own `meta.xml`, loads into the package the shared modules that `mods-common/manifest.json` gives the mod, and installs the stub modules listed in `testing/zwm_test_env.py`. Test files therefore import mod modules directly:
+`testing/run_py27_tests.py` handles all three before discovery: it puts the mod's `src/` on the path, synthesizes `_mod_meta` from the mod's own `meta.xml`, loads into the package the shared modules that the mod imports (the same set that `zwm build` ships), and installs the stub modules listed in `testing/zwm_test_env.py`. Test files therefore import mod modules directly:
 
 ```python
 from zanju_pt import formatting
@@ -70,14 +70,15 @@ Unit tests cannot show how a module behaves next to the client or next to anothe
 | Run | Mods of ours installed | What it can catch |
 | --- | --- | --- |
 | Together | All mods, new builds | A fault in the changed module, and two mods on the same sub-view |
-| Alone | Each mod that takes the module, by itself | A missing manifest entry, or a hidden dependency on another of our mods |
+| Alone | Each mod that takes the module, by itself | A shared file that the mod loads in a way the build cannot see, or a hidden dependency on another of our mods |
 | Mixed | The new build of one mod next to the last release of another mod that takes the module, in both directions | A change that breaks a contract between mods (`view_claim`) or a shared file format (`storage`) |
 
 Each mod already writes the log lines that decide a run:
 
 - No `Traceback` or `ImportError` from a `zanju.*` logger, and each installed mod writes `initialized`.
 - `route_gate`: DH and CT write `Garage is the visible route: False` on a screen over the garage, and `True` back in the garage.
-- `view_claim` and `hangar_child`: the `subscribed to model updates on sub-view N` lines of DH and CT show two different values of N. CT and CRT also write `Garage child view at 0x...` with their own position IDs.
+- `hangar_child`: CT and CRT write `Garage child view at 0x...` with their own position IDs. DH writes `Directives window added to RandomHangar`, or to the root view of a mode garage, and `Bar probe added to LobbyHeader` and `LobbyFooter`. PT writes `Premium time counter added to LobbyHeader`. The `subscribed to model updates on sub-view N` lines of DH, CT and CRT show three different values of N.
+- `view_claim`: DH writes `Directives window attached to MainMenuModel` only in a garage that has no child of its own. In the random garage and the known mode garages, it writes `attached to a child view`.
 - `tray.js`: with CT and CRT on the same side of the vehicle name, the two rows stand side by side, and each mod writes `banner tray: observing` once per garage document.
 - `storage`: RPB writes `Mode selection state saved` and `Config saved to`. DH writes `placed the window at L,T from the stored X,Y`.
 

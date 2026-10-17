@@ -2,7 +2,7 @@
 
 ### This mod shows your Crucible missions beside the vehicle name in the garage.
 
-- **Active series at a glance** — while a series is active, the banner shows your shields left out of all shields, the current mission and the time left in the series. With no active series, it shows how many series are open and when the first of them ends.
+- **Active series at a glance** — while a series is active, the banner shows your shields left out of all shields, the current mission and the time left in the series. With no active series, it counts the series that end first and that you have not completed yet, and shows when they end. The count reads free / silver / gold: how many of them you can start or restart for nothing, and how many restart for credits or for gold. Once you complete all of them, the banner moves on to the series that end next. With every series completed, it shows a green check.
 - **Details on hover** — while a series is active, the card is about that series only: its name and time left, one icon for each shield with the spent ones greyed, and every mission of the series with its conditions. With no active series, the card lists every series you can play. Each row has the shields, the completions, the start or restart price and the time left.
 - **Warnings** — the banner goes grey when the vehicle in the garage is below the Crucible tiers. Crossed swords and a count show your vehicles of those tiers that are still in a random battle. The result of that battle completes or fails the current mission, or a series that you start now, and the card lists those vehicles.
 - **One click to the Crucible** — click the banner to open the game's Crucible screen.

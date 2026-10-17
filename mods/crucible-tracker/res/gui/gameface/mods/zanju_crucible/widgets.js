@@ -10,8 +10,12 @@
 // - With an active series: the emblem alone in the head, a shield with the shields left out of
 //   all shields below it, the current mission out of all missions, and the time until the
 //   series ends.
-// - With no active series: the emblem, the number of series still open, and the time until the
-//   first of them ends. That is the rule of the client's own Crucible banner.
+// - With no active series: the emblem, the series that end first and are not completed, and the
+//   time until they end. The count reads "free / silver / gold": how many of them start or
+//   restart for nothing, and how many restart for credits or for gold, each price group with its
+//   currency icon, and a group of 0 left out. Once every series of that end is completed, the
+//   banner moves on to the next end, as the card's highlight does. With every series completed,
+//   a green check stands in place of the count and the time.
 // - In both: crossed swords and a count, in the warning yellow, while vehicles that can play the
 //   Crucible are in a battle that has not ended. The card says why that matters.
 //
@@ -33,7 +37,8 @@
 //
 // See docs/reference/gameface-mod-widgets.md.
 
-import { SHIELD_IMAGE, clientImage, el, log, parseJson, timeLeft, unwrap } from './common.js';
+import { SHIELD_IMAGE, clientImage, currencyImage, el, log, parseJson, timeLeft, unwrap } from './common.js';
+import { createBridge, invokeCommand } from './model_bridge.js';
 import {
     SIDE_RIGHT,
     anchorRect,
@@ -54,11 +59,8 @@ const DATA_PROPERTY = 'zanjuCrtWidgets';
 // push has arrived.
 const POLL_INTERVAL_MS = 1000;
 const UNPUSHED_POLL_INTERVAL_MS = 100;
-// Flags on the document, so a handler is registered once even if this module is evaluated again
+// A flag on the document, so a handler is registered once even if this module is evaluated again
 // for another sub-view.
-const PUSH_BOUND_FLAG = '__zanjuCrtPushBound';
-const PUSH_RES_ID_FLAG = '__zanjuCrtPushResId';
-const PUSH_SEEN_FLAG = '__zanjuCrtPushSeen';
 const CLICK_BOUND_FLAG = '__zanjuCrtClickBound';
 // This mod's entry in the shared banner tray. campaign-tracker takes 10, so its row stands
 // nearest the vehicle name on either side.
@@ -70,9 +72,6 @@ const BANNER_KEY = 'crucible';
 const NOMINAL_WIDGET_WIDTH_PX = 60;
 
 let lastSnapshotJson = null;
-let dataResId = null;
-let pollTimer = null;
-let currentPollMs = null;
 let traySide = SIDE_RIGHT;
 // The banner model on screen, or null when there is no banner to draw.
 let bannerShown = null;
@@ -82,80 +81,13 @@ let lastOriginKey = '';
 let bannerPlaced = false;
 let hovered = false;
 
-function modelOn(id) {
-    const view = window.subViews.get(id);
-    const model = view && view.model;
-    return model && model[DATA_PROPERTY] ? model[DATA_PROPERTY] : null;
-}
-
-function findDataModel() {
-    if (typeof window === 'undefined' || !window.subViews) {
-        return null;
-    }
-    if (dataResId !== null) {
-        const known = modelOn(dataResId);
-        if (known) {
-            return known;
-        }
-    }
-    const ids = window.subViews.ids();
-    for (const id of ids) {
-        const model = modelOn(id);
-        if (model) {
-            dataResId = id;
-            return model;
-        }
-    }
-    dataResId = null;
-    return null;
-}
-
-// Python writing a property raises no event here. `viewEnv.onDataChanged` is the engine's own
-// signal, and the subscription names one sub-view, so it is renewed whenever that view moves.
-function bindModelPush() {
-    if (dataResId === null || document[PUSH_RES_ID_FLAG] === dataResId) {
-        return;
-    }
-    if (typeof engine === 'undefined' || typeof viewEnv === 'undefined') {
-        return;
-    }
-    try {
-        if (!document[PUSH_BOUND_FLAG]) {
-            engine.on('viewEnv.onDataChanged', onPush);
-            document[PUSH_BOUND_FLAG] = true;
-        }
-        viewEnv.addDataChangedCallback('model', dataResId, true);
-        document[PUSH_RES_ID_FLAG] = dataResId;
-    } catch (e) {
-        log('could not subscribe to model updates, falling back to polling (' + e + ')');
-    }
-}
-
-function onPush() {
-    document[PUSH_SEEN_FLAG] = true;
-    tick();
-}
-
-function invokeCommand(data, name, arg) {
-    try {
-        let host = null;
-        if (data && typeof data[name] === 'function') {
-            host = data;
-        } else {
-            const inner = unwrap(data);
-            if (inner && typeof inner[name] === 'function') {
-                host = inner;
-            }
-        }
-        if (!host) {
-            log('command missing: ' + name);
-            return;
-        }
-        host[name](arg || {});
-    } catch (e) {
-        log('command failed: ' + name + ' (' + e + ')');
-    }
-}
+// Finds the data model, follows its pushes, and polls as a backstop. See model_bridge.js.
+const bridge = createBridge({
+    dataProperty: DATA_PROPERTY,
+    flagPrefix: '__zanjuCrt',
+    onChange: function () { tick(); },
+    log: log,
+});
 
 function getRoot() {
     return document.getElementById(ROOT_ID);
@@ -170,6 +102,22 @@ function buildRoot() {
 
 // What the banner shows, worked out from the snapshot. Null means no banner at all: the Crucible
 // is off on this server, or no series is open to the player.
+// The count of the series that end first, as groups: the free ones, then one group for each
+// currency of a paid restart. A group of 0 is left out, and an empty set reads 0.
+function soonestGroups(snapshot) {
+    const set = snapshot.soonestSet || {};
+    const groups = [];
+    if (set.free) {
+        groups.push({ count: set.free, currency: '' });
+    }
+    (set.paid || []).forEach(function (group) {
+        if (group.count) {
+            groups.push({ count: group.count, currency: group.currency || '' });
+        }
+    });
+    return groups.length ? groups : [{ count: 0, currency: '' }];
+}
+
 function bannerModel(snapshot) {
     if (!snapshot || !snapshot.enabled || !(snapshot.series || []).length) {
         return null;
@@ -187,9 +135,58 @@ function bannerModel(snapshot) {
             value: String(active.stage || 0) + '/' + String(active.total || 0),
         });
     }
-    return Object.assign(common, {
-        shields: null,
-        value: String(snapshot.openCount || 0),
+    if (snapshot.allCompleted) {
+        return Object.assign(common, { shields: null, value: '', groups: [], done: true, endTime: 0 });
+    }
+    return Object.assign(common, { shields: null, value: '', groups: soonestGroups(snapshot), done: false });
+}
+
+// The value line holds about 44rem: the 58rem of a campaign banner, less its frame. Three groups at
+// the normal size do not fit, so the line takes the largest size that does. The widths are those
+// of PFDINMax in em, measured roughly, and a little wide on purpose.
+const VALUE_WIDTH_REM = 44;
+const VALUE_MAX_REM = 15;
+const VALUE_MIN_REM = 9;
+const DIGIT_EM = 0.56;
+const SLASH_EM = 0.6;
+const CURRENCY_EM = 0.95;
+
+function valueSize(groups) {
+    let em = 0;
+    groups.forEach(function (group, index) {
+        em += (index ? SLASH_EM : 0) + String(group.count).length * DIGIT_EM + (group.currency ? CURRENCY_EM : 0);
+    });
+    return Math.max(VALUE_MIN_REM, Math.min(VALUE_MAX_REM, Math.floor(VALUE_WIDTH_REM / Math.max(em, 0.01))));
+}
+
+function renderValue(node, model) {
+    while (node.firstChild) {
+        node.removeChild(node.firstChild);
+    }
+    node.style.fontSize = '';
+    if (model.done) {
+        // The checkmark is a mask, and the colour fills it, as the flags of the campaign banners.
+        node.appendChild(el('div', 'zanju-crt-done'));
+        return;
+    }
+    if (!model.groups || !model.groups.length) {
+        node.textContent = model.value;
+        return;
+    }
+    node.style.fontSize = valueSize(model.groups) + 'rem';
+    model.groups.forEach(function (group, index) {
+        if (index) {
+            node.appendChild(el('div', 'zanju-crt-value-slash', '/'));
+        }
+        node.appendChild(el('div', 'zanju-crt-value-count', String(group.count)));
+        if (group.currency) {
+            const mark = el('div', 'zanju-crt-value-currency');
+            const image = currencyImage(group.currency);
+            if (image) {
+                mark.style.backgroundImage = clientImage(image);
+            }
+            node.appendChild(mark);
+        }
     });
 }
 
@@ -243,7 +240,7 @@ function renderBanner(widget, model, snapshot) {
         widget.querySelector('.zanju-crt-shields-count').textContent =
             String(model.shields) + '/' + String(model.shieldsLimit);
     }
-    widget.querySelector('.zanju-crt-value').textContent = model.value;
+    renderValue(widget.querySelector('.zanju-crt-value'), model);
     const battle = widget.querySelector('.zanju-crt-battle');
     battle.className = 'zanju-crt-battle' + (model.inBattle ? '' : ' zanju-crt-battle-empty');
     widget.querySelector('.zanju-crt-battle-count').textContent = model.inBattle ? String(model.inBattle) : '';
@@ -282,12 +279,12 @@ function renderWidgets(root, snapshot) {
 }
 
 function reportHover(widget) {
-    const data = findDataModel();
+    const data = bridge.find();
     if (!data) {
         return;
     }
     if (!widget || !isAttached(widget)) {
-        invokeCommand(data, 'cardHover', { key: '' });
+        invokeCommand(data, 'cardHover', { key: '' }, log);
         return;
     }
     const rect = widget.getBoundingClientRect();
@@ -297,7 +294,7 @@ function reportHover(widget) {
         y: Math.round(rect.top),
         w: Math.round(rect.width),
         h: Math.round(rect.height),
-    });
+    }, log);
 }
 
 function bindClicks(data) {
@@ -314,7 +311,7 @@ function bindClicks(data) {
             return;
         }
         event.stopPropagation();
-        invokeCommand(findDataModel() || data, 'openCrucible', {});
+        invokeCommand(bridge.find() || data, 'openCrucible', {}, log);
     }, true);
 }
 
@@ -363,7 +360,7 @@ function updateLayout(root, side) {
 }
 
 function tick() {
-    const data = findDataModel();
+    const data = bridge.find();
     if (!data) {
         return;
     }
@@ -376,7 +373,7 @@ function tick() {
         lastOriginKey = '';
         bannerPlaced = false;
     }
-    bindModelPush();
+    bridge.follow();
 
     const visible = unwrap(data.visible);
     const raw = unwrap(data.snapshot);
@@ -405,18 +402,7 @@ function tick() {
         bannerPlaced = false;
     }
     root.style.display = visible !== false && bannerShown && bannerPlaced ? 'block' : 'none';
-    setPollRate(document[PUSH_SEEN_FLAG] && bannerPlaced ? POLL_INTERVAL_MS : UNPUSHED_POLL_INTERVAL_MS);
-}
-
-function setPollRate(intervalMs) {
-    if (intervalMs === currentPollMs) {
-        return;
-    }
-    currentPollMs = intervalMs;
-    if (pollTimer !== null) {
-        clearInterval(pollTimer);
-    }
-    pollTimer = setInterval(tick, intervalMs);
+    bridge.setPollRate(bridge.pushSeen() && bannerPlaced ? POLL_INTERVAL_MS : UNPUSHED_POLL_INTERVAL_MS);
 }
 
 // Another mod's row moved, so this one may have to.
@@ -428,7 +414,7 @@ function onTrayChanged() {
 function start() {
     log('widgets.js loaded');
     log('banner tray: ' + observeTray(TRAY_OWNER, onTrayChanged));
-    setPollRate(UNPUSHED_POLL_INTERVAL_MS);
+    bridge.setPollRate(UNPUSHED_POLL_INTERVAL_MS);
     tick();
 }
 
@@ -439,6 +425,9 @@ if (typeof window !== 'undefined' && window.subViews) {
 }
 
 export {
+    renderValue,
+    soonestGroups,
+    valueSize,
     NOMINAL_WIDGET_WIDTH_PX,
     TRAY_OWNER,
     TRAY_RANK,

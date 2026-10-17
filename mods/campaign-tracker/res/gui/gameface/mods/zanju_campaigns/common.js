@@ -2,7 +2,11 @@
 // mod's own window.
 //
 // Kept deliberately small. Anything only one side uses stays on that side, so this file never
-// becomes the place where the two documents quietly grow shared state.
+// becomes the place where the two documents quietly grow shared state. The general helpers are
+// shared with the other mods (mods-common/gameface/helpers.js), and this module passes them on
+// with the tag of this mod.
+
+import { createLog, el, parseJson as parseJsonWith, unwrap } from './helpers.js';
 
 const IDLE_ID = '—';
 
@@ -15,36 +19,10 @@ const ACTION_OPEN = 'open';
 const ACTION_PAUSE = 'pause';
 const ACTION_RESET = 'reset';
 
-function log(message) {
-    // console.error reaches game.log, tagged [UI] [Gameface]. console.log is untested here.
-    console.error('[zanju.campaigntracker] ' + message);
-}
-
-function unwrap(value) {
-    return value && typeof value === 'object' && 'value' in value ? value.value : value;
-}
+const log = createLog('zanju.campaigntracker');
 
 function parseJson(raw, what) {
-    if (!raw) {
-        return null;
-    }
-    try {
-        return JSON.parse(raw);
-    } catch (e) {
-        log('could not parse the ' + what + ': ' + e);
-        return null;
-    }
-}
-
-function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) {
-        node.className = className;
-    }
-    if (text !== undefined && text !== null) {
-        node.textContent = text;
-    }
-    return node;
+    return parseJsonWith(raw, what, log);
 }
 
 // Which action a click carries, given the keys held with it. The card lights the matching hint

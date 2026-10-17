@@ -22,6 +22,19 @@ Source repository for World of Tanks mods, build tooling, and game-facing techni
   </tr>
   <tr>
     <td width="1%">
+      <a href="mods/crucible-tracker/README.md"><b>Zanju's&nbsp;Crucible&nbsp;Tracker</b></a>
+    </td>
+    <td>
+      <a href="https://github.com/przemyslaw-zan/zanju-wot-mods/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/przemyslaw-zan/zanju-wot-mods?filter=CRT%40*&amp;color=green&amp;style=flat"></a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      Garage banner for your Crucible series and its missions, with live progress of the current mission in battle.
+    </td>
+  </tr>
+  <tr>
+    <td width="1%">
       <a href="mods/directives-helper/README.md"><b>Zanju's&nbsp;Directives&nbsp;Helper</b></a>
     </td>
     <td>

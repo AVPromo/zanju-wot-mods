@@ -1,9 +1,11 @@
 # mods-common
 
-Runtime files that several mods share. Each file here is the one authored copy of its module. `zwm build` puts it into the package of every mod that `manifest.json` gives it to, so each `.wotmod` still carries its own copy.
+Runtime files that several mods share. Each file here is the one authored copy of its module. A mod takes a file by importing it, and `zwm build` puts the file into the package of every mod that imports it, so each `.wotmod` still carries its own copy. `zwm shared` shows which mods take each file.
 
-- `*.py` are Python modules, under `modules` in the manifest. The build compiles each one into the internal package of each mod that takes it.
-- `gameface/*.js` are Gameface scripts, under `gameface` in the manifest. The build copies each one into the one Gameface folder of each mod that takes it, beside the modules that import it.
+- `*.py` are Python modules. The build compiles each one into the internal package of each mod that imports it, for example with `from .. import hangar_child`.
+- `gameface/*.js` are Gameface scripts. The build copies each one into the one Gameface folder of each mod that imports it, beside the modules that import it, for example with `import { el } from './helpers.js'`.
+
+The files on 16 October 2026: the Python modules `card_window`, `hangar_child`, `localization`, `mod_menu`, `mode_gate`, `route_gate`, `storage` and `view_claim`, and the Gameface scripts `card_host`, `countdown`, `helpers`, `model_bridge` and `tray`. Each one starts with what it holds and why.
 
 The tests are in `tests/`. The Python tests import a module from the stand-in package `mods_common`, which exists only while `zwm test` runs. The JavaScript tests import a script from `../gameface/`.
 

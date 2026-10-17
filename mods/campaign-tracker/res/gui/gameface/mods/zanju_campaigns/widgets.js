@@ -52,6 +52,7 @@ import {
     parseJson,
     unwrap,
 } from './common.js';
+import { createBridge, invokeCommand } from './model_bridge.js';
 import {
     ROW_GAP_PX,
     SIDE_RIGHT,
@@ -69,7 +70,7 @@ import {
 
 const ROOT_ID = 'zanju-ct-root';
 const DATA_PROPERTY = 'zanjuCtWidgets';
-// The snapshot normally arrives by push (see bindModelPush): this is the backstop for the
+// The snapshot normally arrives by push (see model_bridge.js): this is the backstop for the
 // case where that channel could not be established, and the rate it drops to then.
 const POLL_INTERVAL_MS = 1000;
 // The unpushed rate only applies before the subscription is up, which is normally the first
@@ -82,18 +83,6 @@ const UNPUSHED_POLL_INTERVAL_MS = 100;
 // settle and stop needing attention, but a key can be pressed at any moment for as long as the
 // garage is open.
 const KEY_POLL_INTERVAL_MS = 100;
-// Flag on the document so the engine-level handler is registered once, even if this module is
-// evaluated again for another sub-view.
-const PUSH_BOUND_FLAG = '__zanjuCtPushBound';
-// Which sub-view the data-changed subscription currently names. Kept apart from the flag above
-// because the two have different lifetimes: the handler is registered once for the document,
-// while the subscription names one view and has to be renewed when that view is replaced.
-const PUSH_RES_ID_FLAG = '__zanjuCtPushResId';
-// Flag on the document recording that a push has actually ARRIVED, which is a different thing
-// from having subscribed to them. The timer rate keys off this one: a subscription that never
-// delivers used to leave the widgets on the slow backstop, where a modifier key took up to a
-// second to reach the card.
-const PUSH_SEEN_FLAG = '__zanjuCtPushSeen';
 // Flag on the document so the click listener is registered once, even if this module is
 // evaluated again for another sub-view.
 const CLICK_BOUND_FLAG = '__zanjuCtClickBound';
@@ -120,9 +109,6 @@ const TRAY_RANK = 10;
 const NOMINAL_WIDGET_WIDTH_PX = 60;
 
 let lastSnapshotJson = null;
-// Which sub-view turned out to carry our data model, so the push subscription can name it.
-let dataResId = null;
-let pollTimer = null;
 let keyPollTimer = null;
 // The side of the vehicle name the row stands on, from the config, as the snapshot carries it.
 let traySide = SIDE_RIGHT;
@@ -136,106 +122,14 @@ let hasDrawn = false;
 // loads — so the first tick usually finds nothing to measure. `bannersPlaced` is what the root's
 // visibility hangs on, so the banners appear beside the block rather than somewhere else first.
 let bannersPlaced = false;
-let currentPollMs = null;
 
-function modelOn(id) {
-    const view = window.subViews.get(id);
-    const model = view && view.model;
-    return model && model[DATA_PROPERTY] ? model[DATA_PROPERTY] : null;
-}
-
-function findDataModel() {
-    // The inject lands on whichever hangar sub-view was free, so locate it by scanning
-    // rather than assuming one.
-    if (typeof window === 'undefined' || !window.subViews) {
-        return null;
-    }
-    if (dataResId !== null) {
-        // Once pushes are wired up this runs on every model write anywhere in the document,
-        // not just ours, so it has to stay a single lookup rather than a scan of every
-        // sub-view. Falls back to the scan the moment that view stops carrying our model.
-        const known = modelOn(dataResId);
-        if (known) {
-            return known;
-        }
-    }
-    const ids = window.subViews.ids();
-    for (const id of ids) {
-        const model = modelOn(id);
-        if (model) {
-            dataResId = id;
-            return model;
-        }
-    }
-    dataResId = null;
-    return null;
-}
-
-function bindModelPush() {
-    // Python writes the snapshot the moment the missions or the selected tank change, but a
-    // property write is not an event on this side: without this the widgets would only notice
-    // on their next poll, which is a visible lag on something as ordinary as switching tanks.
-    // `viewEnv.onDataChanged` is the engine's own signal that a model in this document was
-    // written, and it is what OpenWG's own ModelObserver subscribes to.
-    //
-    // The subscription names ONE sub-view, and the garage replaces ours on every tank change,
-    // so it is renewed whenever the id moves. The reference doc has why the symptom of getting
-    // this wrong is lateness rather than silence.
-    if (dataResId === null || document[PUSH_RES_ID_FLAG] === dataResId) {
-        return false;
-    }
-    if (typeof engine === 'undefined' || typeof viewEnv === 'undefined') {
-        return false;
-    }
-    try {
-        if (!document[PUSH_BOUND_FLAG]) {
-            // The handler belongs to the document, not to a view, so it is registered once.
-            // Registering it again per view would run the tick once per registration.
-            engine.on('viewEnv.onDataChanged', onPush);
-            document[PUSH_BOUND_FLAG] = true;
-        }
-        // Third argument asks for descendants too: the snapshot lives on our child model, not
-        // on the sub-view's own model.
-        viewEnv.addDataChangedCallback('model', dataResId, true);
-        document[PUSH_RES_ID_FLAG] = dataResId;
-        log('subscribed to model updates on sub-view ' + dataResId);
-        return true;
-    } catch (e) {
-        // Never fatal: the poll below still gets there, just later.
-        log('could not subscribe to model updates, falling back to polling (' + e + ')');
-        return false;
-    }
-}
-
-// Every push runs a tick, and the first one also tells the timer it can stand down.
-function onPush() {
-    document[PUSH_SEEN_FLAG] = true;
-    tick();
-}
-
-function invokeCommand(data, name, arg) {
-    // Wulf exposes a command as a callable on the model; which of the wrapped proxy or its
-    // unwrapped value carries it differs across builds, so try both. The argument must be a
-    // map — a bare scalar is rejected by Gameface as "not a map".
-    try {
-        let host = null;
-        if (data && typeof data[name] === 'function') {
-            host = data;
-        } else {
-            const inner = unwrap(data);
-            if (inner && typeof inner[name] === 'function') {
-                host = inner;
-            }
-        }
-        if (!host) {
-            log('command missing: ' + name);
-            return;
-        }
-        host[name](arg || {});
-    } catch (e) {
-        log('command failed: ' + name + ' (' + e + ')');
-    }
-}
+// Finds the data model, follows its pushes, and polls as a backstop. See model_bridge.js.
+const bridge = createBridge({
+    dataProperty: DATA_PROPERTY,
+    flagPrefix: '__zanjuCt',
+    onChange: function () { tick(); },
+    log: log,
+});
 
 function getRoot() {
     return document.getElementById(ROOT_ID);
@@ -584,12 +478,12 @@ function bindHover(widget) {
 // The banner's own rectangle, in this document's pixels. Python converts it into the window
 // coordinates the card is moved in; nothing here knows about that space.
 function reportHover(widget) {
-    const data = findDataModel();
+    const data = bridge.find();
     if (!data) {
         return;
     }
     if (!widget || !isAttached(widget)) {
-        invokeCommand(data, 'cardHover', { branch: '' });
+        invokeCommand(data, 'cardHover', { branch: '' }, log);
         return;
     }
     const rect = widget.getBoundingClientRect();
@@ -601,7 +495,7 @@ function reportHover(widget) {
         y: Math.round(rect.top),
         w: Math.round(rect.width),
         h: Math.round(rect.height),
-    });
+    }, log);
 }
 
 // Re-sent when the banners move, so the card follows the block it hangs off rather than
@@ -773,13 +667,13 @@ function bindClicks(data) {
         event.stopPropagation();
         if (action) {
             invokeCommand(data, 'missionAction',
-                { branch: widget._zanjuCtBranch, action: action });
+                { branch: widget._zanjuCtBranch, action: action }, log);
         }
     }, true);
 }
 
 function tick() {
-    const data = findDataModel();
+    const data = bridge.find();
     if (!data) {
         return;
     }
@@ -796,7 +690,7 @@ function tick() {
         bannersPlaced = false;
     }
 
-    bindModelPush();
+    bridge.follow();
 
     // Decided on the Python side by the lobby's visible route; see widgets_inject.py. Applied
     // at the end of the tick, once placement has had its say.
@@ -837,7 +731,7 @@ function tick() {
         lastOriginKey = '';
     }
     root.style.display = visible !== false && bannersPlaced ? 'block' : 'none';
-    setPollRate(pollRateFor(Boolean(document[PUSH_SEEN_FLAG]), bannersPlaced));
+    bridge.setPollRate(pollRateFor(bridge.pushSeen(), bannersPlaced));
 }
 
 function updateLayout(root, branches, side) {
@@ -883,6 +777,9 @@ function updateLayout(root, branches, side) {
 // the widgets on the one-second backstop when the channel turns out to be silent -- which is
 // invisible for a snapshot but not for a modifier key, where a second of lag is the whole
 // interaction.
+// The timer rate keys off a push that has actually arrived, which is a different thing from
+// having subscribed to them: a subscription that never delivers used to leave the widgets on the
+// slow backstop, where a modifier key took up to a second to reach the card.
 function pollRateFor(pushSeen, placed) {
     return pushSeen && placed ? POLL_INTERVAL_MS : UNPUSHED_POLL_INTERVAL_MS;
 }
@@ -897,24 +794,13 @@ function pollRateFor(pushSeen, placed) {
 // behind the key is worse than no highlight: it says the click will do something other than
 // what it will do.
 function keyTick() {
-    if (dataResId === null) {
+    if (bridge.resId() === null) {
         return; // nothing found yet — going looking is the main tick's job, not this one's
     }
-    const data = findDataModel();
+    const data = bridge.find();
     if (data) {
         updateKeys(unwrap(data.heldKeys));
     }
-}
-
-function setPollRate(intervalMs) {
-    if (intervalMs === currentPollMs) {
-        return; // called on every tick; only an actual change should reset the timer
-    }
-    currentPollMs = intervalMs;
-    if (pollTimer !== null) {
-        clearInterval(pollTimer);
-    }
-    pollTimer = setInterval(tick, intervalMs);
 }
 
 // Another mod's row moved, so this one may have to. The next layout pass compares the origin
@@ -929,7 +815,7 @@ function start() {
     // Starts at the faster rate and drops to the backstop rate the moment pushes are wired
     // up, which is usually on the first tick — but not if the sub-views are not up yet, and
     // that is exactly the case a rate fixed at start-up would get wrong.
-    setPollRate(UNPUSHED_POLL_INTERVAL_MS);
+    bridge.setPollRate(UNPUSHED_POLL_INTERVAL_MS);
     if (keyPollTimer === null) {
         keyPollTimer = setInterval(keyTick, KEY_POLL_INTERVAL_MS);
     }
@@ -955,10 +841,8 @@ export {
     bannerTally,
     bannerVehicles,
     bindHover,
-    bindModelPush,
     buildWidget,
     faceId,
-    findDataModel,
     isActive,
     isClickable,
     isWithin,

@@ -26,8 +26,7 @@ import time
 
 from frameworks.wulf import ViewModel
 
-from .. import collector, config, crucible, hangar_child, mode_gate, navigation, route_gate, transport
-from . import card_window
+from .. import card_window, collector, config, crucible, hangar_child, mode_gate, navigation, route_gate, transport
 from ..constants import LOGGER_NAME
 from ..localization import get_text as _loc
 
@@ -58,6 +57,10 @@ _CLIENT_KEYS = {
 }
 
 _module_logger = logging.getLogger(LOGGER_NAME)
+
+# The hover card, in a window of the mod's own. See card_window.
+_card = card_window.CardWindow(('mods', 'zanju', 'crucibletracker', 'views', 'CrucibleCard'),
+                               'ZanjuCrucibleCard', 'zanju.crucibletracker.json')
 
 # How many data models to keep, newest last. The client builds one garage document at a time, so
 # only the last entry is ever on screen. The others cover a rebuild that overlaps the last one.
@@ -105,7 +108,7 @@ class _WidgetsDataModel(ViewModel):
     def __onOpenCrucible(self, *args):
         # A command handler runs inside the client's own dispatch, so nothing may leave it.
         try:
-            card_window.hide(_module_logger)
+            _card.hide(_module_logger)
             snapshot = _read_snapshot()
             active = snapshot.get('active') if snapshot else None
             navigation.open_crucible(active.get('id') if active else None, _module_logger)
@@ -143,15 +146,15 @@ def _on_card_hover(arg):
     """The pointer entered or left the banner. An empty key means it left."""
     key = _map_get(arg, 'key')
     if not key:
-        card_window.hide(_module_logger)
+        _card.hide(_module_logger)
         return
     snapshot = _read_snapshot()
     if not snapshot:
-        card_window.hide(_module_logger)
+        _card.hide(_module_logger)
         return
     rect = (_int(_map_get(arg, 'x')), _int(_map_get(arg, 'y')),
             _int(_map_get(arg, 'w')), _int(_map_get(arg, 'h')))
-    card_window.show(key, rect, snapshot, _module_logger)
+    _card.show(key, rect, {'snapshot': snapshot}, _module_logger)
 
 
 def _read_snapshot():
@@ -242,7 +245,7 @@ def refresh(logger):
     _last_payload[0] = payload
     _push(lambda model: model.setSnapshot(payload), logger)
     try:
-        card_window.update(json.loads(payload), logger)
+        _card.update({'snapshot': json.loads(payload)}, logger)
     except Exception:
         logger.exception('Failed to update the hover card')
 
@@ -257,7 +260,7 @@ def _apply_visibility(logger):
     _push(lambda model: model.setVisible(visible), logger)
     if not visible:
         # Leaving the garage does not move the pointer, so the banner reports no leave.
-        card_window.hide(logger)
+        _card.hide(logger)
 
 
 def _push(action, logger):
@@ -380,7 +383,7 @@ def install(logger):
 def uninstall(logger):
     del _installed[:]
     _unbind_events(logger)
-    card_window.uninstall(logger)
+    _card.uninstall(logger)
     route_gate.uninstall(logger)
     mode_gate.uninstall(logger)
     hangar_child.uninstall(logger)

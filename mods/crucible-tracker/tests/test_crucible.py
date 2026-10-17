@@ -133,7 +133,7 @@ class ConditionShapeTest(unittest.TestCase):
         [[(name, value)]] = crucible.condition_sets(HIGH_CALIBER)
         self.assertEqual(crucible.parse_condition(name, value, names),
                          {'kind': 'achievement', 'live': True, 'award': 'mainGun', 'keys': ['damageDealt'],
-                          'target': None, 'enemyHealthShare': 0.2})
+                          'target': None, 'enemyHealthShare': 0.2, 'minimum': 1000.0, 'noAllyHits': True})
         top_gun = crucible.parse_condition('achievements', [['value', [34]]], names)
         self.assertEqual((top_gun['live'], top_gun['keys'], top_gun['target']), (True, ['kills'], 6.0))
         # An award with no rule, or with no name to look it up by, shows its text only.
@@ -269,6 +269,47 @@ class SnapshotTest(unittest.TestCase):
         marked = [entry['soonest'] for entry in crucible.build_snapshot(True, series, None, 8)['series']]
         # Series 4 ends then too, but it is completed, so the banner does not count down to it.
         self.assertEqual(marked, [True, True, False, False])
+
+    def test_the_banner_counts_the_series_that_end_first_by_what_they_cost(self):
+        failed = {'attempts': 0, 'quests': 2, 'wins': 0}
+        series = [
+            _raw(id=1, isActive=False, endTime=300, progress={}),
+            _raw(id=2, isActive=False, endTime=300, progress=failed, freeRestarts=1),
+            _raw(id=3, isActive=False, endTime=300, progress=failed, freeRestarts=0,
+                 restartPrice={'credits': 250000}),
+            _raw(id=4, isActive=False, endTime=300, progress=failed, freeRestarts=0, restartPrice={'gold': 200}),
+            _raw(id=5, isActive=False, endTime=300, progress=failed, freeRestarts=0, restartPrice={'gold': 200}),
+            # A later end, and a completed series of the same end, are not in the set.
+            _raw(id=6, isActive=False, endTime=900, progress={}),
+            _raw(id=7, isActive=False, endTime=300, progress={'attempts': 3, 'quests': 1, 'wins': 2}),
+        ]
+        snapshot = crucible.build_snapshot(True, series, None, 8)
+        self.assertEqual(snapshot['soonestSet'], {'free': 2, 'paid': [{'currency': 'credits', 'count': 1},
+                                                                      {'currency': 'gold', 'count': 2}]})
+        self.assertFalse(snapshot['allCompleted'])
+
+    def test_when_the_first_set_is_completed_the_banner_moves_to_the_next(self):
+        done = {'attempts': 3, 'quests': 1, 'wins': 2}
+        series = [
+            _raw(id=1, isActive=False, endTime=300, progress=done),
+            _raw(id=2, isActive=False, endTime=300, progress=done),
+            _raw(id=3, isActive=False, endTime=900, progress={}),
+            _raw(id=4, isActive=False, endTime=900, progress=done),
+            _raw(id=5, isActive=False, endTime=1200, progress={}),
+        ]
+        snapshot = crucible.build_snapshot(True, series, None, 8)
+        self.assertEqual(snapshot['nearestEnd'], 900)
+        self.assertEqual(snapshot['soonestSet'], {'free': 1, 'paid': []})
+        # The card highlights the same series that the banner counts.
+        self.assertEqual([entry['soonest'] for entry in snapshot['series']], [False, False, True, False, False])
+
+    def test_with_every_series_completed_nothing_is_left_to_count(self):
+        done = {'attempts': 3, 'quests': 1, 'wins': 2}
+        snapshot = crucible.build_snapshot(True, [_raw(id=1, isActive=False, progress=done),
+                                                  _raw(id=2, isActive=False, progress=done)], None, 8)
+        self.assertTrue(snapshot['allCompleted'])
+        self.assertEqual((snapshot['nearestEnd'], snapshot['soonestSet']), (0, {'free': 0, 'paid': []}))
+        self.assertFalse(crucible.build_snapshot(True, [], None, 8)['allCompleted'])
 
     def test_no_end_at_all_is_zero(self):
         self.assertEqual(crucible.build_snapshot(True, [_raw(isActive=False, endTime=0)], None, 8)['nearestEnd'], 0)

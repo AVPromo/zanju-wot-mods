@@ -128,7 +128,7 @@ def run_shared_suite(verbose):
         "--pattern",
         PY27_TEST_PATTERN,
     ]
-    cmd.extend(shared_module_args(sorted(mods_common.read_manifest())))
+    cmd.extend(shared_module_args(mods_common.module_names()))
     if verbose:
         cmd.append("--verbose")
     return PASSED if run_command(cmd, verbose=verbose) == 0 else FAILED

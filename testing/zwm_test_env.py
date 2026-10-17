@@ -97,8 +97,8 @@ def _install_mod_meta(package, mod_id, mod_name):
 def _install_shared_modules(package, shared_dir, names):
     """Load each shared module as `<package>.<name>`, the place where `zwm build` puts it.
 
-    Only the modules that the mod takes, so a mod that is not in the manifest for a module
-    fails its tests here as it would fail in the game. Python finds a module in sys.modules
+    Only the modules that the mod takes, the same set that `zwm build` ships: what the mod
+    imports, closed over what those modules import. Python finds a module in sys.modules
     before it searches a path, so nothing in src/ can hide a module loaded here.
     """
     if not names:

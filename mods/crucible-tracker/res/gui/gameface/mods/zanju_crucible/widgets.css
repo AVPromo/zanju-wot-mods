@@ -137,15 +137,54 @@
     opacity: 0.5;
 }
 
-/* The current mission out of all missions, or the number of open series. */
+/* The current mission out of all missions, or the count of the series that end first: "free /
+   silver / gold", each price group with its currency icon. widgets.js lowers the size of a long
+   count so it fits. */
 .zanju-crt-value {
-    display: block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 100%;
-    text-align: center;
+    white-space: nowrap;
     font-weight: 500;
 }
 
-/* The time until the series ends, or until the first open series ends. The size of the battles
+.zanju-crt-value-count {
+    display: block;
+}
+
+.zanju-crt-value-slash {
+    display: block;
+    margin-left: 0.12em;
+    margin-right: 0.12em;
+    color: #9ca4ab;
+    font-weight: 400;
+}
+
+.zanju-crt-value-currency {
+    display: block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.1em;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* Every series completed: a green check in place of the count. */
+.zanju-crt-done {
+    display: block;
+    width: 18rem;
+    height: 18rem;
+    background-color: #9ccb68;
+    mask-image: url('coui://gui/gameface/mods/zanju_crucible/checkmark.png');
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-mode: alpha;
+}
+
+/* The time until the series ends, or until the first series that is not completed ends. The size of the battles
    row of a campaign banner, in the regular colour of a live value, as in the card. */
 .zanju-crt-time {
     display: block;
@@ -206,7 +245,7 @@
 
 /* A vehicle that cannot play the current mission: the banner drops back to grey, as a campaign
    banner does when the vehicle has no mission. A banner with no active series keeps its colour,
-   because it still has something to say: the open series and the time left. */
+   because it still has something to say: the series that end first and the time left. */
 .zanju-crt-widget-idle .zanju-crt-face {
     background: rgba(17, 19, 22, 0.72);
     border-color: rgba(255, 255, 255, 0.08);
@@ -218,7 +257,9 @@
     border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
-.zanju-crt-widget-idle .zanju-crt-emblem {
+.zanju-crt-widget-idle .zanju-crt-emblem,
+.zanju-crt-widget-idle .zanju-crt-value-currency,
+.zanju-crt-widget-idle .zanju-crt-done {
     opacity: 0.5;
 }
 

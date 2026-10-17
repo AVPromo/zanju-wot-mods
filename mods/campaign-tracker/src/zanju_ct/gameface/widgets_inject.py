@@ -29,9 +29,8 @@ import logging
 
 from frameworks.wulf import ViewModel
 
-from .. import (collector, config, hangar_child, held_keys, mission_actions, mode_gate, navigation,
+from .. import (card_window, collector, config, hangar_child, held_keys, mission_actions, mode_gate, navigation,
                 route_gate)
-from . import card_window
 from ..constants import LOGGER_NAME
 from ..localization import get_text as _loc
 
@@ -45,6 +44,10 @@ _DATA_PROPERTY = 'zanjuCtWidgets'
 _POS_ID = 0x5A4E4354
 
 _module_logger = logging.getLogger(LOGGER_NAME)
+
+# The hover card, in a window of the mod's own. See card_window.
+_card = card_window.CardWindow(('mods', 'zanju', 'campaigntracker', 'views', 'CampaignCard'),
+                               'ZanjuCampaignCard', 'zanju.campaigntracker.json')
 
 # Last campaign count reported to the log, so the payload build can report when the answer
 # changes without writing a line on every tank switch. `None` means nothing logged yet.
@@ -138,7 +141,7 @@ class _WidgetsDataModel(ViewModel):
         branch = _map_get(arg, 'branch')
         if not branch:
             _module_logger.debug('Hover left')
-            card_window.hide(_module_logger)
+            _card.hide(_module_logger)
             return
         _module_logger.debug('Hover on %s', branch)
         _show_card(branch, arg, _module_logger)
@@ -280,14 +283,14 @@ def _show_card(branch, arg, logger):
             entry = row
             break
     if entry is None:
-        card_window.hide(logger)
+        _card.hide(logger)
         return
     rect = (
         _int(_map_get(arg, 'x')), _int(_map_get(arg, 'y')),
         _int(_map_get(arg, 'w')), _int(_map_get(arg, 'h')),
     )
-    card_window.show(branch, rect, entry, snapshot.get('labels') or {},
-                     held_keys.text(), logger)
+    _card.show(branch, rect, {'entry': entry, 'labels': snapshot.get('labels') or {},
+                              'heldKeys': held_keys.text()}, logger)
 
 
 def _int(value):
@@ -307,7 +310,7 @@ def _apply_held_keys(logger):
     text = held_keys.text()
     _push(lambda model: model.setHeldKeys(text), logger)
     # The card draws its own hint lines now, so it needs the keys too.
-    card_window.set_held_keys(text, logger)
+    _card.update({'heldKeys': text}, logger)
 
 
 def _on_held_keys_changed():
@@ -330,7 +333,7 @@ def _apply_visibility(logger):
         return
     # Leaving the garage does not move the pointer, so no banner reports a leave. Without
     # this the card would stay on screen over whatever replaced the garage.
-    card_window.hide(logger)
+    _card.hide(logger)
 
 
 def _push(action, logger):
@@ -495,7 +498,7 @@ def on_settings_changed(keys):
 def uninstall(logger):
     del _installed[:]
     _unbind_events(logger)
-    card_window.uninstall(logger)
+    _card.uninstall(logger)
     route_gate.uninstall(logger)
     mode_gate.uninstall(logger)
     held_keys.uninstall(logger)

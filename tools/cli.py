@@ -18,6 +18,7 @@ _COMMANDS = {
     "build": "build",
     "lint": "lint",
     "test": "test",
+    "shared": "shared",
     "cycle": "cycle",
     "deploy": "deploy",
     "cleanup": "cleanup",
