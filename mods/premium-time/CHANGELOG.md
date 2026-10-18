@@ -1,7 +1,7 @@
 Changelog
 =========
 
-## 1.1.0 (unreleased)
+## 1.1.0 (18 October 2026)
 
 - The counter no longer takes one of the game's own views of the top bar, so it can no longer block another mod, or be blocked by one.
 - Updated for World of Tanks 2.4.1.0.

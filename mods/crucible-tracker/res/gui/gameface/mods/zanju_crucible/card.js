@@ -45,20 +45,14 @@ const COLUMNS = [
 ];
 
 // What the player can do with a series now. Python works the answer out (`availability` in
-// crucible.py), and this only draws it, in the regular white. A start or a free restart reads
-// grey while another series is active, because the client refuses both until that series ends.
-// A paid restart keeps the colour of its currency.
+// crucible.py), and this only draws it, in the regular white. A paid restart keeps the colour of
+// its currency. The list shows only while no series is active, so no series in it is active, and
+// no start is held back by another series.
 function buildAvailability(entry, labels) {
     const node = el('div', 'zanju-crt-series-avail');
-    const muted = entry.blocked ? ' zanju-crt-avail-blocked' : '';
-    if (entry.availability === 'active') {
-        node.className += ' zanju-crt-avail-active';
-        node.textContent = labels.active || '';
-    } else if (entry.availability === 'start') {
-        node.className += muted;
+    if (entry.availability === 'start') {
         node.textContent = labels.available || '';
     } else if (entry.availability === 'freeRestart') {
-        node.className += muted;
         node.textContent = labels.freeRestart || '';
     } else if (entry.availability === 'paidRestart') {
         node.appendChild(el('div', 'zanju-crt-avail-label', labels.restartFor || ''));
@@ -216,7 +210,7 @@ function appendInBattle(card, snapshot, labels) {
 // series, not the shields left from an earlier run. A series completed as often as it allows
 // reads green in its completions.
 function buildSeriesRow(entry, labels) {
-    const row = el('div', 'zanju-crt-series' + (entry.state === 'active' ? ' zanju-crt-series-active' : ''));
+    const row = el('div', 'zanju-crt-series');
     row.appendChild(el('div', 'zanju-crt-series-name', entry.name || ''));
 
     const shields = el('div', 'zanju-crt-series-shields');

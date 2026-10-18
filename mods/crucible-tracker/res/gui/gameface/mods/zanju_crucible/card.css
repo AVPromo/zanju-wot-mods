@@ -314,11 +314,6 @@ html[lang=th] body {
     display: block;
 }
 
-.zanju-crt-series-active .zanju-crt-series-name {
-    color: #f0f2f5;
-    font-weight: 500;
-}
-
 .zanju-crt-series-shields {
     display: flex;
     align-items: center;
@@ -351,16 +346,6 @@ html[lang=th] body {
    stays at the right edge. */
 .zanju-crt-series-grow {
     flex: 1 0 auto;
-}
-
-.zanju-crt-avail-active {
-    color: #f0f2f5;
-    font-weight: 500;
-}
-
-/* Another series is active, and the client refuses a start or a restart until it ends. */
-.zanju-crt-avail-blocked {
-    color: #7d848b;
 }
 
 .zanju-crt-avail-label {

@@ -28,8 +28,8 @@ panel then shows the conditions with no progress, and only a time limit still co
 reconnect is an entry into an arena that this vehicle first entered more than 30 s before (see
 battle_record).
 
-The session also logs what the client itself knows about the Crucible at the start of a battle,
-so that the log can show whether the client drops the active series in battle, as its code says.
+At the end of a battle, the session logs the figure of each condition and the totals, to compare
+with the result of the mission.
 
 Every client import stays inside a function, so this module is importable outside the game.
 """
@@ -413,20 +413,6 @@ def _read_transport(account, logger):
     return transport.load(account, logger), 'file'
 
 
-def _log_client_view(active, logger):
-    """What the client itself knows about the Crucible now, beside what the transport says."""
-    try:
-        from helpers import dependency
-        from skeletons.gui.challenges import IChallengesController
-        controller = dependency.instance(IChallengesController)
-        progress_now = controller.getChallengeProgress(active.get('id'))
-        client = 'active ID %s, progress %s' % (controller.activeChallengeID, progress_now)
-    except Exception as error:
-        client = 'unreadable (%s)' % error
-    logger.info('Crucible in battle: the transport has series %s, mission %s of %s, %s shields; the client has %s',
-                active.get('id'), active.get('stage'), active.get('total'), active.get('shields'), client)
-
-
 def _start(logger):
     """Open the panel for this battle when it counts for the mission. Returns the session or None."""
     if not config.battle_enabled():
@@ -442,8 +428,6 @@ def _start(logger):
     account = _account_dbid()
     data, source = _read_transport(account, logger)
     active = (data or {}).get('active')
-    if active:
-        _log_client_view(active, logger)
     player = BigWorld.player()
     arena = getattr(player, 'arena', None)
     provider = dependency.instance(IBattleSessionProvider)

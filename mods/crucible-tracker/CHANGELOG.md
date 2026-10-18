@@ -1,7 +1,7 @@
 Changelog
 =========
 
-## 1.0.0 (unreleased)
+## 1.0.0 (18 October 2026)
 
 - Initial release of the mod.
 - The garage banner and its hover card, in the banner row shared with Campaign Tracker. The banner counts down to the end of the active series, or to the first end of a series that is not completed, in the format of Premium Time. With no active series, it counts those series as free / silver / gold restarts, and shows a green check once every series is completed.

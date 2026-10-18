@@ -39,7 +39,6 @@ AVAILABLE_PAID_RESTART = 'paidRestart'
 # label under #user_missions:hub/challenge_missions/complexity/. The client sorts the hardest
 # first, and so does the card.
 DIFFICULTIES = {1: 'hard', 2: 'medium', 3: 'easy'}
-DIFFICULTY_ORDER = ('hard', 'medium', 'easy')
 
 # The result keys that the battle panel counts while the battle runs, each from a client event
 # (see battle_session). The client has no figure for a key outside this set until the battle
@@ -572,11 +571,8 @@ def build_snapshot(enabled, series_raw, mission, vehicle_level, in_battle=None, 
     """
     series = [series_entry(raw) for raw in series_raw]
     soonest = nearest_end(series)
-    has_active = any(entry['state'] == STATE_ACTIVE for entry in series)
     for entry in series:
         entry['availability'] = availability(entry)
-        # The client disables Activate and Restart on every other series while one is active.
-        entry['blocked'] = has_active and entry['state'] != STATE_ACTIVE
         # The countdown the banner shows. Two series can end at the same time, and then both are.
         entry['soonest'] = bool(soonest) and entry['endTime'] == soonest and entry['state'] != STATE_COMPLETED
     active = None
@@ -595,7 +591,6 @@ def build_snapshot(enabled, series_raw, mission, vehicle_level, in_battle=None, 
         'active': active,
         'series': series,
         # The client's own rule for its Crucible banner: a series is open until it is completed.
-        'openCount': len([entry for entry in series if entry['state'] != STATE_COMPLETED]),
         'nearestEnd': soonest,
         # What the banner counts with no active series, and whether nothing is left to play.
         'soonestSet': soonest_set(series, soonest),

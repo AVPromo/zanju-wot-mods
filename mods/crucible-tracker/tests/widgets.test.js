@@ -141,7 +141,6 @@ const LABELS = {
     failed: 'Failed',
     hintOpen: 'Click to open the Crucible',
     header: 'CRUCIBLE',
-    active: 'ACTIVE',
     completed: 'Completed',
     or: 'OR',
     vehicleRestriction: 'Vehicle of Tier VI or higher required',
@@ -170,7 +169,6 @@ function series(overrides) {
         restartCostText: '200',
         freeRestarts: 0,
         availability: 'start',
-        blocked: false,
         soonest: false,
     }, overrides);
 }
@@ -183,7 +181,7 @@ function inSeconds(seconds) {
 
 function snapshot(overrides) {
     return Object.assign({
-        enabled: true, active: null, series: [series({})], openCount: 1, labels: LABELS,
+        enabled: true, active: null, series: [series({})], labels: LABELS,
         soonestSet: { free: 1, paid: [] }, allCompleted: false,
         nearestEnd: inSeconds(5 * 86400 + 3 * 3600 + 1800), timeOffset: 0,
         vehicleFits: true, inBattle: [],
@@ -232,7 +230,7 @@ test('vehicles in battle show as crossed swords and a count', () => {
 });
 
 test('with no active series, the banner counts the series that end first and keeps its colour', () => {
-    const data = snapshot({ openCount: 5, soonestSet: { free: 2, paid: [] } });
+    const data = snapshot({ soonestSet: { free: 2, paid: [] } });
     const model = banner.bannerModel(data);
     assert.deepEqual(model, {
         idle: false, shields: null, value: '', groups: [{ count: 2, currency: '' }], done: false,
@@ -427,15 +425,6 @@ test('a completed series offers nothing', () => {
     assert.equal(card.buildAvailability(series({ availability: 'none' }), LABELS).textContent, '');
 });
 
-test('while another series is active, a start is grey', () => {
-    const node = card.buildAvailability(series({ blocked: true }), LABELS);
-    assert.equal(node.className.includes('zanju-crt-avail-blocked'), true);
-});
-
-test('the active series says it is active', () => {
-    assert.equal(card.buildAvailability(series({ availability: 'active' }), LABELS).textContent, LABELS.active);
-});
-
 test('with an active series, the card shows that series alone: name, time, shields and missions', () => {
     const node = document.createElement('div');
     card.renderCard(node, snapshot({ active: activeSeries({}), series: [activeSeries({}), series({ id: 2 })] }));
@@ -576,7 +565,6 @@ test('a condition shows its text alone, whether or not the panel counts it', () 
     const node = document.createElement('div');
     card.renderCard(node, snapshot({ active: activeSeries({}) }));
     assert.equal(node.querySelectorAll('.zanju-crt-cond').length, 2);
-    assert.equal(node.querySelectorAll('.zanju-crt-cond-note').length, 0);
 });
 
 test('a choice of sets draws one or separator between the sets, not between their conditions', () => {

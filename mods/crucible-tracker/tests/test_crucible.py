@@ -248,16 +248,11 @@ class SnapshotTest(unittest.TestCase):
         found = [entry['availability'] for entry in crucible.build_snapshot(True, series, None, 8)['series']]
         self.assertEqual(found, ['start', 'freeRestart', 'paidRestart', 'none'])
 
-    def test_an_active_series_blocks_every_other(self):
+    def test_the_active_series_says_so_and_its_end_is_the_countdown(self):
         series = [_raw(id=1), _raw(id=2, isActive=False)]
         snapshot = crucible.build_snapshot(True, series, None, 8)
         self.assertEqual([entry['availability'] for entry in snapshot['series']], ['active', 'start'])
-        self.assertEqual([entry['blocked'] for entry in snapshot['series']], [False, True])
         self.assertTrue(snapshot['active']['soonest'])
-
-    def test_with_no_active_series_nothing_is_blocked(self):
-        snapshot = crucible.build_snapshot(True, [_raw(isActive=False)], None, 8)
-        self.assertFalse(snapshot['series'][0]['blocked'])
 
     def test_every_series_that_ends_first_is_marked_soonest(self):
         series = [
@@ -352,14 +347,6 @@ class SnapshotTest(unittest.TestCase):
     def test_no_active_series_means_no_active_entry(self):
         snapshot = crucible.build_snapshot(True, [_raw(isActive=False)], None, 8)
         self.assertIsNone(snapshot['active'])
-
-    def test_a_completed_series_is_not_open(self):
-        series = [
-            _raw(id=1, isActive=False, progress={'attempts': 3, 'quests': 1, 'wins': 2}),
-            _raw(id=2, isActive=False, progress={'attempts': 0, 'quests': 2, 'wins': 0}),
-            _raw(id=3, isActive=False, progress={}),
-        ]
-        self.assertEqual(crucible.build_snapshot(True, series, None, 8)['openCount'], 2)
 
     def test_the_rows_take_the_client_text_and_the_live_flag_by_position(self):
         packed = [{'titleData': 'Damage', 'descrData': 'Cause 3,500 HP of damage', 'iconKey': 'hurt_vehicles'},

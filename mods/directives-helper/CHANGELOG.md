@@ -1,7 +1,7 @@
 Changelog
 =========
 
-## 1.1.0 (unreleased)
+## 1.1.0 (18 October 2026)
 
 - The window no longer takes one of the game's own garage views, so it can no longer block another mod, or be blocked by one. It has a view of its own in the random garage and in the garage of each battle mode.
 - The garage of a mode that is new to the mod still gets the window in the old way, until the mod knows that garage.

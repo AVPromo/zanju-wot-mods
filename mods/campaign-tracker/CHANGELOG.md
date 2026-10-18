@@ -1,7 +1,7 @@
 Changelog
 =========
 
-## 1.3.0 (unreleased)
+## 1.3.0 (18 October 2026)
 
 - New setting: the banners can stand on the left or the right side of the vehicle name.
 - The banners now share their row with the banner of the new Crucible Tracker, on the same side.

@@ -38,15 +38,12 @@ _DATA_PROPERTY = 'zanjuCrtWidgets'
 # Far above the client's resource IDs, which were near 136,000 on 2.4.0.2. Each of our mods has
 # its own ID, listed in docs/reference/gameface-mod-widgets.md.
 _POS_ID = 0x5A435254
-# The key of the one banner this mod draws. The card window keys its state on it.
-_BANNER_KEY = 'crucible'
 
 # Client strings this mod reads instead of shipping its own, so every language the client ships
 # gets the client's own words. Written as the keys themselves, because the key is the half worth
 # reading here.
 _CLIENT_KEYS = {
     'header': '#user_missions:hub/challenge_missions/header',
-    'active': '#user_missions:hub/challenge_missions/missionsActive',
     # Beside a mission of the active series that the player completed.
     'completed': '#user_missions:hub/challenge_missions/missionsCompleted',
     'or': '#user_missions:hub/challenge_missions/card/or',
