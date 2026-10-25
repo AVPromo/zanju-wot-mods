@@ -31,19 +31,40 @@ class ConfigTest(unittest.TestCase):
     def test_an_unknown_side_or_key_is_dropped(self):
         self.assertEqual(config.sanitize({'traySide': 'up', 'other': 1}), {})
 
+    def test_the_panel_shows_its_full_information_always_by_default(self):
+        self.assertEqual(config.panel_details(), 'always')
+
+    def test_an_unknown_panel_details_value_is_dropped(self):
+        self.assertEqual(config.sanitize({'panelDetails': 'sometimes'}), {})
+        self.assertEqual(config.sanitize({'panelDetails': 'alt'}), {'panelDetails': 'alt'})
+
     def test_the_menu_form_maps_both_ways(self):
-        config.apply({'traySide': 'left', 'battleEnabled': False})
+        config.apply({'traySide': 'left', 'battleEnabled': False, 'panelDetails': 'never'})
         values = config.menu_values()
         self.assertEqual(values['traySide'], 1)
+        self.assertEqual(values['panelDetails'], 2)
         self.assertFalse(values['battleEnabled'])
         menu_keys = dict((key, value) for key, value in config.sanitize(config.current()).items()
                          if key != 'panelPosition')
         self.assertEqual(config.from_menu(values), menu_keys)
 
     def test_the_template_carries_the_defaults(self):
-        config.apply({'traySide': 'left', 'garageEnabled': False})
-        controls = dict((control['varName'], control['value']) for control in config.menu_template()['column1'])
-        self.assertEqual(controls, {'garageEnabled': True, 'battleEnabled': True, 'traySide': 0})
+        config.apply({'traySide': 'left', 'garageEnabled': False, 'panelDetails': 'alt'})
+        template = config.menu_template()
+        controls = dict((control['varName'], control['value'])
+                        for column in ('column1', 'column2') for control in template[column])
+        self.assertEqual(controls, {'garageEnabled': True, 'battleEnabled': True, 'panelDetails': 0, 'traySide': 0})
+
+    def test_the_garage_and_the_battle_each_have_a_column_under_their_switch(self):
+        template = config.menu_template()
+        self.assertEqual([control['varName'] for control in template['column1']], ['garageEnabled', 'traySide'])
+        self.assertEqual([control['varName'] for control in template['column2']], ['battleEnabled', 'panelDetails'])
+
+    def test_the_details_choices_carry_the_labels_of_the_client(self):
+        control = [c for c in config.menu_template()['column2'] if c['varName'] == 'panelDetails'][0]
+        # Outside the client, the English text of the client's own setting stands in.
+        self.assertEqual([option['label'] for option in control['options']],
+                         ['Display always', 'Press Alt to display', 'Do not display'])
 
     def test_the_panel_has_no_saved_position_by_default(self):
         self.assertIsNone(config.panel_position())

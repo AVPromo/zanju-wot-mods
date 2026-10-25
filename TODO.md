@@ -79,7 +79,7 @@ insufficient for that flow or fixing the wrong thing.
   release should not carry its timer and log stream idling. **Arm it before attempting a
   reproduction**, or the steps above produce nothing at all. Arming needs no code change:
 
-      %APPDATA%\zanju_wot_mods_cache\research-progress-bar\probe.on
+      %APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\research-progress-bar\probe.on
 
   Create that file (empty — only its existence is read), restart the client, and `Loadout bar
   probe armed by probe.on` appears in `game.log`. Delete it to disarm. The build stays
@@ -163,5 +163,3 @@ Rule 5 is the one that hides the bar in Onslaught. It also hides it in Frontline
 - Then settle the rule itself. **Decide this first, it is not obvious.** One option matches a trailing `hangar` segment the way the tracker does, then subtracts Onslaught by name, because the reason to hide there is the shape of that mode's UI. The other gates on the battle mode.
 - Do not copy the tracker's mode gate. It answers "random battles alone". Ranked earns vehicle XP and must keep the bar.
 
-- MOVE OUR CACHE TO AppData\Roaming\Wargaming.net\WorldOfTanks\mods\Zanju\ if there is no cache there yet, read the old cache path first so that old caches migrate seamlesly.
-- allow mod acronym in the commands, eg. "zwm cycle crt pt --fresh-log"

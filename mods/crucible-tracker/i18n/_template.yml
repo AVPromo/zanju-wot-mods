@@ -5,46 +5,33 @@
 # in the `# en:` comment above it. Keys left empty ("") simply fall back to English in-game,
 # so partial translations are fine.
 
-# Time left, as in Premium Time: "3d 05h", "2h 11m", "5m 12s". Keep each unit to one or two letters.
-# en: "d"
-UNIT_DAY_SHORT: ""
-# en: "h"
-UNIT_HOUR_SHORT: ""
-# en: "m"
-UNIT_MINUTE_SHORT: ""
-# en: "s"
-UNIT_SECOND_SHORT: ""
-
 # Hover card
-# en: "No active series"
+# en: "No active Crucible"
 LABEL_NO_ACTIVE: ""
-# {stage} is the number of the current mission, {total} the number of missions in the series.
+# {stage} is the number of the current mission, {total} the number of missions in the Crucible.
 # en: "Mission {stage} of {total}"
 LABEL_MISSION: ""
-# Above the conditions of one mission in the list of the active series. {stage} is the number of the mission.
+# Above the conditions of one mission in the list of the active Crucible. {stage} is the number of the mission.
 # en: "Mission {stage}"
 LABEL_MISSION_NUMBER: ""
-# {done} is how many times the player completed the series, {allowed} how many times the series allows.
+# {done} is how many times the player completed the Crucible, {allowed} how many times the Crucible allows.
 # en: "Completions: {done} / {allowed}"
 LABEL_COMPLETIONS: ""
-# The series can be started.
+# The Crucible can be started.
 # en: "Available"
 LABEL_AVAILABLE: ""
-# The series ran out of shields, and the next restart costs nothing.
+# The Crucible ran out of shields, and the next restart costs nothing.
 # en: "Free restart available"
 LABEL_FREE_RESTART: ""
-# The series ran out of shields. The price and the currency icon follow this text.
+# The Crucible ran out of shields. The price and the currency icon follow this text.
 # en: "Restart available for:"
 LABEL_RESTART_FOR: ""
 # Above a list of vehicle names, one per line.
 # en: "Vehicles in battle:"
 LABEL_IN_BATTLE: ""
-# A vehicle that can play the Crucible is in a battle that has not ended yet.
-# en: "A series that you start now completes or fails with the result of a battle that is still in progress."
+# A vehicle that can play the Crucible is in a battle that has not ended yet. The same text shows with a Crucible active and with none active.
+# en: "The result of a battle that is still in progress completes or fails the current mission if a Crucible is active when the battle ends."
 LABEL_IN_BATTLE_WARNING: ""
-# The same warning while a series is active.
-# en: "The current mission completes or fails with the result of a battle that is still in progress."
-LABEL_IN_BATTLE_ACTIVE: ""
 # The last line of the hover card.
 # en: "Click to open the Crucible"
 LABEL_HINT_OPEN: ""
@@ -58,12 +45,8 @@ TOOLTIP_GARAGE_BODY: ""
 SETTING_BATTLE: ""
 # en: "Show the progress of the current Crucible mission in battle. Hold Ctrl and drag the panel to move it."
 TOOLTIP_BATTLE_BODY: ""
-# en: "Banner position"
-SETTING_TRAY_SIDE: ""
-# en: "Right of the vehicle name"
-SETTING_TRAY_SIDE_RIGHT: ""
-# en: "Left of the vehicle name"
-SETTING_TRAY_SIDE_LEFT: ""
-# The banners of other Zanju mods, such as Campaign Tracker, share the row on the same side.
-# en: "The side of the vehicle name where the banner stands. Banners of other Zanju mods on the same side share the row with it."
-TOOLTIP_TRAY_SIDE_BODY: ""
+# The three choices come from the client's own setting for the details of the damage log: "Display always", "Press Alt to display", "Do not display".
+# en: "Battle panel details"
+SETTING_PANEL_DETAILS: ""
+# en: "When the battle panel shows the full information instead of the essential only."
+TOOLTIP_PANEL_DETAILS_BODY: ""

@@ -111,10 +111,12 @@
     display: none;
 }
 
+/* The image is 32 pixels. At 16rem, a 1920 wide screen draws it at exactly half that. At 14rem it
+   shrank by more than half, and the lines of the image broke up. */
 .zanju-crt-shields-icon {
     display: block;
-    width: 14rem;
-    height: 14rem;
+    width: 16rem;
+    height: 16rem;
     margin-right: 3rem;
     background-repeat: no-repeat;
     background-position: center;
@@ -138,7 +140,7 @@
 }
 
 /* The current mission out of all missions, or the count of the series that end first: "free /
-   silver / gold", each price group with its currency icon. widgets.js lowers the size of a long
+   credits / gold", each price group with its currency icon. widgets.js lowers the size of a long
    count so it fits. */
 .zanju-crt-value {
     display: flex;

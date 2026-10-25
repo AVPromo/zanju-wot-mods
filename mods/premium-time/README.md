@@ -11,7 +11,7 @@ The game's own Premium Account header button only shows a day count — `1 d` te
 
 ## Translations
 
-Reference language `en` defines 5 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+Reference language `en` defines 5 strings, 4 of them in the [shared strings](../../mods-common/i18n/). Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
 
 | Language | Coverage | Missing |
 | --- | --- | --- |

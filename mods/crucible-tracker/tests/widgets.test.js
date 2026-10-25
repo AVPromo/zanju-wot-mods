@@ -132,8 +132,7 @@ const LABELS = {
     freeRestart: 'Free restart available',
     restartFor: 'Restart available for:',
     inBattle: 'Vehicles in battle:',
-    inBattleWarning: 'A series that you start now completes or fails with the result of a battle that is still in progress.',
-    inBattleActive: 'The current mission completes or fails with the result of a battle that is still in progress.',
+    inBattleWarning: 'The result of a battle that is still in progress completes or fails the current mission if a Crucible is active when the battle ends.',
     dayUnit: 'd',
     hourUnit: 'h',
     minuteUnit: 'm',
@@ -238,7 +237,7 @@ test('with no active series, the banner counts the series that end first and kee
     });
 });
 
-test('the count reads free, then silver, then gold, and leaves a group of 0 out', () => {
+test('the count reads free, then credits, then gold, and leaves a group of 0 out', () => {
     const paid = [{ currency: 'credits', count: 1 }, { currency: 'gold', count: 0 }];
     assert.deepEqual(banner.soonestGroups(snapshot({ soonestSet: { free: 2, paid: paid } })),
         [{ count: 2, currency: '' }, { count: 1, currency: 'credits' }]);
@@ -608,10 +607,10 @@ test('vehicles in battle bring a list of their names, headed by the warning', ()
     assert.equal(node.querySelectorAll('.zanju-crt-battles-icon').length, 2);
 });
 
-test('with an active series, the battle warning speaks of the current mission', () => {
+test('with an active series, the battle warning is the same', () => {
     const node = document.createElement('div');
     card.renderCard(node, snapshot({ active: activeSeries({}), inBattle: ['IS-3A'] }));
-    assert.equal(node.querySelector('.zanju-crt-battles-warning').textContent, LABELS.inBattleActive);
+    assert.equal(node.querySelector('.zanju-crt-battles-warning').textContent, LABELS.inBattleWarning);
     assert.equal(node.querySelectorAll('.zanju-crt-battles-name').length, 1);
 });
 
@@ -648,7 +647,7 @@ function panelPayload(overrides) {
         lang: 'en',
         labels: { mission: LABELS.mission, or: LABELS.or },
         timeOffset: 0,
-        series: { name: 'Spark', stage: 1, total: 3, shields: 4 },
+        series: { name: 'Spark', stage: 1, total: 3, shields: 3, shieldsLimit: 4 },
         group: 'and',
         rows: [{ text: 'Cause 2,500 HP of damage within the first 5 minutes of battle', icon: 'hurt_vehicles',
             set: 0, live: true, state: 'open', ratio: 0.5, valueText: '1,250', targetText: '2,500',
@@ -657,10 +656,10 @@ function panelPayload(overrides) {
     }, overrides);
 }
 
-test('the panel heads with the shields, the series and the mission', () => {
+test('the panel heads with the shields left out of all, the series and the mission', () => {
     const node = document.createElement('div');
     battle.renderPanel(node, panelPayload({}));
-    assert.equal(node.querySelector('.zanju-crt-panel-shields').textContent, '4');
+    assert.equal(node.querySelector('.zanju-crt-panel-shields').textContent, '3/4');
     assert.equal(node.querySelector('.zanju-crt-panel-name').textContent, 'Spark');
     assert.equal(node.querySelector('.zanju-crt-panel-stage').textContent, 'Mission 1 of 3');
 });
@@ -680,6 +679,44 @@ test('a rule of a condition stands above its figures, and turns red once broken'
         state: 'closed', rules: [{ key: 'noAllyHits', broken: true }] })] }));
     assert.equal(broken.querySelector('.zanju-crt-prow-rule').className,
         'zanju-crt-prow-rule zanju-crt-prow-rule-broken');
+});
+
+test('a payload without the number of all shields shows the shields left alone', () => {
+    const node = document.createElement('div');
+    battle.renderPanel(node, panelPayload({ series: { name: 'Spark', stage: 1, total: 3, shields: 3 } }));
+    assert.equal(node.querySelector('.zanju-crt-panel-shields').textContent, '3');
+});
+
+test('without the full information, a counted condition shows its icon, bar and figures on one line', () => {
+    const node = document.createElement('div');
+    battle.renderPanel(node, panelPayload({ full: false }));
+    assert.equal(node.querySelector('.zanju-crt-panel-head'), null);
+    assert.equal(node.querySelector('.zanju-crt-prow-text'), null);
+    const meter = node.querySelector('.zanju-crt-prow-meter');
+    assert.equal(meter.className, 'zanju-crt-prow-meter zanju-crt-prow-meter-bare');
+    assert.deepEqual(meter.children.map((child) => child.className),
+        ['zanju-crt-prow-icon', 'zanju-crt-prow-bar', 'zanju-crt-prow-figures', 'zanju-crt-prow-clock']);
+    assert.equal(node.querySelector('.zanju-crt-prow-figures').textContent, '1,250 / 2,500');
+});
+
+test('without the full information, a condition with nothing to count keeps its text, and the sets their OR', () => {
+    const counted = { text: 'Cause 3,000 HP of damage', icon: 'hurt_vehicles', set: 0, live: true, state: 'open',
+        ratio: 0.1, valueText: '300', targetText: '3,000' };
+    const top = { text: 'Be among the top 5 players of the team by damage', icon: 'top', set: 1, live: false };
+    const node = document.createElement('div');
+    battle.renderPanel(node, panelPayload({ full: false, group: 'or', rows: [counted, top] }));
+    const list = node.querySelector('.zanju-crt-panel-rows');
+    assert.deepEqual(list.children.map((child) => child.className),
+        ['zanju-crt-prow', 'zanju-crt-panel-or', 'zanju-crt-prow']);
+    assert.deepEqual(node.querySelectorAll('.zanju-crt-prow-text').map((n) => n.textContent), [top.text]);
+});
+
+test('without the full information, the rule of an award stays out', () => {
+    const row = { text: 'Earn the High Caliber award', live: true, state: 'open', ratio: 0.2, valueText: '800',
+        targetText: '4,000', rules: [{ key: 'noAllyHits', broken: false }] };
+    const node = document.createElement('div');
+    battle.renderPanel(node, panelPayload({ full: false, labels: { noAllyHits: 'No ally hits.' }, rows: [row] }));
+    assert.equal(node.querySelector('.zanju-crt-prow-rule'), null);
 });
 
 test('a payload with no shield count shows no shield', () => {

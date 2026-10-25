@@ -73,7 +73,7 @@ In this repository:
 - authored Python sources live under `mods/<mod-name>/src/`
 - `zwm build` compiles them into the runtime package shape
 - config is not shipped: each mod self-creates its config in AppData on first run, so it survives modpack reinstalls
-- authored `i18n/*.yml` files are bundled inside the `.wotmod` at `res/mods/<meta.id>/text/*.yml` (the single localisation destination — no loose config copies); the runtime reads them from the mounted package VFS via `ResMgr` at `mods/<meta.id>/text/<lang>.yml`
+- authored `i18n/*.yml` files are bundled inside the `.wotmod` at `res/mods/<meta.id>/text/*.yml` (the single localisation destination — no loose config copies); the runtime reads them from the mounted package VFS via `ResMgr` at `mods/<meta.id>/text/<lang>.yml`. The build adds the shared keys that a mod uses, from `mods-common/i18n/<lang>.yml`, to the end of those files (see [Shared Modules](#shared-modules))
 - `ui/compile_ui.py` is auto-run by `zwm build` when present
 - runtime modules that several mods share live in `mods-common/`, and `zwm build` compiles each one into the package of every mod that takes it (see [Shared Modules](#shared-modules))
 
@@ -88,11 +88,13 @@ Some runtime modules are the same in several mods. Each of them has one authored
 - Python: a relative import that reaches the root of the mod's package and names a shared module, such as `from .. import hangar_child` in a subpackage, or `from .localization import get_text` at the root. An absolute import through the package name counts too.
 - Gameface: `import ... from './<name>.js'` or `import './<name>.js'` in a script of the mod's Gameface folder.
 
+**Strings can be shared too.** `mods-common/i18n/` has the strings that several mods use, such as the units of a time left, in the layout of the `i18n/` folder of a mod. A mod takes a shared key when its code, or a shared module that it takes, uses the key (`tools/core/i18n_audit.py`). `zwm build` adds the lines of those keys to the end of each language file of the mod in the package, under a `# Shared strings` comment. A language that the mod does not have gets a file with the shared lines only. The game merges the English file under it, so the other strings of the mod stay in English. The coverage table of a mod counts the shared keys that it takes. Thus a translation in `mods-common/i18n/` shows in the table of each mod that uses it. A key is in the `en.yml` of a mod or in the shared one, never in both. `zwm lint` stops when a key is in both, or when no mod uses a shared key.
+
 The shared files import each other too, so a mod also takes what its shared files import. `countdown.js` imports `helpers.js`, so a mod that imports only `countdown.js` gets both. Only these static forms count. A shared module that a mod loads with `__import__` and a string, or with a dynamic `import()`, does not ship.
 
 Before this rule, `mods-common/manifest.json` listed the mods of each file, apart from the code. Nothing checked that it matched the imports: a mod could import a shared script that the list did not give it, pass the build and its tests, and fail in the game. On 16 October 2026 the imports gave the same sets as the list for all six mods, and the list was deleted.
 
-`zwm shared` prints which mods take each shared file, and `zwm shared <mod>` what one mod takes. The shared scripts on 16 October 2026:
+`zwm shared` prints which mods take each shared file and each shared string, and `zwm shared <mod>` what one mod takes. The shared scripts on 16 October 2026:
 
 | Script | What it holds |
 | --- | --- |

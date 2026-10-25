@@ -173,7 +173,6 @@ def _labels():
         'restartFor': _loc('LABEL_RESTART_FOR'),
         'inBattle': _loc('LABEL_IN_BATTLE'),
         'inBattleWarning': _loc('LABEL_IN_BATTLE_WARNING'),
-        'inBattleActive': _loc('LABEL_IN_BATTLE_ACTIVE'),
         'hintOpen': _loc('LABEL_HINT_OPEN'),
         # The units of the countdown, the same keys and the same words as premium-time.
         'dayUnit': _loc('UNIT_DAY_SHORT'),

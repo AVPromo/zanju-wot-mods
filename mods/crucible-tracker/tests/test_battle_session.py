@@ -271,7 +271,7 @@ class BattleSessionTest(unittest.TestCase):
         session = self._open(_Client())
         self.assertIsNotNone(session)
         payload = _Panel.instances[0].payloads[-1]
-        self.assertEqual(payload['series'], {'name': 'Spark', 'stage': 1, 'total': 3, 'shields': 4})
+        self.assertEqual(payload['series'], {'name': 'Spark', 'stage': 1, 'total': 3, 'shields': 4, 'shieldsLimit': 4})
         self.assertEqual(payload['labels']['or'], 'OR')
         row = payload['rows'][0]
         self.assertEqual((row['live'], row['valueText'], row['targetText']), (True, '0', '2,500'))

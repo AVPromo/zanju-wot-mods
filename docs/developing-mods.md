@@ -34,6 +34,7 @@ so it is ready in the terminal immediately:
 zwm build research-progress-bar
 zwm lint
 zwm cycle research-progress-bar    # cleanup + build + deploy
+zwm cycle crt pt --fresh-log       # the same, by release acronym, with a fresh game.log
 zwm deploy research-progress-bar
 zwm cleanup research-progress-bar
 zwm help                           # list commands
@@ -45,7 +46,9 @@ Without VS Code, run any command via plain `docker run` — see the standalone
 reference in [Building From Source](building-from-source.md#standalone-docker-run-no-vs-code).
 
 For mod-targeting commands, pass one or more mod names explicitly; use `--all` only
-when you really want every mod. `zwm deploy` expects current build output in
+when you really want every mod. A mod can be named by its folder name or by its release acronym,
+in any case: `crt` is `crucible-tracker`. The acronyms are those of the release tags, from
+`.github/scripts/release_lib.py`, and `zwm build` with no names lists them. `zwm deploy` expects current build output in
 `dist/`. **Close WoT before `zwm cleanup`, `zwm deploy`, and `zwm cycle`** —
 there is no automatic running-process check (the container can't see the Windows host);
 in-use files are simply skipped.

@@ -5,6 +5,9 @@
 - `battleEnabled` shows the panel in battle.
 - `traySide` puts the banner on the left or the right side of the vehicle name, in the shared
   banner tray that campaign-tracker uses too. See tray.js.
+- `panelDetails` is when the battle panel shows its full information: always, while the key of
+  the extended vehicle markers is held (Alt by default), or never. Without it, the panel shows
+  only the icon, the bar and the figures of each condition. See gameface/battle_panel.py.
 - `panelPosition` is where the player last dragged the battle panel to, or None for the default
   place. Mod Menu does not show it.
 
@@ -21,6 +24,7 @@ import os
 from . import mod_menu
 from .constants import MOD_CONFIG_DIR_NAME, MOD_NAME
 from .localization import get_text as _loc
+from .localization import get_wg_text
 from .localization import make_tooltip as _loc_tooltip
 from .storage import atomic_write_text, resolve_mod_data_dir
 
@@ -28,6 +32,18 @@ SIDE_RIGHT = 'right'
 SIDE_LEFT = 'left'
 # The order of the sides in the menu. The menu stores the index, the file stores the name.
 _SIDES = (SIDE_RIGHT, SIDE_LEFT)
+DETAILS_ALWAYS = 'always'
+DETAILS_ALT = 'alt'
+DETAILS_NEVER = 'never'
+# The order in the menu, the same as the client's own setting for the details of the damage log.
+_DETAILS = (DETAILS_ALWAYS, DETAILS_ALT, DETAILS_NEVER)
+# The labels of that setting of the client, in the language of the client. The English text is
+# there only for a client that lost the keys.
+_DETAILS_LABELS = (
+    ('#settings:feedback/tab/damageLogPanel/details/always', 'Display always'),
+    ('#settings:feedback/tab/damageLogPanel/details/byAlt', 'Press Alt to display'),
+    ('#settings:feedback/tab/damageLogPanel/details/hide', 'Do not display'),
+)
 _FLAGS = ('enabled', 'garageEnabled', 'battleEnabled')
 
 _FILE_NAME = 'config.json'
@@ -38,6 +54,7 @@ DEFAULTS = {
     'garageEnabled': True,
     'battleEnabled': True,
     'traySide': SIDE_RIGHT,
+    'panelDetails': DETAILS_ALWAYS,
     'panelPosition': None,
 }
 
@@ -62,6 +79,10 @@ def battle_enabled():
 
 def tray_side():
     return _state['traySide']
+
+
+def panel_details():
+    return _state['panelDetails']
 
 
 def panel_position():
@@ -100,6 +121,8 @@ def sanitize(values):
             clean[key] = bool(values[key])
     if 'traySide' in values and values['traySide'] in _SIDES:
         clean['traySide'] = values['traySide']
+    if 'panelDetails' in values and values['panelDetails'] in _DETAILS:
+        clean['panelDetails'] = values['panelDetails']
     if 'panelPosition' in values:
         # None, or anything that is not a valid position, puts the panel back in its default place.
         clean['panelPosition'] = _sanitize_position(values['panelPosition'])
@@ -165,17 +188,19 @@ def menu_values(state=None):
     state = _state if state is None else state
     values = dict((key, bool(state[key])) for key in _FLAGS)
     values['traySide'] = _SIDES.index(state['traySide']) if state['traySide'] in _SIDES else 0
+    values['panelDetails'] = _DETAILS.index(state['panelDetails']) if state['panelDetails'] in _DETAILS else 0
     return values
 
 
 def from_menu(settings):
     """The config form of what the menu sent. Keys the menu did not send stay out."""
     changes = dict((key, bool(settings[key])) for key in _FLAGS if key in settings)
-    if 'traySide' in settings:
-        try:
-            changes['traySide'] = _SIDES[int(settings['traySide'])]
-        except (TypeError, ValueError, IndexError):
-            pass
+    for key, names in (('traySide', _SIDES), ('panelDetails', _DETAILS)):
+        if key in settings:
+            try:
+                changes[key] = names[int(settings[key])]
+            except (TypeError, ValueError, IndexError):
+                pass
     return changes
 
 
@@ -183,6 +208,7 @@ def menu_template():
     # Built from the defaults, never from the current values: the per-mod Reset of the menu
     # restores what the template says.
     values = menu_values(DEFAULTS)
+    # The garage in the left column, the battle in the right one, each under its own switch.
     return {
         'modDisplayName': MOD_NAME,
         'enabled': values['enabled'],
@@ -195,13 +221,6 @@ def menu_template():
                 'varName': 'garageEnabled',
             },
             {
-                'type': 'CheckBox',
-                'text': _loc('SETTING_BATTLE'),
-                'tooltip': _loc_tooltip('SETTING_BATTLE', 'TOOLTIP_BATTLE_BODY'),
-                'value': values['battleEnabled'],
-                'varName': 'battleEnabled',
-            },
-            {
                 'type': 'RadioButtonGroup',
                 'text': _loc('SETTING_TRAY_SIDE'),
                 'tooltip': _loc_tooltip('SETTING_TRAY_SIDE', 'TOOLTIP_TRAY_SIDE_BODY'),
@@ -211,6 +230,23 @@ def menu_template():
                 ],
                 'value': values['traySide'],
                 'varName': 'traySide',
+            },
+        ],
+        'column2': [
+            {
+                'type': 'CheckBox',
+                'text': _loc('SETTING_BATTLE'),
+                'tooltip': _loc_tooltip('SETTING_BATTLE', 'TOOLTIP_BATTLE_BODY'),
+                'value': values['battleEnabled'],
+                'varName': 'battleEnabled',
+            },
+            {
+                'type': 'RadioButtonGroup',
+                'text': _loc('SETTING_PANEL_DETAILS'),
+                'tooltip': _loc_tooltip('SETTING_PANEL_DETAILS', 'TOOLTIP_PANEL_DETAILS_BODY'),
+                'options': [{'label': get_wg_text(key, default)} for key, default in _DETAILS_LABELS],
+                'value': values['panelDetails'],
+                'varName': 'panelDetails',
             },
         ],
     }

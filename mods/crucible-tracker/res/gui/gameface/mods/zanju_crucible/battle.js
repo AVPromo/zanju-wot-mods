@@ -3,6 +3,11 @@
 // Python sends the whole panel as one payload (see battle_session.py): the series, the client
 // text of each condition, and for each condition that the panel can count, the figures, the
 // state and the time limit. This module only draws it. battle_panel.js runs the window.
+//
+// The payload says if the panel shows its full information (see show_full in battle_panel.py).
+// Without it, the panel has no head, and a condition that the panel counts shows its icon, bar
+// and figures on one line, with no text. A condition with nothing to count keeps its text, the
+// only thing it has to show.
 
 import { SHIELD_IMAGE, clientImage, conditionImage, el, fill, serverNow, startsSet } from './common.js';
 
@@ -34,10 +39,13 @@ function buildHead(payload) {
     const series = payload.series || {};
     const labels = payload.labels || {};
     const head = el('div', 'zanju-crt-panel-head' + (payload.done ? ' zanju-crt-panel-done' : ''));
-    // A payload with no shield count shows no shield, rather than an empty or a wrong count.
+    // A payload with no shield count shows no shield, rather than an empty or a wrong count. The
+    // shields left stand out of all shields, as on the garage banner. A payload without the number
+    // of all shields shows the shields left alone.
     if (typeof series.shields === 'number') {
+        const limit = series.shieldsLimit > 0 ? '/' + String(series.shieldsLimit) : '';
         head.appendChild(icon('zanju-crt-panel-shield', SHIELD_IMAGE));
-        head.appendChild(el('div', 'zanju-crt-panel-shields', String(series.shields)));
+        head.appendChild(el('div', 'zanju-crt-panel-shields', String(series.shields) + limit));
     }
     head.appendChild(el('div', 'zanju-crt-panel-name', series.name || ''));
     if (series.stage && series.total) {
@@ -48,9 +56,13 @@ function buildHead(payload) {
 }
 
 // The bar and the figures of a condition that the panel counts, and the clock of a time limit.
-// After a reconnect, a row has no figures, but its time limit still counts down.
-function buildMeter(row) {
-    const meter = el('div', 'zanju-crt-prow-meter');
+// After a reconnect, a row has no figures, but its time limit still counts down. `lead` is the
+// icon of the condition, at the start of the line when the row has no text.
+function buildMeter(row, lead) {
+    const meter = el('div', 'zanju-crt-prow-meter' + (lead ? ' zanju-crt-prow-meter-bare' : ''));
+    if (lead) {
+        meter.appendChild(lead);
+    }
     if (row.live) {
         const bar = el('div', 'zanju-crt-prow-bar');
         const level = el('div', 'zanju-crt-prow-fill');
@@ -77,10 +89,15 @@ function buildRule(rule, labels) {
         labels[rule.key] || '');
 }
 
-function buildRow(row, labels) {
+function buildRow(row, labels, full) {
     const node = el('div', 'zanju-crt-prow' + (row.live ? (STATE_CLASSES[row.state] || '') : ''));
+    const rowIcon = icon('zanju-crt-prow-icon', row.icon ? conditionImage(row.icon) : '');
+    if (!full && row.live) {
+        node.appendChild(buildMeter(row, rowIcon));
+        return node;
+    }
     const line = el('div', 'zanju-crt-prow-line');
-    line.appendChild(icon('zanju-crt-prow-icon', row.icon ? conditionImage(row.icon) : ''));
+    line.appendChild(rowIcon);
     line.appendChild(el('div', 'zanju-crt-prow-text', row.text || ''));
     node.appendChild(line);
     const rules = row.rules || [];
@@ -100,16 +117,20 @@ function renderPanel(node, payload) {
     if (!payload) {
         return;
     }
-    node.appendChild(buildHead(payload));
+    // A payload from before the setting has no `full`, and shows everything, as it did then.
+    const full = payload.full !== false;
+    if (full) {
+        node.appendChild(buildHead(payload));
+    }
     const rows = payload.rows || [];
-    const list = el('div', 'zanju-crt-panel-rows');
+    const list = el('div', 'zanju-crt-panel-rows' + (full ? '' : ' zanju-crt-panel-rows-bare'));
     // The separators follow the sets, as on the hover card.
     const mission = { group: payload.group, rows: rows };
     for (let i = 0; i < rows.length; i += 1) {
         if (startsSet(mission, i)) {
             list.appendChild(el('div', 'zanju-crt-panel-or', (payload.labels || {}).or || ''));
         }
-        list.appendChild(buildRow(rows[i], payload.labels));
+        list.appendChild(buildRow(rows[i], payload.labels, full));
     }
     node.appendChild(list);
     refreshClocks(node, payload);

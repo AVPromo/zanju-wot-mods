@@ -34,6 +34,7 @@ Runtime modules that several mods share live next to `mods/`, not in it:
 mods-common/
   <name>.py       (shared Python modules)
   gameface/       (shared Gameface scripts)
+  i18n/           (shared strings)
   tests/
 ```
 

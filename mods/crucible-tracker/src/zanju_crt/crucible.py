@@ -482,7 +482,7 @@ def nearest_end(series):
     return min(ends) if ends else 0
 
 
-# The order of the paid groups on the banner: silver, then gold, then any other currency.
+# The order of the paid groups on the banner: credits, then gold, then any other currency.
 _CURRENCY_ORDER = ('credits', 'gold')
 
 
@@ -598,7 +598,7 @@ def build_snapshot(enabled, series_raw, mission, vehicle_level, in_battle=None, 
         # Whether the vehicle in the garage can play: the tiers of the current mission, or the
         # Crucible floor with no active series. None with no vehicle in the garage.
         'vehicleFits': fits,
-        # A battle still in progress counts for a series that starts now. See the card.
+        # A battle still in progress counts for the series that is active when the battle ends.
         'inBattle': sorted(in_battle or []),
     }
 

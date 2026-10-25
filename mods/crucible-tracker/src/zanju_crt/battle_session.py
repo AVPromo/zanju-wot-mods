@@ -141,6 +141,7 @@ class _Session(object):
                 'stage': active.get('stage'),
                 'total': active.get('total'),
                 'shields': active.get('shields'),
+                'shieldsLimit': active.get('shieldsLimit'),
             },
             'group': 'or' if self.tracker.set_count > 1 else 'and',
             'rows': progress.panel_rows(self.tracker, active.get('rows') or [], now, _number_format,

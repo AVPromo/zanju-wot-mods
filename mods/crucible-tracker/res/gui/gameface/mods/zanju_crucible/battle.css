@@ -96,6 +96,11 @@ html[lang=th] body {
     padding-top: 4rem;
 }
 
+/* Without the head, nothing stands above the first row. */
+.zanju-crt-panel-rows-bare {
+    padding-top: 0;
+}
+
 .zanju-crt-prow {
     display: block;
     padding-top: 3rem;
@@ -144,6 +149,12 @@ html[lang=th] body {
     align-items: center;
     margin-top: 3rem;
     margin-left: 24rem;
+}
+
+/* Without the text, the icon of the condition starts the line of the bar. */
+.zanju-crt-prow-meter-bare {
+    margin-top: 0;
+    margin-left: 0;
 }
 
 .zanju-crt-prow-bar {

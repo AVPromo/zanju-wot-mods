@@ -1,10 +1,10 @@
 Changelog
 =========
 
-## 1.1.0 (18 October 2026)
+## 1.0.8 (25 October 2026)
 
-- The window no longer takes one of the game's own garage views, so it can no longer block another mod, or be blocked by one. It has a view of its own in the random garage and in the garage of each battle mode.
-- The garage of a mode that is new to the mod still gets the window in the old way, until the mod knows that garage.
+- The window no longer takes one of the game's own garage views, so it can no longer block another mod, or be blocked by one.
+- Settings moved to `%APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\directives-helper\`. On its first start, the mod copies them from the old folder, `%APPDATA%\zanju_wot_mods_cache\directives-helper\`, so nothing is lost.
 
 ## 1.0.7 (14 October 2026)
 

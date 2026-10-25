@@ -1,0 +1,13 @@
+# Strings that several mods use. A mod takes the keys that its code uses.
+
+# Units of a time left: "3d 05h", "2h 11m", "5m 12s". Keep each unit to one or two letters, because the Premium Time buttons in the garage header have little room.
+UNIT_DAY_SHORT: "d"
+UNIT_HOUR_SHORT: "h"
+UNIT_MINUTE_SHORT: "m"
+UNIT_SECOND_SHORT: "s"
+
+# Settings, in Mod Menu: the side of the vehicle name for the banner row, which Campaign Tracker and Crucible Tracker share.
+SETTING_TRAY_SIDE: "Banner position"
+SETTING_TRAY_SIDE_RIGHT: "Right of the vehicle name"
+SETTING_TRAY_SIDE_LEFT: "Left of the vehicle name"
+TOOLTIP_TRAY_SIDE_BODY: "The side of the vehicle name for the banners of this mod. The banners of all Zanju's mods on the same side share one row."

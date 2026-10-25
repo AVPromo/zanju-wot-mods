@@ -187,15 +187,14 @@ function appendWarnings(card, snapshot, labels) {
 
 // The vehicles in a battle that has not ended, one per row, the way the campaign-tracker card
 // lists locked vehicles. Each row carries the crossed swords that the banner counts. The warning
-// of what that battle decides, the current mission or a series that starts now, heads the list.
+// of what that battle decides heads the list, with the same text whether a series is active or not.
 function appendInBattle(card, snapshot, labels) {
     const names = snapshot.inBattle || [];
     if (!names.length) {
         return;
     }
     const block = el('div', 'zanju-crt-battles');
-    block.appendChild(el('div', 'zanju-crt-battles-warning',
-        (snapshot.active ? labels.inBattleActive : labels.inBattleWarning) || ''));
+    block.appendChild(el('div', 'zanju-crt-battles-warning', labels.inBattleWarning || ''));
     block.appendChild(el('div', 'zanju-crt-battles-label', labels.inBattle || ''));
     for (let i = 0; i < names.length; i += 1) {
         const row = el('div', 'zanju-crt-battles-row');

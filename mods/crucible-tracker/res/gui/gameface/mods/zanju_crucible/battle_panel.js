@@ -16,6 +16,8 @@ let lastSize = '';
 let lastPayload = '';
 let currentPayload = null;
 let dragging = false;
+// True when a ResizeObserver publishes each new size. See followSize.
+let observed = false;
 
 function panelNode() {
     return document.getElementById('zanju-crt-panel');
@@ -41,11 +43,28 @@ function render() {
     // battle.css reads `lang` to select the font, as the card does. See card_host.js.
     applyLanguage(payload && payload.lang);
     renderPanel(node, payload);
-    scheduleMeasure();
+    if (!observed) {
+        scheduleMeasure();
+    }
 }
 
-// Measured after layout, never in the frame that changed the DOM, and once more a frame later
-// for a late settle. card_host.js explains why.
+// The client's own views that follow their content do it this way: a ResizeObserver on the root,
+// which calls back after each layout that changes its size, and the view resized from there. It
+// also catches the first layout of a new window, which can settle after the frames that a
+// measurement waits. On 25 October 2026 the panel first measured 300x22, its padding without its
+// one row, and kept that height until the next payload.
+function followSize() {
+    const node = panelNode();
+    if (typeof ResizeObserver !== 'function' || !node) {
+        log('no ResizeObserver; the panel measures after each change and once a second');
+        return false;
+    }
+    new ResizeObserver(function () { publishSize(); }).observe(node);
+    return true;
+}
+
+// Without a ResizeObserver: measured after layout, never in the frame that changed the DOM, and
+// once more a frame later for a late settle. card_host.js explains why.
 function scheduleMeasure() {
     nextFrame()
         .then(nextFrame)
@@ -57,17 +76,24 @@ function scheduleMeasure() {
         .catch(function (error) { log('panel measurement failed: ' + error); });
 }
 
-function publishSize() {
+function readSize() {
     const node = panelNode();
     if (!node) {
-        return;
+        return null;
     }
     const rect = node.getBoundingClientRect();
     const width = Math.ceil(rect.width);
     const height = Math.ceil(rect.height);
-    if (!(width > 0 && height > 0)) {
+    return width > 0 && height > 0 ? { width: width, height: height } : null;
+}
+
+function publishSize() {
+    const size = readSize();
+    if (!size) {
         return;
     }
+    const width = size.width;
+    const height = size.height;
     try {
         viewEnv.resizeViewPx(width, height);
     } catch (error) {
@@ -77,6 +103,15 @@ function publishSize() {
     if (key !== lastSize) {
         lastSize = key;
         command('onSized', { width: width, height: height });
+    }
+}
+
+// Without a ResizeObserver, a size that differs from the published one is published each second,
+// for a layout that settles late.
+function publishChangedSize() {
+    const size = readSize();
+    if (size && size.width + 'x' + size.height !== lastSize) {
+        publishSize();
     }
 }
 
@@ -103,15 +138,21 @@ engine.whenReady
     .then(nextFrame)
     .then(function () {
         bindDrag();
+        observed = followSize();
         render();
         engine.on('viewEnv.onDataChanged', render);
-        // Every size here is in `rem`, so a change of the interface scale changes the size.
-        engine.on('self.onScaleUpdated', scheduleMeasure);
+        if (!observed) {
+            // Every size here is in `rem`, so a change of the interface scale changes the size.
+            engine.on('self.onScaleUpdated', scheduleMeasure);
+        }
         viewEnv.addDataChangedCallback('model', ROOT_RES_ID, true);
         setInterval(function () {
             const node = panelNode();
             if (node && currentPayload) {
                 refreshClocks(node, currentPayload);
+            }
+            if (!observed && !dragging) {
+                publishChangedSize();
             }
         }, CLOCK_INTERVAL_MS);
     })

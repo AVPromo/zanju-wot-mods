@@ -9,22 +9,15 @@
 - **Details on hover** — hover over a banner for the conditions and your progress.
 - **Interactive** — click a banner to open its mission. Shift-click and Ctrl-click pause or reset the missions that allow it.
 - **Locked vehicles** — for missions that require several different vehicles, shows the progress and warns when your tank is locked out.
-
-## Settings
-
-With Aslain's Mod Menu installed, the settings are in the game's settings window, under the name of the mod:
-
-- **Banner position** — the left or the right side of the vehicle name. The banner of Crucible Tracker shares the row on the same side.
-
-Without Mod Menu, edit `%APPDATA%\zanju_wot_mods_cache\campaign-tracker\config.json`. The mod creates that file on its first start.
+- **Configurable** — you can put the banner on the left or the right side of the vehicle name. This setting is in the game's settings window, under the name of the mod. The banner of Crucible Tracker shares the row on the same side.
 
 ## Translations
 
-Reference language `en` defines 14 strings. Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
+Reference language `en` defines 14 strings, 4 of them in the [shared strings](../../mods-common/i18n/). Translations are community-maintained and may lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate this table with `zwm lint i18n`.
 
 | Language | Coverage | Missing |
 | --- | --- | --- |
-| `pl` | 71% (10/14) | 4 |
+| `pl` | 100% (14/14) | 0 |
 | `ru` | 71% (10/14) | 4 |
 | `uk` | 71% (10/14) | 4 |
 | `zh_cn` | 71% (10/14) | 4 |

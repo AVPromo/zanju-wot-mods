@@ -38,8 +38,10 @@ bundled inside the .wotmod (so end users get no loose files alongside the packag
 
 Authored source layout:
     mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml (inside the .wotmod)
+    mods-common/i18n/*.yml                 →  added to the end of those files: the shared keys the mod uses
 """
 
+import io
 import json
 import os
 import shutil
@@ -52,7 +54,7 @@ from ..core import mods_common
 from ..core.companion_artifacts import resolve_bundle_artifacts_if_defined, should_include_companion_bundle
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
-from ..core.i18n_audit import TEMPLATE_FILE_NAME
+from ..core.i18n_audit import TEMPLATE_FILE_NAME, shared_lines_for
 from ..core.mod_assets import (
     copy_tree_contents,
     directory_has_entries,
@@ -126,24 +128,42 @@ def run_optional_prebuild(mod_dir, verbose=False):
 
 def stage_i18n_resources(mod_dir, mod_id, staged_res_dir):
     i18n_dir = os.path.join(mod_dir, "i18n")
-    if not os.path.isdir(i18n_dir):
-        return
-
-    legacy_text_dir = os.path.join(mod_dir, "res", "mods", mod_id, "text")
-    if directory_has_entries(legacy_text_dir):
-        raise RuntimeError(
-            "{} defines both i18n/ and res/mods/{}/text/; keep exactly one localisation source.".format(
-                os.path.basename(mod_dir),
-                mod_id,
+    text_dir = os.path.join(staged_res_dir, "mods", mod_id, "text")
+    if os.path.isdir(i18n_dir):
+        legacy_text_dir = os.path.join(mod_dir, "res", "mods", mod_id, "text")
+        if directory_has_entries(legacy_text_dir):
+            raise RuntimeError(
+                "{} defines both i18n/ and res/mods/{}/text/; keep exactly one localisation source.".format(
+                    os.path.basename(mod_dir),
+                    mod_id,
+                )
             )
-        )
 
-    # The translation template is a repository-only aid for translators, not a language.
-    copy_tree_contents(
-        i18n_dir,
-        os.path.join(staged_res_dir, "mods", mod_id, "text"),
-        ignore_names=(TEMPLATE_FILE_NAME,),
-    )
+        # The translation template is a repository-only aid for translators, not a language.
+        copy_tree_contents(i18n_dir, text_dir, ignore_names=(TEMPLATE_FILE_NAME,))
+    stage_shared_strings(os.path.basename(mod_dir), text_dir)
+
+
+def stage_shared_strings(mod_name, text_dir):
+    """Add the shared keys that the mod uses to the end of its staged language files.
+
+    A language that the mod does not have gets a file with the shared keys only. The game merges
+    the English file under it, so the other keys of the mod stay in English.
+    """
+    for code, lines in sorted(shared_lines_for(mod_name).items()):
+        path = os.path.join(text_dir, "{}.yml".format(code))
+        text = ""
+        if os.path.isfile(path):
+            with io.open(path, "r", encoding="utf-8") as handle:
+                text = handle.read()
+            if text and not text.endswith("\n"):
+                text += "\n"
+            text += "\n"
+        text += "# Shared strings, from mods-common/i18n/{}.yml\n".format(code)
+        text += "\n".join(lines) + "\n"
+        os.makedirs(text_dir, exist_ok=True)
+        with io.open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
 
 
 def stage_resource_trees(mod_dir, mod_id, staged_res_dir):

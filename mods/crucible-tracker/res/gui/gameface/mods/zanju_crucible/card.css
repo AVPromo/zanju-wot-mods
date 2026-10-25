@@ -97,10 +97,14 @@ html[lang=th] body {
     margin-top: 4rem;
 }
 
+/* The images are 48 pixels. At 24rem, a 1920 wide screen draws them at exactly half that, so each
+   pixel takes two by two pixels of the image. At 20rem, the thin outline of a spent shield broke
+   into uneven lines. The 32 pixel images are no option: the spent one is another picture, a grey
+   shield with a red cross. */
 .zanju-crt-focus-shield {
     display: block;
-    width: 20rem;
-    height: 20rem;
+    width: 24rem;
+    height: 24rem;
     margin-right: 2rem;
     background-repeat: no-repeat;
     background-position: center;

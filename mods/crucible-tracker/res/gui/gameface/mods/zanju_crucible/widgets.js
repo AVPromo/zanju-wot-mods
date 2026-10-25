@@ -11,7 +11,7 @@
 //   all shields below it, the current mission out of all missions, and the time until the
 //   series ends.
 // - With no active series: the emblem, the series that end first and are not completed, and the
-//   time until they end. The count reads "free / silver / gold": how many of them start or
+//   time until they end. The count reads "free / credits / gold": how many of them start or
 //   restart for nothing, and how many restart for credits or for gold, each price group with its
 //   currency icon, and a group of 0 left out. Once every series of that end is completed, the
 //   banner moves on to the next end, as the card's highlight does. With every series completed,

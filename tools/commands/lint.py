@@ -336,7 +336,7 @@ def run_py27_format(check, verbose=False):
 def _raise_on_code_key_coverage():
     problems = audit_code_key_coverage()
     if problems:
-        message = ["Localization key coverage failed (keys used in code but absent from en.yml):"]
+        message = ["Localization key coverage failed:"]
         message.extend("  - {}".format(problem) for problem in problems)
         raise RuntimeError("\n".join(message))
 
@@ -416,7 +416,7 @@ def parse_args(argv):
             "  py27-lint                     Run flake8 compatibility checks on Python 2.7 targets.\n"
             "  py27-format                   Run autopep8 on Python 2.7 targets.\n"
             "  py27-format-check            Alias for: py27-format --check\n"
-            "  i18n                          Regenerate the README coverage tables and each mod's i18n template.\n"
+            "  i18n                          Regenerate the README coverage tables and the i18n templates.\n"
             "  i18n-check                    Verify key coverage and that generated i18n files are current.\n"
             "\n"
             "Examples:\n"

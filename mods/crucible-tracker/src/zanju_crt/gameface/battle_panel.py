@@ -2,10 +2,11 @@
 """The battle panel: a Wulf window of the mod's own over the battle page.
 
 battle_session decides when the panel shows and what it shows. This module owns the window: it
-builds it, places it, hides it while the full statistics are up, and moves it when the player
-drags it with Ctrl held. The probe of 14 October 2026 measured this route in seven battles. The
-window shows over the battle page, the battle keeps the keyboard, also after a click on the
-panel, and the drag works. See docs/reference/choosing-a-ui-approach.md.
+builds it, places it, hides it while the full statistics are up, moves it when the player drags
+it with Ctrl held, and tells the page when to show the full information (see show_full). The
+probe of 14 October 2026 measured this route in seven battles. The window shows over the battle
+page, the battle keeps the keyboard, also after a click on the panel, and the drag works. See
+docs/reference/choosing-a-ui-approach.md.
 
 * The window is on `WindowLayer.WINDOW`, and `_onReady` shows it with `show(False)`. The argument
   means "do not take the focus".
@@ -17,6 +18,10 @@ panel, and the drag works. See docs/reference/choosing-a-ui-approach.md.
 * The position is kept in config.json with the size of the parent it was dragged on, so a new
   resolution puts the panel at the same relative place. The panel is clamped to the parent, so a
   drag cannot take it off the screen.
+* The full information can show only while the player holds the key of the extended vehicle
+  markers, Alt by default. The client tells each battle panel of its own about that key with
+  `GameEvent.SHOW_EXTENDED_INFO`: the players panel, the damage log, the minimap and the markers
+  follow it. So the panel follows the key that the player set in the game settings.
 
 Every client import stays inside a function, so this module is importable outside the game.
 """
@@ -36,6 +41,9 @@ _MAX_PARENT_RETRIES = 80
 # below the team score.
 _DEFAULT_OFFSET_X = 120
 _DEFAULT_TOP = 96
+# While the key of the extended markers is down, it is checked again every 0.2 s. The client sends
+# no release when the game loses the keyboard with the key down, for example on Alt+Tab.
+_EXTENDED_CHECK_SECONDS = 0.2
 
 _classes = {}
 
@@ -119,6 +127,16 @@ def clamp(x, y, size, parent):
             int(round(max(0, min(parent_h - height, y)))))
 
 
+def show_full(details, extended):
+    """Whether the panel shows its full information: the head, and the text of each condition.
+
+    `details` is the setting, `extended` whether the key of the extended markers is down.
+    """
+    if details == config.DETAILS_ALT:
+        return bool(extended)
+    return details != config.DETAILS_NEVER
+
+
 def start_position(saved, parent):
     """Where the panel goes when it opens: the saved place, scaled to this parent, or the default.
     Returns (x, y, source)."""
@@ -136,9 +154,16 @@ class Panel(object):
         self.logger = logger
         self.window = None
         self.model = None
+        self.content = {}
         self.payload = '{}'
+        self.details = config.DETAILS_ALWAYS
+        self.extended = False
+        self.extended_id = None
         self.size = None
         self.placed = False
+        # Where the panel belongs: the start position, then the end of each drag. A clamp starts
+        # from here, so the panel goes back to its place after a larger form pushed it away.
+        self.anchor = None
         self.ready = False
         self.closed = False
         self.hidden_by = set()
@@ -159,12 +184,21 @@ class Panel(object):
     # -- life ---------------------------------------------------------------------------------
 
     def open(self, payload):
-        self.payload = json.dumps(payload)
+        self.details = config.panel_details()
+        self.content = payload
+        self.payload = self._serialize()
         self._bind()
         self._load_when_parent_ready(0)
 
     def update(self, payload):
-        text = json.dumps(payload)
+        self.content = payload
+        self._push()
+
+    def _serialize(self):
+        return json.dumps(dict(self.content, full=show_full(self.details, self.extended)))
+
+    def _push(self):
+        text = self._serialize()
         if text == self.payload:
             return
         self.payload = text
@@ -179,7 +213,7 @@ class Panel(object):
 
     def close(self):
         self.closed = True
-        for name in ('retry_id', 'drag_id'):
+        for name in ('retry_id', 'drag_id', 'extended_id'):
             self._cancel(name)
         self._unbind()
         window = self.window
@@ -243,9 +277,9 @@ class Panel(object):
         if not self.placed:
             self._place()
         elif self.drag is None:
-            # The panel grew or shrank. Clamp again, so its new edge stays on the screen.
-            x, y = self.window.position
-            self._move(*clamp(x, y, self.size, self._parent_size()))
+            # The panel grew or shrank. Clamp again from its place, so its new edge stays on the
+            # screen, and a smaller form goes back to where the player put it.
+            self._move(*clamp(self.anchor[0], self.anchor[1], self.size, self._parent_size()))
 
     def _parent_size(self):
         parent_w, parent_h = self.window.parent.size
@@ -254,6 +288,7 @@ class Panel(object):
     def _place(self):
         parent = self._parent_size()
         x, y, source = start_position(config.panel_position(), parent)
+        self.anchor = (x, y)
         x, y = clamp(x, y, self.size, parent)
         self._move(x, y)
         self.placed = True
@@ -272,6 +307,8 @@ class Panel(object):
                            GameEvent.FULL_STATS_PERSONAL_RESERVES, GameEvent.EVENT_STATS):
             self._listen(g_eventBus, event_type, self._on_stats, EVENT_BUS_SCOPE.BATTLE)
         self._listen(g_eventBus, GameEvent.GUI_VISIBILITY, self._on_gui_visibility, EVENT_BUS_SCOPE.BATTLE)
+        if self.details == config.DETAILS_ALT:
+            self._listen(g_eventBus, GameEvent.SHOW_EXTENDED_INFO, self._on_extended_info, EVENT_BUS_SCOPE.BATTLE)
 
     def _listen(self, bus, event_type, handler, scope):
         bus.addListener(event_type, handler, scope=scope)
@@ -295,6 +332,33 @@ class Panel(object):
     def _on_gui_visibility(self, event):
         self.guard('interface visibility event', self._set_hidden, 'gui',
                    not (event.ctx or {}).get('visible', True))
+
+    def _on_extended_info(self, event):
+        self.guard('extended information event', self._set_extended, bool((event.ctx or {}).get('isDown')))
+
+    def _set_extended(self, down):
+        if down == self.extended:
+            return
+        self.extended = down
+        self._cancel('extended_id')
+        if down:
+            self._schedule_extended_check()
+        self._push()
+
+    def _schedule_extended_check(self):
+        import BigWorld
+        self.extended_id = BigWorld.callback(
+            _EXTENDED_CHECK_SECONDS, lambda: self.guard('extended key check', self._check_extended))
+
+    def _check_extended(self):
+        self.extended_id = None
+        if self.closed or not self.extended:
+            return
+        import CommandMapping
+        if CommandMapping.g_instance.isActive(CommandMapping.CMD_VEHICLE_MARKERS_SHOW_INFO):
+            self._schedule_extended_check()
+        else:
+            self._set_extended(False)
 
     def _set_hidden(self, key, hidden):
         before = bool(self.hidden_by)
@@ -369,6 +433,7 @@ class Panel(object):
         if self.window is None:
             return
         x, y = self.window.position
+        self.anchor = (x, y)
         parent_w, parent_h = self._parent_size()
         config.set_panel_position({'x': x, 'y': y, 'parentWidth': parent_w, 'parentHeight': parent_h}, self.logger)
         self.logger.info('Battle panel moved to %d,%d', x, y)

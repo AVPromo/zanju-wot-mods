@@ -1,11 +1,12 @@
 """Show which mods take each shared file of mods-common/, and stop on any fault.
 
-    zwm shared            every shared module and script, with the mods that take it
-    zwm shared <mod>...   the shared modules and scripts that each named mod takes
+    zwm shared            every shared module, script and string, with the mods that take it
+    zwm shared <mod>...   the shared modules, scripts and strings that each named mod takes (a name
+                          or an acronym, such as crt)
 
 A mod takes a shared file by importing it, so this map comes from the imports in the mods and
-in the shared files themselves. Nothing else declares it. See "Shared Modules" in
-docs/reference/runtime-layout-and-packaging.md.
+in the shared files themselves. A mod takes a shared string when its code uses the key. Nothing
+else declares either. See "Shared Modules" in docs/reference/runtime-layout-and-packaging.md.
 """
 
 from __future__ import annotations
@@ -13,8 +14,9 @@ from __future__ import annotations
 import sys
 
 from ..core import mods_common
+from ..core.i18n_audit import shared_key_map, shared_keys_for
 from ..core.console import detail, section, success
-from ..core.mod_cli import discover_mods
+from ..core.mod_cli import discover_mods, resolve_mod_names
 
 
 def _print_files(kind, mapping):
@@ -29,10 +31,12 @@ def _print_mods(mod_names):
         section(mod_name)
         detail("modules: {}".format(", ".join(mods_common.modules_for(mod_name)) or "none"), verbose=True)
         detail("scripts: {}".format(", ".join(mods_common.scripts_for(mod_name)) or "none"), verbose=True)
+        detail("strings: {}".format(", ".join(shared_keys_for(mod_name)) or "none"), verbose=True)
 
 
 def _main(argv):
     known = discover_mods()
+    argv = resolve_mod_names(argv)
     unknown = [name for name in argv if name not in known]
     if unknown:
         raise RuntimeError("Unknown mod: {}. Available mods: {}".format(", ".join(unknown), ", ".join(known)))
@@ -43,6 +47,7 @@ def _main(argv):
         mapping = mods_common.shared_map()
         _print_files("modules", mapping["modules"])
         _print_files("scripts", mapping["scripts"])
+        _print_files("strings", shared_key_map())
     success("Shared files are consistent")
 
 

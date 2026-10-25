@@ -110,7 +110,7 @@ rows = json.loads(str(model))['postBattleCondition']['items']
 
 The client cannot answer for the Crucible in battle. `ChallengesController.onAccountBecomeNonPlayer` runs `__stop`, which sets the active ID to 0 and clears the series. In the probe battles, with no series active, the controller still answered `isEnabled=True` and listed 14 series, so the series list comes back. The active ID does not. In the battle of 16 October 2026, with series 56 active, the controller answered active ID 0, but still held the progress from the garage: `{'wins': 0, 'attempts': 4, 'quests': 1}`. `__stop` does not clear the progress.
 
-So the garage writes the facts a battle needs to `%APPDATA%\zanju_wot_mods_cache\crucible-tracker\battle_<account>.json`, and the battle reads them back. The battle first reads the copy that the garage of the same session kept in memory, and the file only when there is none. The third-party `crusable_progress_tracker` does the same. The file also covers a reconnect into a battle after a client restart, where no garage ran in between. In the probe, the copy in memory and the copy read back from disk were equal in every battle.
+So the garage writes the facts a battle needs to `%APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\crucible-tracker\battle_<account>.json`, and the battle reads them back. The battle first reads the copy that the garage of the same session kept in memory, and the file only when there is none. The third-party `crusable_progress_tracker` does the same. The file also covers a reconnect into a battle after a client restart, where no garage ran in between. In the probe, the copy in memory and the copy read back from disk were equal in every battle.
 
 ## A vehicle still in battle
 
@@ -130,6 +130,10 @@ The battle panel opens when the battle page populates (`SharedPage._populate`), 
 - The tier of the player's vehicle is one of the mission's.
 
 A replay never opens it, because the transport holds the series of the viewer now. The window and the drag are the route of [Choosing A UI Approach](choosing-a-ui-approach.md#in-battle-with-a-drag).
+
+**Full information or bars only.** The setting `panelDetails` says when the panel shows its full information: the head with the shields, the name and the mission, and the text of each condition. The three choices are those of the client's own setting for the details of the damage log, and Mod Menu shows the client's labels for them, `#settings:feedback/tab/damageLogPanel/details/*`. Without the full information, a condition that the panel counts shows its icon, its bar and its figures on one line. A condition with nothing to count keeps its text, and the sets keep their "OR".
+
+The choice "Press Alt to display" follows `GameEvent.SHOW_EXTENDED_INFO` on the battle bus. `Avatar.handleKey` sends it on each press and release of `CMD_VEHICLE_MARKERS_SHOW_INFO`, Alt by default, with `isDown` in the context. The players panel, the damage log, the minimap and the vehicle markers follow the same event, so the panel follows the key that the player set. `handleKey` sends nothing while the player cannot see the world, and the game gets no release when it loses the keyboard with the key down, for example on Alt+Tab. So while the key is down, the panel asks `CommandMapping.g_instance.isActive` again every 0.2 s. Expected Vehicle Values reads Alt from the key events of its own Flash stage instead, and those come only while that stage has the keyboard. No battle has checked the Alt choice yet.
 
 The panel counts each condition from the battle controllers of `sessionProvider.shared`:
 

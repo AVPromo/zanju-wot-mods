@@ -51,7 +51,7 @@ A mod for an older version usually operates correctly after a small game update.
 3. Agree to all the replacements that Windows asks about.
 4. Start the game and make sure that the mod loads.
 
-Your settings stay in place. The game keeps them in your WoT AppData folder, not in the mod file.
+Your settings stay in place. Each mod keeps them in a folder of its own in `%APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\`, not in the mod file. Earlier releases kept them in `%APPDATA%\zanju_wot_mods_cache\`, and a newer release copies its folder from there on its first start.
 
 ## Remove A Mod
 
@@ -59,7 +59,7 @@ Your settings stay in place. The game keeps them in your WoT AppData folder, not
 2. Open the version folder in `mods`, for example `mods/2.3.1.3/`.
 3. Delete the `.wotmod` file for the mod. That file also holds the translations, thus this step removes them too.
 4. Keep the shared components if a different mod still needs them. For example, more than one mod uses `net.openwg.gameface_1.1.6.wotmod`.
-5. To remove the settings too, delete the folder for the mod in your WoT AppData folder.
+5. To remove the settings too, delete the folder for the mod in `%APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\`. An older release kept them in `%APPDATA%\zanju_wot_mods_cache\`, so delete its folder there too.
 
 ## More Help
 
