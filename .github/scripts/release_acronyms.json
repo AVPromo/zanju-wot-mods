@@ -1,3 +1,5 @@
 {
-  "overrides": {}
+  "overrides": {
+    "crucible-tracker": "CRT"
+  }
 }

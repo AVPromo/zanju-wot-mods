@@ -24,7 +24,8 @@ Internal .wotmod layout:
     LICENSE.md                              (repo-root license, when present)
     res/scripts/client/gui/mods/<file>.pyc  (compiled from mods/<name>/src/)
     res/scripts/client/gui/mods/<pkg>/_mod_meta.pyc  (generated from meta.xml: MOD_ID/MOD_NAME)
-    res/scripts/client/gui/mods/<pkg>/<name>.pyc     (compiled from mods-common/<name>.py, per manifest.json)
+    res/scripts/client/gui/mods/<pkg>/<name>.pyc     (compiled from mods-common/<name>.py, when the mod imports it)
+    res/gui/gameface/mods/<namespace>/<name>.js      (copied from mods-common/gameface/<name>.js, when the mod imports it)
     res/...                                 (from mods/<name>/res/ plus generated ui/build/res/)
 
 Additional release output:
@@ -37,8 +38,10 @@ bundled inside the .wotmod (so end users get no loose files alongside the packag
 
 Authored source layout:
     mods/<name>/i18n/*.yml                 →  res/mods/<meta.id>/text/*.yml (inside the .wotmod)
+    mods-common/i18n/*.yml                 →  added to the end of those files: the shared keys the mod uses
 """
 
+import io
 import json
 import os
 import shutil
@@ -51,7 +54,7 @@ from ..core import mods_common
 from ..core.companion_artifacts import resolve_bundle_artifacts_if_defined, should_include_companion_bundle
 from ..core.console import detail, section, success, warning
 from ..core.env import load_env
-from ..core.i18n_audit import TEMPLATE_FILE_NAME
+from ..core.i18n_audit import TEMPLATE_FILE_NAME, shared_lines_for
 from ..core.mod_assets import (
     copy_tree_contents,
     directory_has_entries,
@@ -125,24 +128,42 @@ def run_optional_prebuild(mod_dir, verbose=False):
 
 def stage_i18n_resources(mod_dir, mod_id, staged_res_dir):
     i18n_dir = os.path.join(mod_dir, "i18n")
-    if not os.path.isdir(i18n_dir):
-        return
-
-    legacy_text_dir = os.path.join(mod_dir, "res", "mods", mod_id, "text")
-    if directory_has_entries(legacy_text_dir):
-        raise RuntimeError(
-            "{} defines both i18n/ and res/mods/{}/text/; keep exactly one localisation source.".format(
-                os.path.basename(mod_dir),
-                mod_id,
+    text_dir = os.path.join(staged_res_dir, "mods", mod_id, "text")
+    if os.path.isdir(i18n_dir):
+        legacy_text_dir = os.path.join(mod_dir, "res", "mods", mod_id, "text")
+        if directory_has_entries(legacy_text_dir):
+            raise RuntimeError(
+                "{} defines both i18n/ and res/mods/{}/text/; keep exactly one localisation source.".format(
+                    os.path.basename(mod_dir),
+                    mod_id,
+                )
             )
-        )
 
-    # The translation template is a repository-only aid for translators, not a language.
-    copy_tree_contents(
-        i18n_dir,
-        os.path.join(staged_res_dir, "mods", mod_id, "text"),
-        ignore_names=(TEMPLATE_FILE_NAME,),
-    )
+        # The translation template is a repository-only aid for translators, not a language.
+        copy_tree_contents(i18n_dir, text_dir, ignore_names=(TEMPLATE_FILE_NAME,))
+    stage_shared_strings(os.path.basename(mod_dir), text_dir)
+
+
+def stage_shared_strings(mod_name, text_dir):
+    """Add the shared keys that the mod uses to the end of its staged language files.
+
+    A language that the mod does not have gets a file with the shared keys only. The game merges
+    the English file under it, so the other keys of the mod stay in English.
+    """
+    for code, lines in sorted(shared_lines_for(mod_name).items()):
+        path = os.path.join(text_dir, "{}.yml".format(code))
+        text = ""
+        if os.path.isfile(path):
+            with io.open(path, "r", encoding="utf-8") as handle:
+                text = handle.read()
+            if text and not text.endswith("\n"):
+                text += "\n"
+            text += "\n"
+        text += "# Shared strings, from mods-common/i18n/{}.yml\n".format(code)
+        text += "\n".join(lines) + "\n"
+        os.makedirs(text_dir, exist_ok=True)
+        with io.open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
 
 
 def stage_resource_trees(mod_dir, mod_id, staged_res_dir):
@@ -285,6 +306,33 @@ def bundle_shared_modules(mod_name, src_dir, temp_dir, py2_exe, zf, built_togeth
             )
 
 
+def stage_shared_scripts(mod_name, staged_res_dir, built_together, verbose=False):
+    """Copy each shared Gameface script this mod takes into the mod's one Gameface folder.
+
+    The script lands beside the mod's own modules, so `import ... from './tray.js'` finds it in
+    the game. Each mod thus carries its own copy at its own path, the same rule as for the shared
+    Python modules.
+    """
+    names = mods_common.scripts_for(mod_name)
+    if not names:
+        return
+    namespace = mods_common.gameface_namespace(mod_name)
+    target_dir = os.path.join(staged_res_dir, "gui", "gameface", "mods", namespace)
+    os.makedirs(target_dir, exist_ok=True)
+    for name in names:
+        shutil.copy2(mods_common.script_path(name), os.path.join(target_dir, "{}.js".format(name)))
+        detail("Shared script: res/gui/gameface/mods/{}/{}.js".format(namespace, name), verbose=verbose)
+
+    for name in names:
+        left_out = [other for other in mods_common.script_consumers_of(name) if other not in built_together]
+        if left_out:
+            warning(
+                "Shared script {} also goes into {}. If you changed {}, build {} too.".format(
+                    name, ", ".join(left_out), name, "them" if len(left_out) > 1 else "it"
+                )
+            )
+
+
 def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=None, verbose=False, built_together=()):
     mod_dir = os.path.join(MODS_DIR, mod_name)
     if not os.path.isdir(mod_dir):
@@ -338,6 +386,7 @@ def build_mod(mod_name, py2_exe, target_wot_version, include_companion_bundle=No
         # Stage packaged resources from committed source plus generated build output.
         staged_res_dir = os.path.join(temp_dir, "staged_res")
         stage_resource_trees(mod_dir, mod_id, staged_res_dir)
+        stage_shared_scripts(mod_name, staged_res_dir, built_together, verbose=verbose)
         if os.path.isdir(staged_res_dir):
             for dirpath, dirnames, filenames in os.walk(staged_res_dir):
                 dirnames[:] = sorted(dirnames)

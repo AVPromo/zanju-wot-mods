@@ -41,7 +41,7 @@ import weakref
 # `ShippedStateTest` pins.
 ENABLED = False
 
-# Empty file in %APPDATA%/zanju_wot_mods_cache/research-progress-bar/. That directory already
+# Empty file in %APPDATA%/Wargaming.net/WorldOfTanks/mods/Zanju/research-progress-bar/. That directory already
 # holds the config and the mode cache, so it survives a modpack reinstall and is nowhere near
 # the source tree.
 MARKER_NAME = 'probe.on'

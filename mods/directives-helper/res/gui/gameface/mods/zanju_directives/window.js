@@ -17,9 +17,12 @@
 //
 // See docs/reference/gameface-mod-widgets.md.
 
+import { createLog, el, parseJson, unwrap } from './helpers.js';
+import { createBridge, invokeCommand as invokeWith } from './model_bridge.js';
+
 const ROOT_ID = 'zanju-dh-root';
 const DATA_PROPERTY = 'zanjuDhWindow';
-// The snapshot normally arrives by push (see bindModelPush): this is the backstop for the
+// The snapshot normally arrives by push (see model_bridge.js): this is the backstop for the
 // case where that channel could not be established, and the rate it drops to then.
 const POLL_INTERVAL_MS = 1000;
 const UNPUSHED_POLL_INTERVAL_MS = 250;
@@ -27,7 +30,6 @@ const UNPUSHED_POLL_INTERVAL_MS = 250;
 // module is evaluated again for another sub-view.
 const DRAG_BOUND_FLAG = '__zanjuDhDragBound';
 const CLICK_BOUND_FLAG = '__zanjuDhClickBound';
-const PUSH_BOUND_FLAG = '__zanjuDhPushBound';
 // Where a window that was never moved starts, in rem, so it keeps its place relative to the rest
 // of the UI at any interface scale.
 const DEFAULT_POSITION_REM = 300;
@@ -68,128 +70,30 @@ const lastBarJson = { top: null, bottom: null };
 const liveBars = { top: null, bottom: null };
 // The box the window was last checked against, so it is moved back only when the box changes.
 let lastBoxKey = null;
-// Which sub-view turned out to carry our data model, so the push subscription can name it.
-let dataResId = null;
-let pollTimer = null;
 // Set while a tick asked for by scheduleTick waits for its frame, so the ticks do not stack.
 let tickFramePending = false;
 
-function log(message) {
-    // console.error reaches game.log, tagged [UI] [Gameface]. console.log is untested here.
-    console.error('[zanju.directiveshelper] ' + message);
-}
+const log = createLog('zanju.directiveshelper');
 
-function unwrap(value) {
-    return value && typeof value === 'object' && 'value' in value ? value.value : value;
-}
+// Finds the data model, follows its pushes, and polls as a backstop. See model_bridge.js.
+const bridge = createBridge({
+    dataProperty: DATA_PROPERTY,
+    flagPrefix: '__zanjuDh',
+    onChange: function () { tick(); },
+    log: log,
+});
 
-function modelOn(id) {
-    const view = window.subViews.get(id);
-    const model = view && view.model;
-    return model && model[DATA_PROPERTY] ? model[DATA_PROPERTY] : null;
-}
-
+// The model rides on a sub-view whose ID this script cannot know, so it is found by a scan.
 function findDataModel() {
-    // The inject lands on whichever hangar sub-view was free, so locate it by scanning
-    // rather than assuming one.
-    if (typeof window === 'undefined' || !window.subViews) {
-        return null;
-    }
-    if (dataResId !== null) {
-        // Once pushes are wired up this runs on every model write anywhere in the document,
-        // not just ours, so it has to stay a single lookup rather than a scan of every
-        // sub-view. Falls back to the scan the moment that view stops carrying our model.
-        const known = modelOn(dataResId);
-        if (known) {
-            return known;
-        }
-    }
-    const ids = window.subViews.ids();
-    for (const id of ids) {
-        const model = modelOn(id);
-        if (model) {
-            dataResId = id;
-            return model;
-        }
-    }
-    dataResId = null;
-    return null;
-}
-
-function bindModelPush() {
-    // Python writes the snapshot the moment the depot or the selected tank changes, but a
-    // property write is not an event on this side: without this the window would only notice
-    // on its next poll, which is a visible lag on something as ordinary as switching tanks.
-    // `viewEnv.onDataChanged` is the engine's own signal that a model in this document was
-    // written, and it is what OpenWG's own ModelObserver subscribes to.
-    if (document[PUSH_BOUND_FLAG] || dataResId === null) {
-        return false;
-    }
-    if (typeof engine === 'undefined' || typeof viewEnv === 'undefined') {
-        return false;
-    }
-    try {
-        engine.on('viewEnv.onDataChanged', tick);
-        // Third argument asks for descendants too: the snapshot lives on our child model, not
-        // on the sub-view's own model.
-        viewEnv.addDataChangedCallback('model', dataResId, true);
-        document[PUSH_BOUND_FLAG] = true;
-        // Pushes now carry the updates, so the timer drops back to being a safety net.
-        setPollRate(POLL_INTERVAL_MS);
-        log('subscribed to model updates on sub-view ' + dataResId);
-        return true;
-    } catch (e) {
-        // Never fatal: the poll below still gets there, just later.
-        log('could not subscribe to model updates, falling back to polling (' + e + ')');
-        return false;
-    }
+    return bridge.find();
 }
 
 function invokeCommand(data, name, arg) {
-    // Wulf exposes a command as a callable on the model; which of the wrapped proxy or its
-    // unwrapped value carries it differs across builds, so try both. The argument must be a
-    // map — a bare scalar is rejected by Gameface as "not a map".
-    try {
-        let host = null;
-        if (data && typeof data[name] === 'function') {
-            host = data;
-        } else {
-            const inner = unwrap(data);
-            if (inner && typeof inner[name] === 'function') {
-                host = inner;
-            }
-        }
-        if (!host) {
-            log('command missing: ' + name);
-            return;
-        }
-        host[name](arg || {});
-    } catch (e) {
-        log('command failed: ' + name + ' (' + e + ')');
-    }
+    invokeWith(data, name, arg, log);
 }
 
 function parseSnapshot(raw) {
-    if (!raw) {
-        return null;
-    }
-    try {
-        return JSON.parse(raw);
-    } catch (e) {
-        log('could not parse the snapshot: ' + e);
-        return null;
-    }
-}
-
-function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) {
-        node.className = className;
-    }
-    if (text !== undefined && text !== null) {
-        node.textContent = text;
-    }
-    return node;
+    return parseJson(raw, 'snapshot', log);
 }
 
 function buildRoot() {
@@ -1022,7 +926,11 @@ function tick() {
         bindDrag(data);
     }
 
-    bindModelPush();
+    bridge.follow();
+    if (bridge.pushSeen()) {
+        // Pushes now carry the updates, so the timer drops back to being a safety net.
+        bridge.setPollRate(POLL_INTERVAL_MS);
+    }
 
     // The reports first, so a window placing itself already uses the reports that are waiting.
     applyBars(data);
@@ -1070,19 +978,12 @@ function scheduleTick() {
     });
 }
 
-function setPollRate(intervalMs) {
-    if (pollTimer !== null) {
-        clearInterval(pollTimer);
-    }
-    pollTimer = setInterval(tick, intervalMs);
-}
-
 function start() {
     log('window.js loaded');
     // Starts at the faster rate and drops to the backstop rate the moment pushes are wired
     // up, which is usually on the first tick — but not if the sub-views are not up yet, and
     // that is exactly the case a rate fixed at start-up would get wrong.
-    setPollRate(UNPUSHED_POLL_INTERVAL_MS);
+    bridge.setPollRate(UNPUSHED_POLL_INTERVAL_MS);
     tick();
 }
 

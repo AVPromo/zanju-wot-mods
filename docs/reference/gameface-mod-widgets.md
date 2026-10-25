@@ -32,7 +32,8 @@ Two consequences that are easy to get wrong:
   `ModInjectModel`, so two mods targeting the same sub-view silently clobber each other,
   last writer wins. A widget that wants to coexist should keep a priority list of candidate
   sub-views and inject onto the first *free* one; occupancy can be detected by serialising
-  the view model (`toString()` yields its field names as JSON).
+  the view model (`toString()` yields its field names as JSON). A child view of the mod's own,
+  below, is the better answer, and every mod of ours now uses one.
 
 **A mod can add a sub-view of its own instead.** A `ViewComponent` attaches each child with `setChildView(posId, child)`. The client then lists that child in `window.subViews`, also when the document's own code never uses it. OpenWG's bootstrap finds an inject model on such a child as on any other sub-view. Thus the mod takes no sub-view that another mod could want, and no other mod can clobber it.
 
@@ -44,6 +45,38 @@ To add one:
 4. Make sure that `getChildView(posId)` returns the child. If it does not, unregister the child.
 
 Measured on 2.4.0.2 with `LobbyHeader` and `LobbyFooter`: the client attached children at `R.dynamic_ids.demo_window.bottom_panel()` and at the arbitrary number `0x5A4E4448`. The header document listed both as sub-views, and the footer took a child at `0x5A4E4448` too. The position ID needs no entry in OpenWG's `res_map`, so the client does not restart. Use a number far above the resource IDs, which count up from zero and were near 136,000 on 2.4.0.2. `directives-helper` puts its bar probe in both lobby bars this way.
+
+Measured on 2.4.1.0 in the garage document `main`, with a throwaway probe on 14 October 2026:
+
+- A child from a patched `RandomHangar._onLoading`, through `_registerChild`, attached at `0x5A435241`.
+- `gui.shared.system_factory.registerDynamicRandomHangarPresenters(posId, factory)` is a second route, with no patch. `RandomHangar._getChildComponents` reads that list, and the client builds the child with its own children. No client code calls this function on 2.4.1.0. A factory registered in the mod's `init()` attached at `0x5A43525A` on every garage build.
+- The document listed both children among its 29 sub-views. The scripts of both loaded into the same document, next to the campaign-tracker root, and each one found the root and the tray entry of the other within 160 ms.
+- `MutationObserver` exists in `main`. An attribute change by one script reached an observer in the other script in 0 to 1 ms. A poll every 100 ms took up to 87 ms.
+
+Our mods use these position IDs, each one the ASCII of a short name. Two children of one parent need two IDs, so give a new mod an ID of its own:
+
+| Mod | Parent | Position ID |
+| --- | --- | --- |
+| `directives-helper` | `LobbyHeader`, `LobbyFooter` (bar probe), `RandomHangar` and each mode garage (window) | `0x5A4E4448` (`ZNDH`) |
+| `campaign-tracker` | `RandomHangar` | `0x5A4E4354` (`ZNCT`) |
+| `crucible-tracker` | `RandomHangar` | `0x5A435254` (`ZCRT`) |
+| `premium-time` | `LobbyHeader` | `0x5A4E5054` (`ZNPT`) |
+
+`mods-common/hangar_child.py` holds both routes. `install` adds a child to `RandomHangar`: it tries the dynamic presenter list first and falls back to the patch. `attach` patches the `_onLoading` of any root view, from a list of (module, class) pairs, and skips a class that the client does not have. `make_factory` builds the child for both. A factory that raises breaks the build of the whole garage, because `ViewComponent._constructChild` logs and raises again, so every step inside the child catches its own errors.
+
+**A child of `RandomHangar` reaches the random garage only.** Each mode extension builds a root view of its own, with a layout of its own, such as `R.views.comp7.mono.lobby.hangar()`. Each mode garage is thus a separate document. A widget that shows in a mode garage needs a child in the root view of that mode too. `hangar_child.MODE_GARAGES` names them on 2.4.1.0:
+
+| Mode | Root view |
+| --- | --- |
+| `comp7` | `comp7.gui.impl.lobby.hangar.comp7_hangar.Comp7Hangar` |
+| `comp7_light` | `comp7_light.gui.impl.lobby.hangar.comp7_light_hangar.Comp7LightHangar` |
+| `frontline` | `frontline.gui.impl.lobby.hangar_view.FrontlineHangar` |
+| `fun_random` | `fun_random.gui.impl.lobby.hangar.fun_random_hangar.FunRandomHangar` |
+| `last_stand` | `last_stand.gui.impl.lobby.hangar_view.HangarView` |
+
+Each of them builds the same `MainMenuPresenter` and `VehicleMenuPresenter` as `RandomHangar`. `FunRandomHangar` inherits `_onLoading`, so `uninstall` deletes the patch there instead of putting a method back.
+
+**A root view builds every child inside its `_onLoading`.** `ViewComponent._onLoading` calls `_initChildren`, which constructs each presenter, and each presenter builds its model. So the client's own sub-view models, such as `MainMenuModel`, are created while the root's `_onLoading` runs. `hangar_child.inside_patched_root()` is true in that time. `directives-helper` uses it for its fallback: the window claims a client sub-view with `view_claim` only in a garage root view that it has no child in, such as the garage of a mode that is new to the mod.
 
 Documents worth knowing (`mono/hangar/...`): `main` is the persistent garage document and
 loads exactly once per garage session; `header` and `footer` likewise; `tooltips` and
@@ -237,10 +270,39 @@ Mods in this repository take these, so a new one has somewhere to sit without a 
 | --- | --- | --- |
 | `directives-helper` | window overlay | 900 |
 | `campaign-tracker` | widget root | 1000 |
+| `crucible-tracker` | widget root | 1001 |
 
 The number decides nothing outside this document. Every view is a document of its own, and the band it sits in decides which document draws over which. A Scaleform mod view on `WINDOW` therefore covers everything here, whatever number the roots carry. See [Window Layers](ui-and-scaleform.md#window-layers).
 
 Ordering *within* a root is a separate question from the number above. Sibling widgets paint in document order, so a later sibling covers the tooltip of an earlier one. Lift the whole widget on `:hover` rather than just its tooltip, or the tooltip appears to detach from the thing it describes.
+
+## Sharing the row beside the vehicle name
+
+`campaign-tracker` and `crucible-tracker` hang their banners beside the garage's vehicle name block. When both are installed, their banners must stand in one row, and neither may cover the other. Each mod must also work alone.
+
+**They share the arithmetic, not the elements.** Each mod keeps its own root, its own `z-index` and its own pointer handling. A shared container would put both mods under one root that must not take pointer events, and elements under such a root do not reliably get them. The mods agree only on where each row starts, through a hidden list in the garage document:
+
+```html
+<div id="zanju-banner-tray" style="display: none">
+  <i data-owner="zanju.campaigntracker" data-rank="10" data-side="right" data-width="212" data-seq="4"></i>
+  <i data-owner="zanju.crucibletracker" data-rank="20" data-side="right" data-width="64" data-seq="2"></i>
+</div>
+```
+
+`mods-common/gameface/tray.js` holds the contract, and the build copies it into each of the two mods. On every layout pass a mod does this:
+
+1. It finds the list, or creates it.
+2. It writes its own entry: its `MOD_ID`, its fixed rank, its side, and the measured width of its row. An unchanged entry writes nothing.
+3. It works out where its row starts. On each side the lowest rank stands nearest the name, and two equal ranks sort by owner. On the right, a row starts after every nearer row. On the left, a row ends before every nearer row.
+4. It places only its own banners, from that start, left to right.
+
+A row that is not on screen removes its entry, so the other row closes the gap. A mod that is alone is the only entry, and its row starts at the vehicle name block.
+
+**The list is a contract between mods, and players mix releases.** A new version can add an attribute. Every version must ignore an attribute that it does not know, and must read a missing side as the right side. The order comes from the rank, never from the load order of the mods.
+
+**Each mod follows the rows of the others with a `MutationObserver`.** Measured on 2.4.1.0: both scripts loaded into `main` side by side, and an attribute change by one reached an observer in the other in 0 to 1 ms. A poll every 100 ms took up to 87 ms. Each mod keeps its own poll as the backstop.
+
+The player picks the side in the settings of each mod. Measured on 2.4.1.0 with probe banners: a banner left of the vehicle name gets its hover like one on the right, and a banner under a root with a higher `z-index` still gets its hover.
 
 ## Layout and units
 
@@ -342,6 +404,8 @@ The *width* is the first. A block-level flex container is as wide as the space i
 The *moment of measurement* is the second, and it fails intermittently, which makes it hard to read. `getBoundingClientRect()` called in the same frame that built the DOM reports the layout as it stood **before** the new content. The height comes back short, `resizeViewPx` hands the native surface that short height, and whatever sits at the bottom of the panel falls outside it and is clipped. It reads as random because the error is the difference between the old layout and the new one, so it depends on what was rendered previously.
 
 Wait two animation frames after every render, not only after the first one, then measure. Measure once more a frame later and republish only if the number changed — that costs one comparison and catches a late settle such as a font arriving between the two passes.
+
+**A `ResizeObserver` catches what the wait misses.** Two frames are not always enough for the first layout of a new window. On 25 October 2026 the Crucible battle panel opened in its short form and measured 300 by 22: its padding, with its one row still at zero height. The layout was right a moment later, but nothing measured it again until the next payload, so the row stayed cut. The client's own views that follow their content attach a `ResizeObserver` to their root, and resize the view from its callback, which runs after each layout that changes the size. Gameface has it natively. `crucible-tracker` does the same in `battle_panel.js`, and the panel opened at its full size from then on. `card_host.js` still waits for frames, and no hover card has shown the fault yet.
 
 **A hidden window runs no frames, which turns that wait into a deadlock.** `requestAnimationFrame` does not fire in a Wulf window that is hidden, so a panel cannot measure itself while it is off screen. Python waiting for a size before showing the window, and JavaScript waiting for a frame before reporting one, is a stand-off that produces no error at all: eleven hovers produced no measurement until an unrelated route change happened to render the view.
 

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+## 1.3.0 (25 October 2026)
+
+- New setting: the banners can stand on the left or the right side of the vehicle name.
+- The banners no longer take one of the game's own garage views, so they can no longer block another mod, or be blocked by one.
+- The download now ships Aslain's Mod Menu 2.1.04, for the new in-game settings.
+- Settings moved to `%APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\campaign-tracker\`. On its first start, the mod copies them from the old folder, `%APPDATA%\zanju_wot_mods_cache\campaign-tracker\`, so nothing is lost.
+
 ## 1.2.3 (14 October 2026)
 
 - Updated for World of Tanks 2.4.1.0.

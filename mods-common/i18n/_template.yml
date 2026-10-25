@@ -1,0 +1,28 @@
+# Auto-generated translation template -- regenerate with `zwm lint i18n`; do not edit by hand.
+#
+# To start a new language, copy this file to `<language-code>.yml` (the code the WoT client
+# uses: `pl`, `de`, `fr`, `ru`, ...) and fill in the values. Each key's English source text is
+# in the `# en:` comment above it. Keys left empty ("") simply fall back to English in-game,
+# so partial translations are fine.
+
+# Strings that several mods use. A mod takes the keys that its code uses.
+
+# Units of a time left: "3d 05h", "2h 11m", "5m 12s". Keep each unit to one or two letters, because the Premium Time buttons in the garage header have little room.
+# en: "d"
+UNIT_DAY_SHORT: ""
+# en: "h"
+UNIT_HOUR_SHORT: ""
+# en: "m"
+UNIT_MINUTE_SHORT: ""
+# en: "s"
+UNIT_SECOND_SHORT: ""
+
+# Settings, in Mod Menu: the side of the vehicle name for the banner row, which Campaign Tracker and Crucible Tracker share.
+# en: "Banner position"
+SETTING_TRAY_SIDE: ""
+# en: "Right of the vehicle name"
+SETTING_TRAY_SIDE_RIGHT: ""
+# en: "Left of the vehicle name"
+SETTING_TRAY_SIDE_LEFT: ""
+# en: "The side of the vehicle name for the banners of this mod. The banners of all Zanju's mods on the same side share one row."
+TOOLTIP_TRAY_SIDE_BODY: ""

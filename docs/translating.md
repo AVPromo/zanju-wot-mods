@@ -8,6 +8,7 @@ You do **not** need the build toolchain (Docker, the VS Code Dev Container, Java
 
 - Each mod keeps its text under `mods/<mod-name>/i18n/`, one file per language: `en.yml`, `pl.yml`, and so on.
 - `en.yml` is the source of truth — it defines every string key. Other languages translate those same keys; anything a language is missing falls back to English in-game.
+- Some strings are the same in several mods, such as the units of a time left. They are in `mods-common/i18n/`, in the same layout. Translate them there once, and every mod that uses them gets the translation. The README of a mod says how many of its strings are shared, and its coverage table counts them.
 - Files are flat `KEY: "value"` YAML. Translate the **value**, never the key. Keep:
   - escapes such as `\n` (line break) and `\"` (a literal quote) intact,
   - `{placeholders}` like `{xp}`, `{level}`, `{count}` untouched — the mod fills those in at runtime.
@@ -16,7 +17,8 @@ You do **not** need the build toolchain (Docker, the VS Code Dev Container, Java
 
 1. Use the language code the WoT client uses (`pl`, `de`, `fr`, `ru`, `uk`, ...).
 2. In `mods/<mod-name>/i18n/`, copy `_template.yml` to `<code>.yml` (or open the existing language file). The template has every key with an empty value and the English source text in the `# en:` comment above it — fill in the values. Copying `en.yml` and translating in place works too.
-3. Translate each value:
+3. If the README of the mod says that some of its strings are in the shared strings, also do step 2 in `mods-common/i18n/`.
+4. Translate each value:
 
    ```yaml
    # en.yml

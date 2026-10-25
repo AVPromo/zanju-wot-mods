@@ -1,0 +1,20 @@
+[
+  {
+    "type": "Layout",
+    "id": "R.mods.zanju.crucibletracker.views.CrucibleCard",
+    "path": "coui://gui/gameface/mods/zanju_crucible/CrucibleCard.html",
+    "parameters": {
+      "entrance": "CrucibleCard",
+      "impl": "gameface"
+    }
+  },
+  {
+    "type": "Layout",
+    "id": "R.mods.zanju.crucibletracker.views.CruciblePanel",
+    "path": "coui://gui/gameface/mods/zanju_crucible/CruciblePanel.html",
+    "parameters": {
+      "entrance": "CruciblePanel",
+      "impl": "gameface"
+    }
+  }
+]

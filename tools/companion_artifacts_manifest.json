@@ -22,8 +22,16 @@
       ]
     },
     "campaign-tracker": {
-      "description": "Gameface runtime for the campaign banners. No configurator chain: the mod has no settings.",
+      "description": "In-game settings window and Gameface runtime for the campaign banners.",
       "artifactIds": [
+        "modmenu",
+        "openwg_gameface"
+      ]
+    },
+    "crucible-tracker": {
+      "description": "In-game settings window and Gameface runtime for the Crucible banner.",
+      "artifactIds": [
+        "modmenu",
         "openwg_gameface"
       ]
     }
@@ -38,7 +46,7 @@
       "filename": "aslain.modmenu_2.1.04.wotmod",
       "downloadUrl": "https://github.com/Aslain/modmenu/releases/download/v2.1.04/aslain.modmenu_2.1.04.wotmod",
       "sha256": "674f95cf3526e646cea64be55767a9bfe51b19b109326e8c4132881a7a76a5b4",
-      "notes": "In-game settings window for research-progress-bar. Needs OpenWG Gameface 1.1.6 or newer."
+      "notes": "In-game settings window for research-progress-bar, campaign-tracker and crucible-tracker. Needs OpenWG Gameface 1.1.6 or newer."
     },
     "openwg_gameface": {
       "displayName": "OpenWG Gameface",

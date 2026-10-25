@@ -1,0 +1,278 @@
+/* Zanju Crucible Tracker — garage banner styling.
+ *
+ * The banner copies the shape and the palette of the campaign-tracker banners, so the shared
+ * row reads as one set. widgets.css of campaign-tracker holds the reasoning behind each rule
+ * that is the same here: the face open at the bottom, the border weight, and the point drawn
+ * as two clipped layers. Only what differs is explained below.
+ *
+ * Sizes are in rem, which follows the interface scale. The renderer implements a subset of CSS:
+ * see docs/reference/gameface-mod-widgets.md before changing any of this.
+ *
+ * Palette, the same as campaign-tracker: #f0f2f5 for the answer the player looks for, #d7dbe0
+ * for a live value, #9ca4ab for a label, #7d848b and #5e646a for an idle banner. Red #cc6b5a
+ * marks the last shield.
+ */
+
+/* Full screen and transparent to input, so the garage keeps its drag-to-rotate. The banner
+   takes input again for itself. One step above campaign-tracker's 1000, so a hovered banner of
+   either mod is never under the other root. The reference doc keeps the register. */
+.zanju-crt-root {
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 1001;
+}
+
+/* A fixed width, so a content change never moves the row. The width of a campaign banner, so the
+   shared row reads as one set. */
+.zanju-crt-widget {
+    position: fixed;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    width: 58rem;
+    font-size: 15rem;
+    line-height: 1.35em;
+    color: #d7dbe0;
+    cursor: pointer;
+}
+
+.zanju-crt-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 3rem 4rem 4rem 4rem;
+    background: rgba(17, 19, 22, 0.9);
+    border: 2rem solid rgba(255, 255, 255, 0.13);
+    border-bottom: none;
+    color: #f0f2f5;
+    letter-spacing: 0.02em;
+}
+
+.zanju-crt-tail {
+    display: block;
+    width: 100%;
+    height: 13rem;
+    background: rgba(255, 255, 255, 0.13);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.zanju-crt-tail-fill {
+    display: block;
+    height: 8rem;
+    margin-left: 2rem;
+    margin-right: 2rem;
+    background: rgba(17, 19, 22, 0.9);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+/* The client's Crucible shield, in the place of the campaign numeral. A series name does not fit a
+   banner this narrow, so the card gives it. The padding is 1rem more than under the numeral,
+   because the numeral line is 1rem taller than the emblem, which puts the rule at the height of
+   the campaign banners. */
+.zanju-crt-head {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding-bottom: 3rem;
+    margin-bottom: 3rem;
+    border-bottom: 1rem solid rgba(255, 255, 255, 0.13);
+    font-size: 14rem;
+    color: #9ca4ab;
+}
+
+.zanju-crt-emblem {
+    display: block;
+    width: 18rem;
+    height: 18rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* The shields of the active series, below the head: a shield, then the shields left out of all
+   shields. The size of the battles row. */
+.zanju-crt-shields {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    font-size: 13rem;
+    line-height: 1.2em;
+    color: #d7dbe0;
+}
+
+.zanju-crt-shields-empty {
+    display: none;
+}
+
+/* The image is 32 pixels. At 16rem, a 1920 wide screen draws it at exactly half that. At 14rem it
+   shrank by more than half, and the lines of the image broke up. */
+.zanju-crt-shields-icon {
+    display: block;
+    width: 16rem;
+    height: 16rem;
+    margin-right: 3rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.zanju-crt-shields-count {
+    display: block;
+}
+
+.zanju-crt-shields-last {
+    color: #cc6b5a;
+}
+
+.zanju-crt-widget-idle .zanju-crt-shields {
+    color: #7d848b;
+}
+
+.zanju-crt-widget-idle .zanju-crt-shields-icon {
+    opacity: 0.5;
+}
+
+/* The current mission out of all missions, or the count of the series that end first: "free /
+   credits / gold", each price group with its currency icon. widgets.js lowers the size of a long
+   count so it fits. */
+.zanju-crt-value {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.zanju-crt-value-count {
+    display: block;
+}
+
+.zanju-crt-value-slash {
+    display: block;
+    margin-left: 0.12em;
+    margin-right: 0.12em;
+    color: #9ca4ab;
+    font-weight: 400;
+}
+
+.zanju-crt-value-currency {
+    display: block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.1em;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* Every series completed: a green check in place of the count. */
+.zanju-crt-done {
+    display: block;
+    width: 18rem;
+    height: 18rem;
+    background-color: #9ccb68;
+    mask-image: url('coui://gui/gameface/mods/zanju_crucible/checkmark.png');
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-mode: alpha;
+}
+
+/* The time until the series ends, or until the first series that is not completed ends. The size of the battles
+   row of a campaign banner, in the regular colour of a live value, as in the card. */
+.zanju-crt-time {
+    display: block;
+    width: 100%;
+    margin-top: 1rem;
+    font-size: 12rem;
+    line-height: 1.2em;
+    text-align: center;
+    white-space: nowrap;
+    color: #d7dbe0;
+}
+
+.zanju-crt-time-empty {
+    display: none;
+}
+
+/* Vehicles in a battle that has not ended. The warning yellow, as the lock and pause flags of the
+   campaign banners: the icon is a mask of the client's image, and the colour fills it. */
+.zanju-crt-battle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-top: 2rem;
+    font-size: 13rem;
+    line-height: 1.2em;
+    color: #f0cf74;
+}
+
+.zanju-crt-battle-empty {
+    display: none;
+}
+
+.zanju-crt-battle-icon {
+    display: block;
+    width: 16rem;
+    height: 16rem;
+    margin-right: 3rem;
+    background-color: #f0cf74;
+    mask-image: url('R.images.gui.maps.icons.hangar.carousel.cards.alerts.inBattle');
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-mode: alpha;
+}
+
+.zanju-crt-battle-count {
+    display: block;
+}
+
+.zanju-crt-widget:hover .zanju-crt-face {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.zanju-crt-widget:hover .zanju-crt-tail {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* A vehicle that cannot play the current mission: the banner drops back to grey, as a campaign
+   banner does when the vehicle has no mission. A banner with no active series keeps its colour,
+   because it still has something to say: the series that end first and the time left. */
+.zanju-crt-widget-idle .zanju-crt-face {
+    background: rgba(17, 19, 22, 0.72);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #7d848b;
+}
+
+.zanju-crt-widget-idle .zanju-crt-head {
+    color: #5e646a;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.zanju-crt-widget-idle .zanju-crt-emblem,
+.zanju-crt-widget-idle .zanju-crt-value-currency,
+.zanju-crt-widget-idle .zanju-crt-done {
+    opacity: 0.5;
+}
+
+.zanju-crt-widget-idle .zanju-crt-time {
+    color: #7d848b;
+}
+
+.zanju-crt-widget-idle .zanju-crt-tail {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.zanju-crt-widget-idle .zanju-crt-tail-fill {
+    background: rgba(17, 19, 22, 0.72);
+}

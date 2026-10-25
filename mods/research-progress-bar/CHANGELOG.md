@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.4.7 (25 October 2026)
+
+- Settings moved to `%APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\research-progress-bar\`. On its first start, the mod copies them from the old folder, `%APPDATA%\zanju_wot_mods_cache\research-progress-bar\`, so nothing is lost.
+
 ## 1.4.6 (14 October 2026)
 
 - The download now ships Aslain's Mod Menu 2.1.04, in place of 2.0.17.

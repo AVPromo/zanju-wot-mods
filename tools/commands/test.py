@@ -15,7 +15,12 @@ Discovery inside `mods/<name>/tests/`:
                      whole run for that mod; nothing else is auto-discovered.
 
 The shared modules in mods-common/ have their tests in mods-common/tests/. They run once per
-command, after the mods, when at least one of the targeted mods takes a shared module.
+command, after the mods, when at least one of the targeted mods takes a shared module. The
+shared Gameface scripts have `*.test.js` files there too, and they run on the same rule.
+
+Every JavaScript suite runs with testing/shared_scripts_loader.mjs. A mod's module imports a
+shared script as `./tray.js`, and that copy exists only in the built package. The loader resolves
+the import to mods-common/gameface/ instead.
 
 Node is optional: mods without JavaScript never need it, and when JS tests exist but
 Node is missing the suite is reported as SKIPPED rather than failing, so the command
@@ -52,6 +57,7 @@ PY27_TEST_PATTERN = "test_*.py"
 JS_TEST_PATTERN = "*.test.js"
 HOOK_NAME = "run_tests.py"
 PY27_RUNNER = os.path.join(REPO_ROOT, "testing", "run_py27_tests.py")
+SHARED_SCRIPTS_LOADER = os.path.join(REPO_ROOT, "testing", "shared_scripts_loader.mjs")
 SHARED_TESTS_DIR = os.path.join(MODS_COMMON_DIR, "tests")
 SHARED_SUITE_LABEL = "mods-common"
 # The tests of the shared modules import them from this package, which exists only in the test run.
@@ -122,13 +128,13 @@ def run_shared_suite(verbose):
         "--pattern",
         PY27_TEST_PATTERN,
     ]
-    cmd.extend(shared_module_args(sorted(mods_common.read_manifest())))
+    cmd.extend(shared_module_args(mods_common.module_names()))
     if verbose:
         cmd.append("--verbose")
     return PASSED if run_command(cmd, verbose=verbose) == 0 else FAILED
 
 
-def run_js_suite(mod_name, tests_dir, verbose, strict):
+def run_js_suite(mod_name, tests_dir, verbose, strict, cwd=None):
     node = find_executable("node")
     if not node:
         message = "Node not found: JavaScript tests for {} were NOT run".format(mod_name)
@@ -141,8 +147,9 @@ def run_js_suite(mod_name, tests_dir, verbose, strict):
     # as "discover test files here", but Node 20+ reads it as a module path and dies with
     # MODULE_NOT_FOUND before running a single test. Naming the files works on every version,
     # and they are already discovered to decide whether this suite runs at all.
-    cmd = [node, "--test"] + find_test_files(tests_dir, JS_TEST_PATTERN)
-    return PASSED if run_command(cmd, cwd=os.path.join(MODS_DIR, mod_name), verbose=verbose) == 0 else FAILED
+    cmd = [node, "--import", SHARED_SCRIPTS_LOADER, "--test"] + find_test_files(tests_dir, JS_TEST_PATTERN)
+    workdir = cwd or os.path.join(MODS_DIR, mod_name)
+    return PASSED if run_command(cmd, cwd=workdir, verbose=verbose) == 0 else FAILED
 
 
 def run_hook(mod_name, hook_path, verbose):
@@ -209,11 +216,20 @@ def _main():
 
     # A partial run still tests the shared modules that its mods take, so that a test of one
     # mod after a change to a shared module does not skip the tests of that module.
-    if any(mods_common.modules_for(mod_name) for mod_name in mod_names) and find_test_files(
-        SHARED_TESTS_DIR, PY27_TEST_PATTERN
-    ):
+    takes_shared = any(
+        mods_common.modules_for(mod_name) or mods_common.scripts_for(mod_name) for mod_name in mod_names
+    )
+    if takes_shared and find_test_files(SHARED_TESTS_DIR, PY27_TEST_PATTERN):
         section("Testing {}".format(SHARED_SUITE_LABEL))
         outcomes.append((SHARED_SUITE_LABEL, "python2.7", run_shared_suite(verbose)))
+    if takes_shared and find_test_files(SHARED_TESTS_DIR, JS_TEST_PATTERN):
+        outcomes.append(
+            (
+                SHARED_SUITE_LABEL,
+                "javascript",
+                run_js_suite(SHARED_SUITE_LABEL, SHARED_TESTS_DIR, verbose, strict, cwd=MODS_COMMON_DIR),
+            )
+        )
 
     section("Test summary")
     if not outcomes:

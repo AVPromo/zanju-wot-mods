@@ -101,6 +101,19 @@ It **has no generated setters**. A hand-written view model registers storage wit
 
 The upstream guide covers the mechanics in full: [gameface-standalone](https://modding.wot-tools.dev/gameface-standalone.html) and [gameface-layout-input](https://modding.wot-tools.dev/gameface-layout-input.html). See [The Upstream Modding Guide](upstream-guide.md).
 
+#### In battle, with a drag
+
+The same route works over the battle page. A throwaway probe for `crucible-tracker` measured it on 2.4.1.0, in eight random battles at 1920 by 1200 and interface scale 1:
+
+- **Lifetime.** The window is built when `SharedPage._populate` runs and destroyed in `SharedPage._dispose`, before the original. The parent is the main window from `windowsManager.getMainWindow()`, which was loaded at the first try. `WindowLayer.WINDOW` (7) with `show(False)` in `_onReady` puts the panel over the battle page, and the battle has the keyboard from the start. The upstream guide says that this band also stays under the Escape menu. The probe did not record that.
+- **Tab.** `g_eventBus` sends `GameEvent.FULL_STATS` with `ctx['isDown']` in `EVENT_BUS_SCOPE.BATTLE`. `hide(False)` and `show(False)` follow it, and `isHidden()` reads back the change. The probe also listened for `FULL_STATS_QUEST_PROGRESS`, `FULL_STATS_PERSONAL_RESERVES`, `EVENT_STATS` and, for the hidden interface, `GUI_VISIBILITY` with `ctx['visible']`, but none of them fired in its runs.
+- **The pointer.** With Ctrl held, the battle shows the cursor, and the panel gets `mouseenter`, `mousedown` and `mouseup`. Its `screenX` equals its `clientX`, so the document knows only its own coordinates.
+- **The drag.** JavaScript reports the press and the release. Between the two, Python reads `GUI.mcursor().position` every frame, moves the window with `move(x, y)`, and stops when `BigWorld.isKeyDown(Keys.KEY_LEFTMOUSE)` turns False. The pointer can thus leave the small window in a fast drag and the panel still follows. The cursor is in clip space with y up: `x = (cx + 1) / 2 * width` and `y = (1 - cy) / 2 * height`, scaled from `GUI.screenResolution()` to the size of the parent window. At every drag start this put the pointer within 3 pixels of where the document saw it.
+- **The edges.** Clamp each move to the size of the parent window. Store the position with that size, and scale it on the next placement.
+- **The focus.** A click on the panel sets `isFocused` to True, and `tryFocus()` on the main window does not change that. It does not matter: the Ctrl repeats of the drag reached the panel document, but no other key did, and the player kept control of the vehicle after every drag.
+
+`crucible-tracker` builds its battle panel on this route, in `gameface/battle_panel.py`.
+
 ### Scaleform view
 
 The view holds a band of its own, and it needs no other mod installed. That second point is now the only thing separating it from a standalone Gameface panel, which reaches the same bands but carries the `net.openwg.gameface` dependency. It draws above the garage document and above every widget inside it.

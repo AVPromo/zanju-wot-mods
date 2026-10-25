@@ -38,6 +38,8 @@ api.updateModSettings(mod_id, current_values)
   Reset below); the user's saved values are applied separately via `updateModSettings`.
 - The change callback writes menu edits back into the config and saves.
 
+`campaign-tracker` and `crucible-tracker` take this glue from the shared module `mods-common/mod_menu.py`: register, declare the defaults, push the values, and drop the echo of the push. Each mod keeps its own template and its own `config.json`. `research-progress-bar` still has its own copy of the glue in `config.py`.
+
 ## Config is the source of truth; the menu cache is a mirror
 
 A mod's settings live in its AppData `config.json` (see

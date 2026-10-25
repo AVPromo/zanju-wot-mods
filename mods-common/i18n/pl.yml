@@ -1,0 +1,11 @@
+# Header counter units (kept short: the header buttons have little room)
+UNIT_DAY_SHORT: "d"
+UNIT_HOUR_SHORT: "g"
+UNIT_MINUTE_SHORT: "m"
+UNIT_SECOND_SHORT: "s"
+
+# Settings, in Mod Menu: the side of the vehicle name for the shared banner row
+SETTING_TRAY_SIDE: "Pozycja banera"
+SETTING_TRAY_SIDE_RIGHT: "Na prawo od nazwy pojazdu"
+SETTING_TRAY_SIDE_LEFT: "Na lewo od nazwy pojazdu"
+TOOLTIP_TRAY_SIDE_BODY: "Strona nazwy pojazdu, po której stoją banery tego moda. Banery wszystkich modów Zanju's po tej samej stronie dzielą jeden rząd."

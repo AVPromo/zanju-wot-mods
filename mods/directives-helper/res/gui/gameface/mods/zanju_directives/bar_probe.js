@@ -13,6 +13,9 @@
 // prefix of that element in `rootClass`. See "The Lobby Bars Take Input Where They Draw Nothing" in
 // docs/reference/gameface-mod-widgets.md.
 
+import { createLog, unwrap } from './helpers.js';
+import { createBridge, invokeCommand } from './model_bridge.js';
+
 const DATA_PROPERTY = 'zanjuDhBarProbe';
 // The strip changes size only with the screen width or the interface scale, so a slow poll is
 // enough. A report goes out only when a number changes.
@@ -28,51 +31,16 @@ let lastReportJson = null;
 // second for the rest of the session.
 let tickFailed = false;
 
-function log(message) {
-    // console.error reaches game.log, tagged [UI] [Gameface].
-    console.error('[zanju.directiveshelper.bars] ' + message);
-}
+const log = createLog('zanju.directiveshelper.bars');
 
-function unwrap(value) {
-    return value && typeof value === 'object' && 'value' in value ? value.value : value;
-}
-
-function findDataModel() {
-    if (typeof window === 'undefined' || !window.subViews) {
-        return null;
-    }
-    for (const id of window.subViews.ids()) {
-        const view = window.subViews.get(id);
-        const model = view && view.model;
-        if (model && model[DATA_PROPERTY]) {
-            return model[DATA_PROPERTY];
-        }
-    }
-    return null;
-}
-
-function invokeCommand(data, name, arg) {
-    // The same lookup as window.js: which of the wrapped proxy or its unwrapped value carries the
-    // command differs across builds. The argument must be a map.
-    try {
-        let host = null;
-        if (data && typeof data[name] === 'function') {
-            host = data;
-        } else {
-            const inner = unwrap(data);
-            if (inner && typeof inner[name] === 'function') {
-                host = inner;
-            }
-        }
-        if (!host) {
-            log('command missing: ' + name);
-            return;
-        }
-        host[name](arg || {});
-    } catch (e) {
-        log('command failed: ' + name + ' (' + e + ')');
-    }
-}
+// Only the lookup of the bridge: the strip changes too rarely for pushes to pay, so the probe
+// polls. See model_bridge.js.
+const bridge = createBridge({
+    dataProperty: DATA_PROPERTY,
+    flagPrefix: '__zanjuDhBarProbe',
+    onChange: function () { tick(); },
+    log: log,
+});
 
 function hasClassPrefix(node, prefix) {
     // `className` is not a string on an SVG element.
@@ -161,7 +129,7 @@ function measure(prefix) {
 function tick() {
     // Runs inside the client's own document, so nothing may leave it.
     try {
-        const data = findDataModel();
+        const data = bridge.find();
         if (!data) {
             return;
         }
@@ -176,7 +144,7 @@ function tick() {
         }
         lastReportJson = json;
         log('measured the bar (' + prefix + '): ' + json);
-        invokeCommand(data, 'reportBar', report);
+        invokeCommand(data, 'reportBar', report, log);
     } catch (e) {
         if (!tickFailed) {
             tickFailed = true;

@@ -12,20 +12,34 @@ Two concerns, deliberately weighted differently:
 
 en.yml is the single source of truth for the key set; the runtime merges it as the base layer
 under the client language, so a key present in en.yml is the stable English fallback.
+
+Strings that several mods use, such as the units of a time left, have one authored copy in
+mods-common/i18n/, in the same layout as the i18n/ folder of a mod. A mod takes a shared key when
+its code, or a shared module that it takes, uses the key. Nothing else declares it, the same as
+for the shared modules (see mods_common). `zwm build` adds the shared keys that a mod takes to the
+language files in its package (see shared_lines_for), and the coverage of a mod counts them as
+strings of the mod. A key is in the en.yml of a mod or in the shared one, never in both.
 """
 
 from __future__ import print_function
 
 import ast
+import functools
 import io
 import os
 import re
 
+from . import mods_common
+from .mod_cli import discover_mods
 from .mod_meta import read_meta
-from .paths import MODS_DIR, REPO_ROOT
+from .paths import MODS_COMMON_DIR, MODS_DIR, REPO_ROOT
 
 _KEY_LINE = re.compile(r"^([A-Za-z0-9_]+)\s*:\s*(.*)$")
 _REFERENCE_LANGUAGE = "en"
+_EMPTY_VALUES = ("", '""', "''")
+SHARED_I18N_DIR = os.path.join(MODS_COMMON_DIR, "i18n")
+# The name of the shared strings in messages, in place of a mod name.
+_SHARED_NAME = "mods-common"
 
 # Committed, generated starting point for new translations: every key from en.yml with an
 # empty value and the English source text in a comment above it. Kept out of coverage and
@@ -79,7 +93,7 @@ def _load_yaml_keys(path):
             if not match:
                 continue
             value = match.group(2).strip()
-            if value in ("", '""', "''"):
+            if value in _EMPTY_VALUES:
                 # Empty values mark keys awaiting translation (the runtime falls back to
                 # English for them), so they count as missing, not as translated.
                 continue
@@ -117,28 +131,97 @@ def _resolve_localization_aliases(tree):
     return single, double
 
 
+def _keys_in_file(path):
+    keys = set()
+    with io.open(path, "r", encoding="utf-8") as handle:
+        tree = ast.parse(handle.read(), path)
+    single, double = _resolve_localization_aliases(tree)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _call_name(node)
+        if name in single and node.args and _is_str(node.args[0]):
+            keys.add(node.args[0].value)
+        elif name in double:
+            for arg in node.args[:2]:
+                if _is_str(arg):
+                    keys.add(arg.value)
+    return keys
+
+
 def _collect_referenced_keys(src_dir):
     keys = set()
     for dirpath, dirnames, filenames in os.walk(src_dir):
         dirnames[:] = [name for name in dirnames if name != "__pycache__"]
         for filename in sorted(filenames):
-            if not filename.endswith(".py"):
-                continue
-            path = os.path.join(dirpath, filename)
-            with io.open(path, "r", encoding="utf-8") as handle:
-                tree = ast.parse(handle.read(), path)
-            single, double = _resolve_localization_aliases(tree)
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
-                    continue
-                name = _call_name(node)
-                if name in single and node.args and _is_str(node.args[0]):
-                    keys.add(node.args[0].value)
-                elif name in double:
-                    for arg in node.args[:2]:
-                        if _is_str(arg):
-                            keys.add(arg.value)
+            if filename.endswith(".py"):
+                keys |= _keys_in_file(os.path.join(dirpath, filename))
     return keys
+
+
+@functools.lru_cache(maxsize=None)
+def _referenced_keys(mod_name):
+    """The keys that the code of a mod uses: its own sources and the shared modules that it takes."""
+    keys = set()
+    src_dir = os.path.join(MODS_DIR, mod_name, "src")
+    if os.path.isdir(src_dir):
+        keys |= _collect_referenced_keys(src_dir)
+    for name in mods_common.modules_for(mod_name):
+        keys |= _keys_in_file(mods_common.module_path(name))
+    return frozenset(keys)
+
+
+def _reference_path(i18n_dir):
+    return os.path.join(i18n_dir, "{0}.yml".format(_REFERENCE_LANGUAGE))
+
+
+def _language_files(i18n_dir):
+    """{code: path} for each language file in i18n_dir, the reference language included."""
+    files = {}
+    if os.path.isdir(i18n_dir):
+        for name in sorted(os.listdir(i18n_dir)):
+            if name.endswith(".yml") and name != TEMPLATE_FILE_NAME:
+                files[name[:-4]] = os.path.join(i18n_dir, name)
+    return files
+
+
+def _shared_reference_keys():
+    path = _reference_path(SHARED_I18N_DIR)
+    return _load_yaml_keys(path) if os.path.isfile(path) else set()
+
+
+def shared_keys_for(mod_name):
+    """The keys of mods-common/i18n/en.yml that the code of the mod uses, sorted."""
+    return sorted(_referenced_keys(mod_name) & _shared_reference_keys())
+
+
+def shared_key_map():
+    """{key: [mod, ...]} for each key of mods-common/i18n/en.yml, with the mods that take it."""
+    mods = discover_mods()
+    return {key: [mod for mod in mods if key in _referenced_keys(mod)] for key in sorted(_shared_reference_keys())}
+
+
+def shared_lines_for(mod_name):
+    """{code: [line, ...]}: from each shared language file, the lines of the keys that the mod takes.
+
+    The build adds these lines to the language files of the mod. A line with an empty value is left
+    out, so that the English line under it in the game stays in effect.
+    """
+    keys = set(shared_keys_for(mod_name))
+    if not keys:
+        return {}
+    result = {}
+    for code, path in _language_files(SHARED_I18N_DIR).items():
+        lines = []
+        with io.open(path, "r", encoding="utf-8-sig") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                match = _KEY_LINE.match(line)
+                if match and match.group(1) in keys and match.group(2).strip() not in _EMPTY_VALUES:
+                    lines.append(line)
+        if lines:
+            result[code] = lines
+    return result
 
 
 def _iter_mod_i18n_dirs():
@@ -151,48 +234,78 @@ def _iter_mod_i18n_dirs():
 
 
 def audit_code_key_coverage():
-    """Hard check: return problem strings for code-referenced keys missing from en.yml."""
+    """Hard check: return problem strings for keys that are missing, in two places, or not used."""
     problems = []
+    shared_keys = _shared_reference_keys()
     for mod_name, i18n_dir in _iter_mod_i18n_dirs():
-        en_path = os.path.join(i18n_dir, "{0}.yml".format(_REFERENCE_LANGUAGE))
+        en_path = _reference_path(i18n_dir)
         if not os.path.isfile(en_path):
             problems.append("{0}: missing reference i18n/{1}.yml".format(mod_name, _REFERENCE_LANGUAGE))
             continue
         en_keys = _load_yaml_keys(en_path)
-        src_dir = os.path.join(MODS_DIR, mod_name, "src")
-        if not os.path.isdir(src_dir):
-            continue
-        for key in sorted(_collect_referenced_keys(src_dir) - en_keys):
-            problems.append("{0}: key '{1}' is used in code but missing from i18n/en.yml".format(mod_name, key))
+        for key in sorted(en_keys & shared_keys):
+            problems.append(
+                "{0}: key '{1}' is in i18n/en.yml and in mods-common/i18n/en.yml. Delete it from the mod: "
+                "the mod takes the shared key.".format(mod_name, key)
+            )
+        for key in sorted(_referenced_keys(mod_name) - en_keys - shared_keys):
+            problems.append(
+                "{0}: key '{1}' is used in code but missing from i18n/en.yml and from "
+                "mods-common/i18n/en.yml".format(mod_name, key)
+            )
+    for key, mods in sorted(shared_key_map().items()):
+        if not mods:
+            problems.append(
+                "mods-common/i18n/en.yml: no mod uses key '{0}'. Delete it, or move it to the mod that "
+                "uses it.".format(key)
+            )
     return problems
 
 
 def compute_translation_coverage():
-    """Return {mod_name: {'reference_count': N, 'languages': [ {code, present, total, missing, extra} ]}}."""
+    """Return {mod_name: {'reference_count', 'shared_count', 'languages': [ {code, present, total, missing,
+    extra, own_file} ]}}.
+
+    The strings of a mod are its own keys and the shared keys that it takes. A shared language file thus
+    counts for each mod that takes keys from it, also for a mod without its own file in that language.
+    """
+    shared_files = _language_files(SHARED_I18N_DIR)
+    shared_files.pop(_REFERENCE_LANGUAGE, None)
     coverage = {}
     for mod_name, i18n_dir in _iter_mod_i18n_dirs():
-        en_path = os.path.join(i18n_dir, "{0}.yml".format(_REFERENCE_LANGUAGE))
+        en_path = _reference_path(i18n_dir)
         if not os.path.isfile(en_path):
             continue
-        en_keys = _load_yaml_keys(en_path)
+        own_keys = _load_yaml_keys(en_path)
+        shared_keys = set(shared_keys_for(mod_name))
+        reference = own_keys | shared_keys
+        own_files = _language_files(i18n_dir)
+        own_files.pop(_REFERENCE_LANGUAGE, None)
+        codes = set(own_files)
+        if shared_keys:
+            codes |= set(shared_files)
         languages = []
-        for name in sorted(os.listdir(i18n_dir)):
-            if not name.endswith(".yml") or name == TEMPLATE_FILE_NAME:
-                continue
-            code = name[:-4]
-            if code == _REFERENCE_LANGUAGE:
-                continue
-            lang_keys = _load_yaml_keys(os.path.join(i18n_dir, name))
+        for code in sorted(codes):
+            lang_keys = _load_yaml_keys(own_files[code]) if code in own_files else set()
+            present = lang_keys & own_keys
+            if code in shared_files:
+                present |= _load_yaml_keys(shared_files[code]) & shared_keys
             languages.append(
                 {
                     "code": code,
-                    "present": len(lang_keys & en_keys),
-                    "total": len(en_keys),
-                    "missing": sorted(en_keys - lang_keys),
-                    "extra": sorted(lang_keys - en_keys),
+                    "present": len(present),
+                    "total": len(reference),
+                    "missing": sorted(reference - present),
+                    # A shared key in the file of a mod counts here too: the shared file holds it.
+                    "extra": sorted(lang_keys - own_keys),
+                    "own_file": code in own_files,
                 }
             )
-        coverage[mod_name] = {"reference_count": len(en_keys), "languages": languages}
+        coverage[mod_name] = {
+            "reference_count": len(reference),
+            "shared_count": len(shared_keys),
+            "languages": languages,
+        }
     return coverage
 
 
@@ -216,10 +329,11 @@ def render_template(en_path):
 
 
 def _iter_mods_with_reference():
-    for mod_name, i18n_dir in _iter_mod_i18n_dirs():
-        en_path = os.path.join(i18n_dir, "{0}.yml".format(_REFERENCE_LANGUAGE))
+    """Each mod with an en.yml, and the shared strings after them, as (name, i18n_dir, en_path)."""
+    for name, i18n_dir in list(_iter_mod_i18n_dirs()) + [(_SHARED_NAME, SHARED_I18N_DIR)]:
+        en_path = _reference_path(i18n_dir)
         if os.path.isfile(en_path):
-            yield mod_name, i18n_dir, en_path
+            yield name, i18n_dir, en_path
 
 
 def check_templates():
@@ -251,13 +365,15 @@ def write_templates():
 def render_coverage_section(mod_coverage):
     """Render the whole '## Translations' section (heading + table) for one mod."""
     reference_count = mod_coverage["reference_count"]
+    shared_count = mod_coverage.get("shared_count", 0)
     languages = mod_coverage["languages"]
+    shared_note = ", {0} of them in the [shared strings](../../mods-common/i18n/)".format(shared_count) if shared_count else ""
     lines = [
         _SECTION_HEADING,
         "",
-        "Reference language `{0}` defines {1} strings. Translations are community-maintained and may "
+        "Reference language `{0}` defines {1} strings{2}. Translations are community-maintained and may "
         "lag behind; see [Translating](../../docs/translating.md) to add or update one, then regenerate "
-        "this table with `zwm lint i18n`.".format(_REFERENCE_LANGUAGE, reference_count),
+        "this table with `zwm lint i18n`.".format(_REFERENCE_LANGUAGE, reference_count, shared_note),
         "",
         "| Language | Coverage | Missing |",
         "| --- | --- | --- |",
@@ -357,7 +473,10 @@ def _display_name(mod_name):
 
 
 def _overview_cell(mod_name, code, lang, reference_count):
-    """One mod in one language: a mark, then translated out of total, linked to the file if any."""
+    """One mod in one language: a mark, then translated out of total, linked to the file of the mod if any.
+
+    The shared strings alone can give a mod a language with no file of its own. That cell has no link.
+    """
     if lang is None:
         return "{0} 0/{1}".format(_MISSING, reference_count)
     present = lang["present"]
@@ -368,6 +487,8 @@ def _overview_cell(mod_name, code, lang, reference_count):
         mark = _PARTIAL
     else:
         mark = _MISSING
+    if not lang.get("own_file", True):
+        return "{0} {1}/{2}".format(mark, present, total)
     return "{0} [{1}/{2}](mods/{3}/i18n/{4}.yml)".format(mark, present, total, mod_name, code)
 
 

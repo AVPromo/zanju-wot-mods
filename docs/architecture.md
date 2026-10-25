@@ -32,12 +32,13 @@ Runtime modules that several mods share live next to `mods/`, not in it:
 
 ```text
 mods-common/
-  manifest.json   (which mods take which module)
-  <name>.py
+  <name>.py       (shared Python modules)
+  gameface/       (shared Gameface scripts)
+  i18n/           (shared strings)
   tests/
 ```
 
-`zwm build` compiles each of these modules into the package of every mod that takes it. See [Shared Modules](reference/runtime-layout-and-packaging.md#shared-modules).
+A mod takes a shared module or script by importing it. `zwm build` compiles each of these modules into the package of every mod that takes it, and copies each script into its Gameface folder. See [Shared Modules](reference/runtime-layout-and-packaging.md#shared-modules).
 
 ## Python Entry Points
 

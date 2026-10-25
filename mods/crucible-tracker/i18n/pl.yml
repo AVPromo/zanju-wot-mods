@@ -1,0 +1,19 @@
+# Hover card
+LABEL_NO_ACTIVE: "Brak aktywnego Tygla"
+LABEL_MISSION: "Misja {stage} z {total}"
+LABEL_MISSION_NUMBER: "Misja {stage}"
+LABEL_COMPLETIONS: "Ukończenia: {done} / {allowed}"
+LABEL_AVAILABLE: "Dostępny"
+LABEL_FREE_RESTART: "Dostępny darmowy restart"
+LABEL_RESTART_FOR: "Restart dostępny za:"
+LABEL_IN_BATTLE: "Pojazdy w bitwie:"
+LABEL_IN_BATTLE_WARNING: "Wynik trwającej bitwy rozstrzygnie bieżącą misję, jeśli w chwili zakończenia bitwy Tygiel będzie aktywny."
+LABEL_HINT_OPEN: "Kliknij, aby otworzyć menu Tygla"
+
+# Settings, in Mod Menu
+SETTING_GARAGE: "Baner w garażu"
+TOOLTIP_GARAGE_BODY: "Pokazuj baner Tygla obok nazwy pojazdu w garażu, z podpowiedzią po najechaniu kursorem."
+SETTING_BATTLE: "Panel w bitwie"
+TOOLTIP_BATTLE_BODY: "Pokazuj postęp bieżącej misji Tygla w bitwie. Przytrzymaj Ctrl i przeciągnij panel, aby go przesunąć."
+SETTING_PANEL_DETAILS: "Szczegóły panelu w bitwie"
+TOOLTIP_PANEL_DETAILS_BODY: "Kiedy panel w bitwie pokazuje pełne informacje zamiast tylko najważniejszych."

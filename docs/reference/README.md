@@ -22,5 +22,6 @@ paraphrase of it.
 - [Research Progress Bar UI](research-progress-bar-ui.md)
 - [Gameface Mod Widgets](gameface-mod-widgets.md)
 - [Personal Missions](personal-missions.md)
+- [Crucible](crucible.md)
 - [WoT Plus Subscriptions](wot-plus-subscriptions.md)
 - [Directives And Battle Boosters](directives-and-battle-boosters.md)

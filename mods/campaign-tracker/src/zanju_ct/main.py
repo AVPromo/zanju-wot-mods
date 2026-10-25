@@ -12,6 +12,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import logging
 
+from . import config
 from .constants import LOGGER_NAME, MOD_ID
 from .gameface import widgets_inject
 
@@ -21,7 +22,9 @@ _logger = logging.getLogger(LOGGER_NAME)
 def init():
     _logger.info('%s initializing', MOD_ID)
     try:
+        config.load(_logger)
         widgets_inject.install(_logger)
+        config.register_menu(MOD_ID, _logger, widgets_inject.on_settings_changed)
         _logger.info('%s initialized', MOD_ID)
     except Exception:
         _logger.exception('%s failed to initialize', MOD_ID)

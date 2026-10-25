@@ -25,10 +25,14 @@
 //
 // The banners are fixed to the garage's own vehicle name and experience block
 // (`VehicleInfoWidget`, which renders the tier, the name and the XP total). That block lives in
-// this same document and sits centred near the top, so the banners take the space to its right
-// and follow it wherever the garage puts it. See findAnchor for why it is matched the way it
-// is. There is no fallback position: without that block there is nothing to sit beside, so the
-// banners stay hidden until it mounts.
+// this same document and sits centred near the top, so the banners take the space on one side
+// of it and follow it wherever the garage puts it. There is no fallback position: without that
+// block there is nothing to sit beside, so the banners stay hidden until it mounts.
+//
+// The row shares that space with the banners of other mods, through the shared banner tray in
+// tray.js. This mod writes the width of its row and the side the config names, and starts its
+// row after every row with a lower rank on the same side. The build copies tray.js in beside
+// this file from mods-common/gameface/.
 //
 // The hover card is NOT here. It renders in a window the mod owns, on a window band of its own,
 // so it can draw over native windows such as the platoon window -- which nothing inside this
@@ -48,10 +52,25 @@ import {
     parseJson,
     unwrap,
 } from './common.js';
+import { createBridge, invokeCommand } from './model_bridge.js';
+import {
+    ROW_GAP_PX,
+    SIDE_RIGHT,
+    anchorRect,
+    clampToViewport,
+    isAttached,
+    isWithin,
+    normalizeSide,
+    observeTray,
+    publishEntry,
+    readEntries,
+    rowOrigin,
+    withdrawEntry,
+} from './tray.js';
 
 const ROOT_ID = 'zanju-ct-root';
 const DATA_PROPERTY = 'zanjuCtWidgets';
-// The snapshot normally arrives by push (see bindModelPush): this is the backstop for the
+// The snapshot normally arrives by push (see model_bridge.js): this is the backstop for the
 // case where that channel could not be established, and the rate it drops to then.
 const POLL_INTERVAL_MS = 1000;
 // The unpushed rate only applies before the subscription is up, which is normally the first
@@ -64,18 +83,6 @@ const UNPUSHED_POLL_INTERVAL_MS = 100;
 // settle and stop needing attention, but a key can be pressed at any moment for as long as the
 // garage is open.
 const KEY_POLL_INTERVAL_MS = 100;
-// Flag on the document so the engine-level handler is registered once, even if this module is
-// evaluated again for another sub-view.
-const PUSH_BOUND_FLAG = '__zanjuCtPushBound';
-// Which sub-view the data-changed subscription currently names. Kept apart from the flag above
-// because the two have different lifetimes: the handler is registered once for the document,
-// while the subscription names one view and has to be renewed when that view is replaced.
-const PUSH_RES_ID_FLAG = '__zanjuCtPushResId';
-// Flag on the document recording that a push has actually ARRIVED, which is a different thing
-// from having subscribed to them. The timer rate keys off this one: a subscription that never
-// delivers used to leave the widgets on the slow backstop, where a modifier key took up to a
-// second to reach the card.
-const PUSH_SEEN_FLAG = '__zanjuCtPushSeen';
 // Flag on the document so the click listener is registered once, even if this module is
 // evaluated again for another sub-view.
 const CLICK_BOUND_FLAG = '__zanjuCtClickBound';
@@ -89,37 +96,22 @@ const heldKeys = { shift: false, ctrl: false };
 // The banner the pointer is currently on, or null. Held so the card can be re-placed when the
 // banners move without waiting for the pointer to leave and return.
 let hoveredWidget = null;
-// The garage's own vehicle name and experience block, which the widgets sit beside. Matched on
-// the component name rather than on a full class name: the game builds these with CSS modules,
-// so every class carries a content hash (`VehicleInfoWidget_b24b193a`) that changes whenever
-// Wargaming edits that stylesheet. The prefix comes from the component's file name and is the
-// stable half.
-const ANCHOR_SELECTOR = '[class*="VehicleInfoWidget_"]';
-// The space a banner keeps clear of the banner beside it. Every banner fills its slot exactly, so
-// this is the gap as it is seen, border to border.
-const BANNER_GAP_PX = 12;
-// Where the row starts, measured from the top-right corner of the block it hangs off. The
-// horizontal value clears the role icon the game itself hangs off that corner.
-const ANCHOR_OFFSET_X_PX = 25;
-const ANCHOR_OFFSET_Y_PX = 10;
+// The space a banner keeps clear of the banner beside it. The tray keeps the same space between
+// the rows of two mods, so the whole tray reads as one row.
+const BANNER_GAP_PX = ROW_GAP_PX;
+// This mod's entry in the shared banner tray. The rank puts its row nearest the vehicle name on
+// either side. crucible-tracker takes 20.
+const TRAY_OWNER = 'zanju.campaigntracker';
+const TRAY_RANK = 10;
 // Slot width used when a banner cannot be measured yet. Only a degraded path — the row spreads
 // by measured width normally — but without it an unmeasurable pass would stack every banner on
 // the same spot.
 const NOMINAL_WIDGET_WIDTH_PX = 60;
-// The smallest width and height that this module accepts as the size of the screen. No screen
-// that the client runs on is this small, so a smaller value shows that the page has no layout
-// yet. directives-helper's window.js uses the same limit. See clampToViewport.
-const MIN_SCREEN_PX = 100;
 
 let lastSnapshotJson = null;
-// Which sub-view turned out to carry our data model, so the push subscription can name it.
-let dataResId = null;
-let pollTimer = null;
 let keyPollTimer = null;
-// The garage element the widgets hang off, kept between ticks. Looking it up is a document
-// query, and `tick` runs on every model write anywhere in this document once pushes are wired
-// up, so it must not repeat the search while the element it found is still good.
-let anchorEl = null;
+// The side of the vehicle name the row stands on, from the config, as the snapshot carries it.
+let traySide = SIDE_RIGHT;
 // The campaigns currently on screen, and the last origin they were laid out from, so a moved
 // anchor can be noticed without re-running a render.
 let liveBranches = [];
@@ -130,106 +122,14 @@ let hasDrawn = false;
 // loads — so the first tick usually finds nothing to measure. `bannersPlaced` is what the root's
 // visibility hangs on, so the banners appear beside the block rather than somewhere else first.
 let bannersPlaced = false;
-let currentPollMs = null;
 
-function modelOn(id) {
-    const view = window.subViews.get(id);
-    const model = view && view.model;
-    return model && model[DATA_PROPERTY] ? model[DATA_PROPERTY] : null;
-}
-
-function findDataModel() {
-    // The inject lands on whichever hangar sub-view was free, so locate it by scanning
-    // rather than assuming one.
-    if (typeof window === 'undefined' || !window.subViews) {
-        return null;
-    }
-    if (dataResId !== null) {
-        // Once pushes are wired up this runs on every model write anywhere in the document,
-        // not just ours, so it has to stay a single lookup rather than a scan of every
-        // sub-view. Falls back to the scan the moment that view stops carrying our model.
-        const known = modelOn(dataResId);
-        if (known) {
-            return known;
-        }
-    }
-    const ids = window.subViews.ids();
-    for (const id of ids) {
-        const model = modelOn(id);
-        if (model) {
-            dataResId = id;
-            return model;
-        }
-    }
-    dataResId = null;
-    return null;
-}
-
-function bindModelPush() {
-    // Python writes the snapshot the moment the missions or the selected tank change, but a
-    // property write is not an event on this side: without this the widgets would only notice
-    // on their next poll, which is a visible lag on something as ordinary as switching tanks.
-    // `viewEnv.onDataChanged` is the engine's own signal that a model in this document was
-    // written, and it is what OpenWG's own ModelObserver subscribes to.
-    //
-    // The subscription names ONE sub-view, and the garage replaces ours on every tank change,
-    // so it is renewed whenever the id moves. The reference doc has why the symptom of getting
-    // this wrong is lateness rather than silence.
-    if (dataResId === null || document[PUSH_RES_ID_FLAG] === dataResId) {
-        return false;
-    }
-    if (typeof engine === 'undefined' || typeof viewEnv === 'undefined') {
-        return false;
-    }
-    try {
-        if (!document[PUSH_BOUND_FLAG]) {
-            // The handler belongs to the document, not to a view, so it is registered once.
-            // Registering it again per view would run the tick once per registration.
-            engine.on('viewEnv.onDataChanged', onPush);
-            document[PUSH_BOUND_FLAG] = true;
-        }
-        // Third argument asks for descendants too: the snapshot lives on our child model, not
-        // on the sub-view's own model.
-        viewEnv.addDataChangedCallback('model', dataResId, true);
-        document[PUSH_RES_ID_FLAG] = dataResId;
-        log('subscribed to model updates on sub-view ' + dataResId);
-        return true;
-    } catch (e) {
-        // Never fatal: the poll below still gets there, just later.
-        log('could not subscribe to model updates, falling back to polling (' + e + ')');
-        return false;
-    }
-}
-
-// Every push runs a tick, and the first one also tells the timer it can stand down.
-function onPush() {
-    document[PUSH_SEEN_FLAG] = true;
-    tick();
-}
-
-function invokeCommand(data, name, arg) {
-    // Wulf exposes a command as a callable on the model; which of the wrapped proxy or its
-    // unwrapped value carries it differs across builds, so try both. The argument must be a
-    // map — a bare scalar is rejected by Gameface as "not a map".
-    try {
-        let host = null;
-        if (data && typeof data[name] === 'function') {
-            host = data;
-        } else {
-            const inner = unwrap(data);
-            if (inner && typeof inner[name] === 'function') {
-                host = inner;
-            }
-        }
-        if (!host) {
-            log('command missing: ' + name);
-            return;
-        }
-        host[name](arg || {});
-    } catch (e) {
-        log('command failed: ' + name + ' (' + e + ')');
-    }
-}
+// Finds the data model, follows its pushes, and polls as a backstop. See model_bridge.js.
+const bridge = createBridge({
+    dataProperty: DATA_PROPERTY,
+    flagPrefix: '__zanjuCt',
+    onChange: function () { tick(); },
+    log: log,
+});
 
 function getRoot() {
     return document.getElementById(ROOT_ID);
@@ -578,12 +478,12 @@ function bindHover(widget) {
 // The banner's own rectangle, in this document's pixels. Python converts it into the window
 // coordinates the card is moved in; nothing here knows about that space.
 function reportHover(widget) {
-    const data = findDataModel();
+    const data = bridge.find();
     if (!data) {
         return;
     }
     if (!widget || !isAttached(widget)) {
-        invokeCommand(data, 'cardHover', { branch: '' });
+        invokeCommand(data, 'cardHover', { branch: '' }, log);
         return;
     }
     const rect = widget.getBoundingClientRect();
@@ -595,7 +495,7 @@ function reportHover(widget) {
         y: Math.round(rect.top),
         w: Math.round(rect.width),
         h: Math.round(rect.height),
-    });
+    }, log);
 }
 
 // Re-sent when the banners move, so the card follows the block it hangs off rather than
@@ -604,87 +504,6 @@ function refreshHover() {
     if (hoveredWidget) {
         reportHover(hoveredWidget);
     }
-}
-
-function clampToViewport(x, y) {
-    // The clamp needs the size of the screen, and the page does not always know it when this
-    // module starts. On 2.4.1.0 `innerWidth` and `innerHeight` can be 1 then. Taken as the size,
-    // 1 by 1 would put every banner at 0,0 and keep it there until the anchor moves. A size
-    // smaller than any screen is thus the same as no size, and the position stays as it is.
-    const w = Number(window.innerWidth) || 0;
-    const h = Number(window.innerHeight) || 0;
-    let left = x;
-    let top = y;
-    if (w >= MIN_SCREEN_PX && h >= MIN_SCREEN_PX) {
-        left = Math.max(0, Math.min(w - 40, left));
-        top = Math.max(0, Math.min(h - 20, top));
-    }
-    return { x: Math.round(left), y: Math.round(top) };
-}
-
-// Whether a node is still part of the document. `isWithin` is not reused for this: its walk is
-// capped at the few levels a press inside our own widget can travel, and the garage's own
-// markup nests the anchor deeper than that, so it would answer "detached" for a live element
-// and send findAnchor back to a full document query on every tick.
-function isAttached(node) {
-    let current = node;
-    for (let depth = 0; current && depth < 64; depth += 1) {
-        if (current === document.body) {
-            return true;
-        }
-        current = current.parentNode;
-    }
-    return false;
-}
-
-function findAnchor() {
-    // The cached element is kept only while it is still in the document. The garage rebuilds
-    // this block whenever the selected vehicle changes, which detaches the old node — and a
-    // detached node still answers getBoundingClientRect, with zeroes, so testing the cache by
-    // reading its rect would silently place every widget in the top-left corner.
-    if (anchorEl && isAttached(anchorEl)) {
-        return anchorEl;
-    }
-    anchorEl = null;
-    if (!document.querySelectorAll) {
-        return null;
-    }
-    // The component's own class prefix matches its root and every descendant, so take the
-    // outermost hit rather than the first: document order alone would be right today and
-    // wrong the moment Wargaming reorders that markup.
-    const matches = document.querySelectorAll(ANCHOR_SELECTOR);
-    for (let i = 0; i < matches.length; i += 1) {
-        let outermost = true;
-        for (let j = 0; j < matches.length; j += 1) {
-            if (i !== j && isWithin(matches[j], matches[i])) {
-                outermost = false;
-                break;
-            }
-        }
-        if (outermost) {
-            anchorEl = matches[i];
-            return anchorEl;
-        }
-    }
-    return null;
-}
-
-// Where the row of banners starts: down and right of the top-right corner of the garage's
-// vehicle name block. Null while that block is not on stage, which is the banners' cue to stay
-// hidden rather than to sit somewhere arbitrary.
-function anchorOrigin() {
-    const element = findAnchor();
-    if (!element || !element.getBoundingClientRect) {
-        return null;
-    }
-    const rect = element.getBoundingClientRect();
-    if (!rect || (!rect.width && !rect.height)) {
-        return null;
-    }
-    return {
-        x: Math.round(rect.right + ANCHOR_OFFSET_X_PX),
-        y: Math.round(rect.top + ANCHOR_OFFSET_Y_PX),
-    };
 }
 
 function widgetWidth(widget) {
@@ -723,6 +542,27 @@ function applyLayout(root, branches, origin) {
     }
     // Whether the row stands on real widths. False asks the caller to lay out again next tick.
     return measured;
+}
+
+// The width of the whole row, border to border, as the tray needs it. A banner that cannot be
+// measured yet counts at the nominal slot, the same as in applyLayout.
+function rowWidth(root, branches) {
+    let width = 0;
+    let measured = true;
+    let count = 0;
+    for (let i = 0; i < branches.length; i += 1) {
+        const widget = root.querySelector('[data-branch="' + branches[i] + '"]');
+        if (!widget) {
+            continue;
+        }
+        const own = widgetWidth(widget);
+        if (!own) {
+            measured = false;
+        }
+        width += (own || NOMINAL_WIDGET_WIDTH_PX) + (count ? BANNER_GAP_PX : 0);
+        count += 1;
+    }
+    return { width: Math.round(width), measured: measured };
 }
 
 function renderWidgets(root, snapshot) {
@@ -827,27 +667,13 @@ function bindClicks(data) {
         event.stopPropagation();
         if (action) {
             invokeCommand(data, 'missionAction',
-                { branch: widget._zanjuCtBranch, action: action });
+                { branch: widget._zanjuCtBranch, action: action }, log);
         }
     }, true);
 }
 
-function isWithin(ancestor, node) {
-    // Walks up checking identity first, rather than using `ancestor.contains(node)`: this
-    // renderer does not report a node as containing itself, and a press can land on the
-    // widget element itself rather than on one of its children.
-    let current = node;
-    for (let depth = 0; ancestor && current && depth < 8; depth += 1) {
-        if (current === ancestor) {
-            return true;
-        }
-        current = current.parentNode;
-    }
-    return false;
-}
-
 function tick() {
-    const data = findDataModel();
+    const data = bridge.find();
     if (!data) {
         return;
     }
@@ -864,7 +690,7 @@ function tick() {
         bannersPlaced = false;
     }
 
-    bindModelPush();
+    bridge.follow();
 
     // Decided on the Python side by the lobby's visible route; see widgets_inject.py. Applied
     // at the end of the tick, once placement has had its say.
@@ -879,6 +705,7 @@ function tick() {
         lastSnapshotJson = raw;
         const snapshot = parseJson(raw, 'snapshot');
         if (snapshot) {
+            traySide = normalizeSide(snapshot.layout && snapshot.layout.side);
             liveBranches = renderWidgets(root, snapshot);
             lastOriginKey = '';
             if (!hasDrawn && liveBranches.length) {
@@ -890,29 +717,41 @@ function tick() {
         }
     }
 
-    // Re-laid out whenever the block the banners hang off has moved. The garage moves it on a
-    // resolution change, on a UI-scale change, and whenever the vehicle name gets longer or
-    // shorter — none of which arrive as a snapshot, so watching for it here is what keeps the
-    // row beside it. One rect read on a cached element, because this runs on every model write
-    // in the document.
-    if (liveBranches.length) {
-        updateLayout(root, liveBranches);
+    // Re-laid out whenever the block the banners hang off has moved, or a row of another mod in
+    // the tray has. The garage moves the block on a resolution change, on a UI-scale change, and
+    // whenever the vehicle name gets longer or shorter — none of which arrive as a snapshot, so
+    // watching for it here is what keeps the row beside it. One rect read on a cached element,
+    // because this runs on every model write in the document.
+    //
+    // A row that is not on screen leaves the tray, so the other rows close the gap.
+    if (visible !== false && liveBranches.length) {
+        updateLayout(root, liveBranches, traySide);
+    } else {
+        withdrawEntry(TRAY_OWNER);
+        lastOriginKey = '';
     }
     root.style.display = visible !== false && bannersPlaced ? 'block' : 'none';
-    setPollRate(pollRateFor(Boolean(document[PUSH_SEEN_FLAG]), bannersPlaced));
+    bridge.setPollRate(pollRateFor(bridge.pushSeen(), bannersPlaced));
 }
 
-function updateLayout(root, branches) {
-    const origin = anchorOrigin();
-    if (!origin) {
-        // The block is not on stage: leave the banners where they are and keep them hidden.
+function updateLayout(root, branches, side) {
+    const rowSide = normalizeSide(side);
+    const rect = anchorRect();
+    if (!rect) {
+        // The block is not on stage: leave the banners where they are, keep them hidden, and
+        // leave the tray so a row of another mod does not wait for this one.
         bannersPlaced = false;
         lastOriginKey = '';
+        withdrawEntry(TRAY_OWNER);
         return;
     }
     if (!bannersPlaced) {
-        log('anchored to the vehicle name block');
+        log('anchored to the vehicle name block, ' + rowSide + ' side');
     }
+    const row = rowWidth(root, branches);
+    const self = { owner: TRAY_OWNER, rank: TRAY_RANK, side: rowSide, width: row.width };
+    publishEntry(self);
+    const origin = rowOrigin(readEntries(), self, rect);
     const key = origin.x + ':' + origin.y;
     if (key !== lastOriginKey) {
         // Only remembered when every banner could be measured. A banner appended this frame can
@@ -938,6 +777,9 @@ function updateLayout(root, branches) {
 // the widgets on the one-second backstop when the channel turns out to be silent -- which is
 // invisible for a snapshot but not for a modifier key, where a second of lag is the whole
 // interaction.
+// The timer rate keys off a push that has actually arrived, which is a different thing from
+// having subscribed to them: a subscription that never delivers used to leave the widgets on the
+// slow backstop, where a modifier key took up to a second to reach the card.
 function pollRateFor(pushSeen, placed) {
     return pushSeen && placed ? POLL_INTERVAL_MS : UNPUSHED_POLL_INTERVAL_MS;
 }
@@ -952,32 +794,28 @@ function pollRateFor(pushSeen, placed) {
 // behind the key is worse than no highlight: it says the click will do something other than
 // what it will do.
 function keyTick() {
-    if (dataResId === null) {
+    if (bridge.resId() === null) {
         return; // nothing found yet — going looking is the main tick's job, not this one's
     }
-    const data = findDataModel();
+    const data = bridge.find();
     if (data) {
         updateKeys(unwrap(data.heldKeys));
     }
 }
 
-function setPollRate(intervalMs) {
-    if (intervalMs === currentPollMs) {
-        return; // called on every tick; only an actual change should reset the timer
-    }
-    currentPollMs = intervalMs;
-    if (pollTimer !== null) {
-        clearInterval(pollTimer);
-    }
-    pollTimer = setInterval(tick, intervalMs);
+// Another mod's row moved, so this one may have to. The next layout pass compares the origin
+// and does nothing when it did not change.
+function onTrayChanged() {
+    tick();
 }
 
 function start() {
     log('widgets.js loaded');
+    log('banner tray: ' + observeTray(TRAY_OWNER, onTrayChanged));
     // Starts at the faster rate and drops to the backstop rate the moment pushes are wired
     // up, which is usually on the first tick — but not if the sub-views are not up yet, and
     // that is exactly the case a rate fixed at start-up would get wrong.
-    setPollRate(UNPUSHED_POLL_INTERVAL_MS);
+    bridge.setPollRate(UNPUSHED_POLL_INTERVAL_MS);
     if (keyPollTimer === null) {
         keyPollTimer = setInterval(keyTick, KEY_POLL_INTERVAL_MS);
     }
@@ -993,26 +831,19 @@ if (typeof window !== 'undefined' && window.subViews) {
 // Exported for the test suite only: the game loads this module for its side effect, via the
 // auto-start above. Anything not imported by widgets.test.js stays internal.
 export {
-    ANCHOR_OFFSET_X_PX,
-    ANCHOR_OFFSET_Y_PX,
     BANNER_GAP_PX,
     KEY_POLL_INTERVAL_MS,
     POLL_INTERVAL_MS,
     UNPUSHED_POLL_INTERVAL_MS,
     actionFor,
-    anchorOrigin,
     applyLayout,
     bannerFlags,
     bannerTally,
     bannerVehicles,
     bindHover,
-    bindModelPush,
     buildWidget,
-    clampToViewport,
     faceId,
-    findDataModel,
     isActive,
-    isAttached,
     isClickable,
     isWithin,
     keyTick,
@@ -1027,6 +858,7 @@ export {
     renderWidget,
     renderWidgets,
     reportHover,
+    rowWidth,
     updateKeys,
     updateLayout,
     widgetFrom,

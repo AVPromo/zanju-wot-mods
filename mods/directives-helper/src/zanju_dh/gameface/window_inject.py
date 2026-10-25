@@ -7,12 +7,18 @@ whatever a `ModInjectModel` on one of that document's SUB-views lists. We attach
 model, plus our own data model (`zanjuDhWindow`) carrying the directive snapshot and the
 remembered window state, which window.js reads.
 
-Placement is collision-aware. `gf_mod_inject` always writes to the fixed field name
-`ModInjectModel`, so two mods that pick the same sub-view silently clobber each other, last
-writer wins. We hook several candidate hangar sub-views, attach to the first free one, and
-then leave the others alone for the next mod -- see view_claim for why that last part is not
-optional. The JS finds our data by scanning sub-views, so which candidate we land on does not
-matter to it.
+Placement takes nothing from another mod. `gf_mod_inject` always writes to the fixed field
+name `ModInjectModel`, so two mods that pick the same sub-view silently clobber each other, last
+writer wins. The window therefore rides on a child view of the mod's own, at a position ID that
+no client resource and no other mod uses (see hangar_child). The random garage and the garage
+of each mode are separate documents, each with a root view of its own, so each known root view
+gets the child.
+
+A garage root view that this mod does not know, such as one of a new mode, gets no child. For
+that case the mod still claims one free candidate of the client's own sub-views, the way it did
+before it had a child of its own, and then leaves the others alone for the next mod -- see
+view_claim. It claims only outside a root view that has the child. The JS finds our data by
+scanning sub-views, so where the model lands does not matter to it.
 
 See docs/reference/gameface-mod-widgets.md for the wider set of rules this follows.
 """
@@ -22,7 +28,7 @@ import logging
 
 from frameworks.wulf import ViewModel
 
-from .. import collector, config, loadout_panel, repair, route_gate, slot_gate, view_claim
+from .. import collector, config, hangar_child, loadout_panel, repair, route_gate, slot_gate, view_claim
 from ..localization import get_text as _loc
 
 _MODULE_URL = 'coui://gui/gameface/mods/zanju_directives/window.js'
@@ -31,9 +37,14 @@ _INJECT_NAME = 'zanju_dh_window'
 _DATA_PROPERTY = 'zanjuDhWindow'
 # The field gf_mod_inject always writes to; its presence means a mod already claimed the view.
 _INJECT_FIELD = 'ModInjectModel'
+# The position of the window's child in each garage root view: `ZNDH`. The bar probe uses the
+# same number in the lobby bars, which are other parents.
+_POS_ID = 0x5A4E4448
+# The garages that get the child: the random garage, and the garage of each mode.
+_GARAGES = (hangar_child.RANDOM_GARAGE,) + hangar_child.MODE_GARAGES
 
-# Hangar sub-views to try, most preferred first. All live in the persistent
-# `mono/hangar/main` document, which loads once per garage session.
+# The fallback for a garage root view that the mod does not know: client sub-views to claim,
+# most preferred first. Every garage builds these presenters.
 #
 # The order is only a preference: the client decides which of these it builds first, and we
 # attach to whichever free one reaches us first. Coexisting with other mods rests on attaching
@@ -53,16 +64,14 @@ _patched = []
 # Live data models, so a change in the depot or the selected tank can be pushed to whichever
 # hangar views are currently carrying one.
 #
-# Entries accumulate, and that is left alone deliberately. Nothing here can tell when a view
-# dies: a torn-down view model accepts updates and ignores them rather than refusing them, so
-# the drop path in `_push` never runs -- measured on EU 2.3.1.3, a session that attached 27
-# models dropped none. Holding them weakly does not help, because the client keeps every model
-# it built for the whole session, so the count climbs either way.
-#
-# The cost is one ignored property set per dead entry, since the payload is built once per
-# refresh whatever this list holds. A weak reference would trade that measured, harmless leak
-# for the risk of a model vanishing while it is still in use, which is silent and much worse.
+# Nothing here can tell when a view dies: a torn-down view model accepts updates and ignores
+# them rather than refusing them, so the drop path in `_push` never runs -- measured on EU
+# 2.3.1.3, a session that attached 27 models dropped none. Holding them weakly does not help,
+# because the client keeps every model it built for the whole session. So the list is trimmed
+# by age instead, as in campaign-tracker: the client builds one garage document at a time, so
+# only the newest entry is on screen, and the others cover a rebuild that overlaps.
 _models = []
+_MAX_LIVE_MODELS = 4
 
 # The lobby bar strips as bar_probe.js last measured them, as JSON for window.js, by the edge of
 # the screen each bar holds. Empty until a bar's first report, and window.js keeps to its fixed
@@ -136,7 +145,6 @@ class _WindowDataModel(ViewModel):
     # Indices matching the declaration order in _initialize.
     _SNAPSHOT_INDEX = 0
     _VISIBLE_INDEX = 6
-    _SHOW_UNOWNED_INDEX = 8
     _BAR_INDEX = {'top': 9, 'bottom': 10}
 
     def setSnapshot(self, payload):
@@ -145,9 +153,6 @@ class _WindowDataModel(ViewModel):
 
     def setVisible(self, visible):
         self._setBool(self._VISIBLE_INDEX, bool(visible))
-
-    def setShowUnownedValue(self, value):
-        self._setBool(self._SHOW_UNOWNED_INDEX, bool(value))
 
     def setBar(self, edge, payload):
         self._setString(self._BAR_INDEX[edge], payload)
@@ -652,7 +657,8 @@ def _on_items_synced(*args):
 
 
 def install(logger):
-    """Patch the candidate hangar views. Returns True when at least one was hooked."""
+    """Give each garage root view the window's child, and patch the fallback candidates.
+    Returns True when the window can appear anywhere."""
     if _patched:
         return True
 
@@ -674,18 +680,32 @@ def install(logger):
     # this early -- but it costs nothing and `_bind_events` retries on every hangar build.
     route_gate.install(logger, _on_route_visibility)
 
+    factory = hangar_child.make_factory(logger, _INJECT_NAME, [_STYLE_URL], [_MODULE_URL], _DATA_PROPERTY,
+                                        lambda: _new_data_model('a child view'))
+    garages = hangar_child.attach(logger, _GARAGES, _POS_ID, factory, 'Directives window') if factory else []
+
     for module_path, class_name in _CANDIDATE_MODELS:
         model_class = _import_model(module_path, class_name, logger)
         if model_class is None:
             continue
         _patch(model_class, gf_mod_inject, logger)
 
-    if not _patched:
+    if not garages and not _patched:
         logger.warning('No hangar view could be hooked; the directives window is disabled')
         return False
 
-    logger.info('Directives window installed (%d candidate views)', len(_patched))
+    logger.info('Directives window installed (%d garages, %d fallback views)', len(garages), len(_patched))
     return True
+
+
+def _new_data_model(where):
+    """The data model for one window, kept for the pushes."""
+    data_model = _WindowDataModel(_initial_payload(_module_logger), config.current())
+    _models.append(data_model)
+    del _models[:-_MAX_LIVE_MODELS]
+    _bind_events(_module_logger)
+    _module_logger.info('Directives window attached to %s (%d live)', where, len(_models))
+    return data_model
 
 
 def _import_model(module_path, class_name, logger):
@@ -703,6 +723,9 @@ def _patch(model_class, gf_mod_inject, logger):
     def _initialize_with_window(self):
         global _claimed_class
         original(self)
+        if hangar_child.inside_patched_root():
+            # A known garage builds this presenter, and that garage has the window's own child.
+            return
         try:
             claim, _claimed_class = view_claim.decide(
                 model_class, _is_claimed(self, logger), _claimed_class)
@@ -714,12 +737,7 @@ def _patch(model_class, gf_mod_inject, logger):
                 styles=[str(_STYLE_URL)],
                 modules=[str(_MODULE_URL)],
             )
-            data_model = _WindowDataModel(_initial_payload(logger), config.current())
-            self._addViewModelProperty(str(_DATA_PROPERTY), data_model)
-            _models.append(data_model)
-            _bind_events(logger)
-            logger.info('Directives window attached to %s (%d live)',
-                        model_class.__name__, len(_models))
+            self._addViewModelProperty(str(_DATA_PROPERTY), _new_data_model(model_class.__name__))
         except Exception:
             _claimed_class = None
             logger.exception('Failed to attach the directives window model')
@@ -736,6 +754,8 @@ def uninstall(logger):
     _unbind_events(logger)
     loadout_panel.uninstall(logger)
     route_gate.uninstall(logger)
+    # Also undoes the bar probe's children, which share this copy of hangar_child.
+    hangar_child.uninstall(logger)
     del _models[:]
     while _patched:
         model_class, original = _patched.pop()

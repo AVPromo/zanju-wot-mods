@@ -1,0 +1,9 @@
+# Units of a time left
+# en: "d"
+UNIT_DAY_SHORT: "天"
+# en: "h"
+UNIT_HOUR_SHORT: "时"
+# en: "m"
+UNIT_MINUTE_SHORT: "分"
+# en: "s"
+UNIT_SECOND_SHORT: "秒"

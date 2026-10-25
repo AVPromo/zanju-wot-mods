@@ -1,0 +1,410 @@
+/* The Crucible hover card.
+ *
+ * This stylesheet belongs to the card's own document, in a window of the mod's own. It copies
+ * the base and the palette of the campaign-tracker card, whose card.css explains them: the
+ * document inherits no base style from the client, `1rem` is one pixel at interface scale 1,
+ * and the font changes for the scripts that PFDINMax has no glyphs for.
+ */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+}
+
+body {
+    color: #d7dbe0;
+    font-size: 15rem;
+    line-height: 1.35em;
+    font-family: PFDINMax;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
+html[lang=ja] body,
+html[lang=ko] body,
+html[lang=zh_tw] body,
+html[lang=zh_sg] body,
+html[lang=zh_cn] body,
+html[lang=vi] body,
+html[lang=th] body {
+    font-family: Warhelios;
+    letter-spacing: 0;
+}
+
+/* Transparent until Python has moved the window under the banner.
+ *
+ * The width here is only where the card starts. The series list sizes its columns to their content
+ * (see `fitColumns` in card.js), and the card then takes the width of that list, but never less
+ * than the width of the campaign card. The start is wide, so that no column wraps or shrinks
+ * before it is measured. */
+.zanju-crt-card {
+    display: flex;
+    opacity: 0;
+    width: 640rem;
+    min-width: 380rem;
+    flex-direction: column;
+    padding: 8rem 10rem 10rem 10rem;
+    background: rgba(17, 19, 22, 0.96);
+    border: 1rem solid rgba(255, 255, 255, 0.13);
+    border-radius: 3rem;
+}
+
+.zanju-crt-card-shown {
+    opacity: 1;
+}
+
+.zanju-crt-card-header {
+    display: block;
+    font-size: 13rem;
+    letter-spacing: 0.08em;
+    color: #9ca4ab;
+}
+
+/* The card of an active series. It has no series list to fit, so it takes a fixed width, a little
+   wider than the campaign card, and the condition texts wrap. */
+.zanju-crt-card-focus {
+    width: 400rem;
+}
+
+/* The name of the series, and the time left at the right edge, on one line. */
+.zanju-crt-focus-top {
+    display: flex;
+    align-items: baseline;
+    margin-top: 4rem;
+}
+
+.zanju-crt-focus-name {
+    display: block;
+    flex: 1 1 auto;
+    color: #f0f2f5;
+    font-weight: 500;
+}
+
+.zanju-crt-focus-time {
+    display: block;
+    flex: 0 0 auto;
+    margin-left: 12rem;
+    color: #d7dbe0;
+}
+
+/* One shield for each shield of the series, then the count. */
+.zanju-crt-focus-shields {
+    display: flex;
+    align-items: center;
+    margin-top: 4rem;
+}
+
+/* The images are 48 pixels. At 24rem, a 1920 wide screen draws them at exactly half that, so each
+   pixel takes two by two pixels of the image. At 20rem, the thin outline of a spent shield broke
+   into uneven lines. The 32 pixel images are no option: the spent one is another picture, a grey
+   shield with a red cross. */
+.zanju-crt-focus-shield {
+    display: block;
+    width: 24rem;
+    height: 24rem;
+    margin-right: 2rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.zanju-crt-focus-shield-count {
+    display: block;
+    margin-left: 4rem;
+    color: #f0f2f5;
+}
+
+.zanju-crt-focus-shields-last .zanju-crt-focus-shield-count {
+    color: #cc6b5a;
+}
+
+/* The vehicle in the garage cannot play the current mission. Yellow, the attention colour of the
+   campaign-tracker card. */
+.zanju-crt-note-warning {
+    display: block;
+    margin-top: 4rem;
+    color: #f0cf74;
+    font-weight: 500;
+}
+
+.zanju-crt-note {
+    display: block;
+    margin-top: 4rem;
+    color: #7d848b;
+}
+
+/* Every mission of the active series, below a rule. */
+.zanju-crt-missions {
+    display: flex;
+    flex-direction: column;
+    margin-top: 6rem;
+    padding-top: 2rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+.zanju-crt-mission {
+    display: flex;
+    flex-direction: column;
+    margin-top: 4rem;
+}
+
+.zanju-crt-mission-rule {
+    display: block;
+    height: 0;
+    margin-top: 3rem;
+    margin-bottom: 2rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+.zanju-crt-mission-head {
+    display: flex;
+    align-items: baseline;
+    padding-bottom: 2rem;
+    font-size: 13rem;
+}
+
+.zanju-crt-mission-title {
+    display: block;
+    color: #9ca4ab;
+}
+
+.zanju-crt-mission-completed {
+    display: block;
+    margin-left: 8rem;
+    color: #9ccb68;
+}
+
+/* The current mission reads in full colour. A completed mission and a mission still to come are
+   dim. */
+.zanju-crt-mission-current .zanju-crt-mission-title {
+    color: #f0f2f5;
+    font-weight: 500;
+}
+
+.zanju-crt-mission-done .zanju-crt-cond-text,
+.zanju-crt-mission-next .zanju-crt-cond-text {
+    color: #9ca4ab;
+}
+
+.zanju-crt-mission-done .zanju-crt-cond-icon,
+.zanju-crt-mission-next .zanju-crt-cond-icon {
+    opacity: 0.6;
+}
+
+.zanju-crt-cond {
+    display: block;
+    padding-bottom: 3rem;
+}
+
+.zanju-crt-cond-line {
+    display: flex;
+    align-items: center;
+}
+
+/* The client's own condition icon, from its Crucible screen. */
+.zanju-crt-cond-icon {
+    display: block;
+    flex: 0 0 18rem;
+    width: 18rem;
+    height: 18rem;
+    margin-right: 6rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.zanju-crt-cond-text {
+    display: block;
+    flex: 1 1 auto;
+}
+
+.zanju-crt-or {
+    display: block;
+    margin-left: 24rem;
+    padding-bottom: 3rem;
+    font-size: 13rem;
+    color: #9ca4ab;
+}
+
+/* The vehicles in a battle that has not ended, in the shape of the locked vehicles list of the
+   campaign-tracker card: a label, then one row per vehicle with its mark. The warning above the
+   list is yellow, and the list itself is a plain reference. */
+.zanju-crt-battles {
+    display: flex;
+    flex-direction: column;
+    margin-top: 6rem;
+    padding-top: 6rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+/* What the battle decides, in the warning yellow, above the list it belongs to. */
+.zanju-crt-battles-warning {
+    display: block;
+    margin-bottom: 4rem;
+    color: #f0cf74;
+    font-weight: 500;
+}
+
+.zanju-crt-battles-label {
+    display: block;
+    color: #9ca4ab;
+}
+
+.zanju-crt-battles-row {
+    display: flex;
+    align-items: center;
+    margin-top: 2rem;
+}
+
+.zanju-crt-battles-icon {
+    display: block;
+    flex: 0 0 13rem;
+    width: 13rem;
+    height: 13rem;
+    margin-right: 6rem;
+    background-color: #9ca4ab;
+    mask-image: url('R.images.gui.maps.icons.hangar.carousel.cards.alerts.inBattle');
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-mode: alpha;
+    opacity: 0.75;
+}
+
+.zanju-crt-battles-name {
+    display: block;
+    flex: 1 1 auto;
+    color: #9ca4ab;
+}
+
+.zanju-crt-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 6rem;
+    padding-top: 2rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+.zanju-crt-group {
+    display: block;
+    margin-top: 6rem;
+    margin-bottom: 2rem;
+    font-size: 13rem;
+    letter-spacing: 0.08em;
+    color: #9ca4ab;
+}
+
+.zanju-crt-series {
+    display: flex;
+    align-items: center;
+}
+
+/* Each column of a series row is as wide as its content, and none grows or shrinks. card.js then
+   gives every cell of a column the width of the widest one, so the columns stand in line from row
+   to row. One gap separates every two columns. */
+.zanju-crt-series-name,
+.zanju-crt-series-shields,
+.zanju-crt-series-completions,
+.zanju-crt-series-avail,
+.zanju-crt-series-time {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.zanju-crt-series-name {
+    display: block;
+}
+
+.zanju-crt-series-shields {
+    display: flex;
+    align-items: center;
+    margin-left: 16rem;
+}
+
+.zanju-crt-series-completions {
+    display: block;
+    margin-left: 16rem;
+    font-size: 13rem;
+    color: #9ca4ab;
+}
+
+/* Completed as often as the series allows: the green of the card's other good news. */
+.zanju-crt-series-complete {
+    color: #9ccb68;
+}
+
+/* What the player can do now, in the regular white. A paid restart keeps the colour of its
+   currency, below. */
+.zanju-crt-series-avail {
+    display: flex;
+    align-items: center;
+    margin-left: 16rem;
+    font-size: 13rem;
+    color: #d7dbe0;
+}
+
+/* Set by card.js once the columns are fitted: the spare width of the card goes here, so the time
+   stays at the right edge. */
+.zanju-crt-series-grow {
+    flex: 1 0 auto;
+}
+
+.zanju-crt-avail-label {
+    display: block;
+    margin-right: 5rem;
+}
+
+.zanju-crt-price {
+    display: flex;
+    align-items: center;
+}
+
+.zanju-crt-series-icon {
+    display: block;
+    flex: 0 0 15rem;
+    width: 15rem;
+    height: 15rem;
+    margin-right: 3rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.zanju-crt-series-number {
+    display: block;
+    font-size: 13rem;
+    color: #d7dbe0;
+}
+
+/* Gold reads gold, as on the client's own price tags. Credits keep the plain grey. */
+.zanju-crt-currency-gold .zanju-crt-series-number {
+    color: #f0cf74;
+}
+
+.zanju-crt-series-time {
+    display: block;
+    margin-left: 16rem;
+    text-align: right;
+    font-size: 13rem;
+    color: #7d848b;
+}
+
+/* The countdown the banner shows: the first end of a series that is not completed, or the end of
+   the active one. When every series of the first end is completed, that is the next end. The
+   other times are dim, and this one takes the regular colour of a live value. */
+.zanju-crt-soonest {
+    color: #d7dbe0;
+}
+
+/* What a click does, in the blue the campaign-tracker card gives its lit hint line. */
+.zanju-crt-hint {
+    display: block;
+    margin-top: 8rem;
+    padding-top: 6rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.1);
+    font-size: 13rem;
+    color: #5fb2f2;
+}
