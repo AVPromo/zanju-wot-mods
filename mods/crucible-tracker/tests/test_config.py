@@ -13,10 +13,10 @@ class ConfigTest(unittest.TestCase):
         config._state.clear()
         config._state.update(config.DEFAULTS)
 
-    def test_both_parts_are_on_and_the_banner_stands_right_by_default(self):
+    def test_both_parts_are_on_and_the_banner_stands_left_by_default(self):
         self.assertTrue(config.garage_enabled())
         self.assertTrue(config.battle_enabled())
-        self.assertEqual(config.tray_side(), 'right')
+        self.assertEqual(config.tray_side(), 'left')
 
     def test_each_part_switches_off_on_its_own(self):
         config.apply({'garageEnabled': False})
@@ -39,9 +39,9 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(config.sanitize({'panelDetails': 'alt'}), {'panelDetails': 'alt'})
 
     def test_the_menu_form_maps_both_ways(self):
-        config.apply({'traySide': 'left', 'battleEnabled': False, 'panelDetails': 'never'})
+        config.apply({'traySide': 'right', 'battleEnabled': False, 'panelDetails': 'never'})
         values = config.menu_values()
-        self.assertEqual(values['traySide'], 1)
+        self.assertEqual(values['traySide'], 0)
         self.assertEqual(values['panelDetails'], 2)
         self.assertFalse(values['battleEnabled'])
         menu_keys = dict((key, value) for key, value in config.sanitize(config.current()).items()
@@ -49,11 +49,11 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(config.from_menu(values), menu_keys)
 
     def test_the_template_carries_the_defaults(self):
-        config.apply({'traySide': 'left', 'garageEnabled': False, 'panelDetails': 'alt'})
+        config.apply({'traySide': 'right', 'garageEnabled': False, 'panelDetails': 'alt'})
         template = config.menu_template()
         controls = dict((control['varName'], control['value'])
                         for column in ('column1', 'column2') for control in template[column])
-        self.assertEqual(controls, {'garageEnabled': True, 'battleEnabled': True, 'panelDetails': 0, 'traySide': 0})
+        self.assertEqual(controls, {'garageEnabled': True, 'battleEnabled': True, 'panelDetails': 0, 'traySide': 1})
 
     def test_the_garage_and_the_battle_each_have_a_column_under_their_switch(self):
         template = config.menu_template()

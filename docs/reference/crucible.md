@@ -68,7 +68,7 @@ A child of `or` can also be an `and` group, so a mission can offer a choice of t
 | --- | --- |
 | `distance` | 0 is "within the view range of your vehicle", a positive value is "from N m or more", a negative value is "from N m or less" |
 | `limittedTime` | seconds from the start of the battle |
-| `attackReason` | an index into `ATTACK_REASONS`: 0 shot, 1 fire, 2 ramming |
+| `attackReason` | an index into `ATTACK_REASONS` in `scripts/common/constants.py`: 0 shot, 1 fire, 2 ramming, 3 world collision, 4 death zone, 5 drowning. The mod compares the numbers and has no names for them. |
 | `eventCount` | count the hits, not the HP |
 | `whileFullHealth`, `whileInvisible`, `whileEnemyInvisible` | conditions on the state of the player's vehicle or of the enemy |
 | `classes`, `classesDiversity` | the vehicle classes that count, or how many classes the kills must cover |
@@ -133,7 +133,7 @@ A replay never opens it, because the transport holds the series of the viewer no
 
 **Full information or bars only.** The setting `panelDetails` says when the panel shows its full information: the head with the shields, the name and the mission, and the text of each condition. The three choices are those of the client's own setting for the details of the damage log, and Mod Menu shows the client's labels for them, `#settings:feedback/tab/damageLogPanel/details/*`. Without the full information, a condition that the panel counts shows its icon, its bar and its figures on one line. A condition with nothing to count keeps its text, and the sets keep their "OR".
 
-The choice "Press Alt to display" follows `GameEvent.SHOW_EXTENDED_INFO` on the battle bus. `Avatar.handleKey` sends it on each press and release of `CMD_VEHICLE_MARKERS_SHOW_INFO`, Alt by default, with `isDown` in the context. The players panel, the damage log, the minimap and the vehicle markers follow the same event, so the panel follows the key that the player set. `handleKey` sends nothing while the player cannot see the world, and the game gets no release when it loses the keyboard with the key down, for example on Alt+Tab. So while the key is down, the panel asks `CommandMapping.g_instance.isActive` again every 0.2 s. Expected Vehicle Values reads Alt from the key events of its own Flash stage instead, and those come only while that stage has the keyboard. No battle has checked the Alt choice yet.
+The choice "Press Alt to display" follows `GameEvent.SHOW_EXTENDED_INFO` on the battle bus. `Avatar.handleKey` sends it on each press and release of `CMD_VEHICLE_MARKERS_SHOW_INFO`, Alt by default, with `isDown` in the context. The players panel, the damage log, the minimap and the vehicle markers follow the same event, so the panel follows the key that the player set. `handleKey` sends nothing while the player cannot see the world, and the game gets no release when it loses the keyboard with the key down, for example on Alt+Tab. So while the key is down, the panel asks `CommandMapping.g_instance.isActive` again every 0.2 s. Expected Vehicle Values reads Alt from the key events of its own Flash stage instead, and those come only while that stage has the keyboard. In the battles of 25 October 2026, the panel started in its short form, showed the full information while Alt was held, and went back on release. After Alt+Tab out of the battle, the panel also went back to its short form. The log does not say if the event of the client or the check every 0.2 s caught that release.
 
 The panel counts each condition from the battle controllers of `sessionProvider.shared`:
 

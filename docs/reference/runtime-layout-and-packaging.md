@@ -121,6 +121,8 @@ Before this rule, `mods-common/manifest.json` listed the mods of each file, apar
 
 **Checked in game on 2.4.1.0, on 14 October 2026.** All four modules ran in PT, RPB, DH and CT, each mod alone and all together. With DH and CT both installed, CT took `MainMenuModel` and DH took `VehicleMenuModel` in every garage build. Each of them alone took `MainMenuModel`. The new DH and CT also each ran next to the other mod's build from before the move. The old and new copies of `view_claim` kept the same split, and the old and new copies of `storage` read the window position that the other one wrote. [Testing](../testing.md#in-game-check-after-a-change-to-a-shared-module) lists the runs.
 
+**Checked again on 25 October 2026, after the move to child views and shared scripts.** DH 1.0.8, PT 1.0.4, CT 1.3.0 and CRT 1.0.0 each ran alone in the garage. No session had a `Traceback` or a script error. Each mod wrote `initialized`, built its own child view or window (`Directives window added to RandomHangar`, `Premium time counter added to LobbyHeader`, `Garage child view at 0x5a4e4354` and `0x5a435254`), and did its work: DH fitted and removed a directive, CT opened a mission and came back, and CRT placed its banner and measured its card.
+
 **Accepted consequences.** An IDE cannot resolve the sibling import in the source of a mod. A traceback in `game.log` names `res/scripts/client/gui/mods/<pkg>/<name>.py`, but the source is `mods-common/<name>.py`.
 
 ## Entry Point Rule

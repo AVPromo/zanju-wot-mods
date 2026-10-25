@@ -12,12 +12,11 @@ Open work only. When an item is finished, delete it from here and put whatever i
 
 ## Gameface Mods: The Rest Of The In-Game Check Of The Sub-Views And The Shared Plumbing
 
-Every Gameface mod of ours now rides on a child view of its own (see [Getting code into a document](docs/reference/gameface-mod-widgets.md#getting-code-into-a-document)), and the duplicated script plumbing is in `mods-common/gameface/` (see [Shared Modules](docs/reference/runtime-layout-and-packaging.md#shared-modules)). With all mods together, the garage parts of DH, PT, CT and CRT and the CRT battle panel passed in game on 16 October 2026. Two parts of the [in-game check](docs/testing.md#in-game-check-after-a-change-to-a-shared-module) are still open:
+Every Gameface mod of ours now rides on a child view of its own (see [Getting code into a document](docs/reference/gameface-mod-widgets.md#getting-code-into-a-document)), and the duplicated script plumbing is in `mods-common/gameface/` (see [Shared Modules](docs/reference/runtime-layout-and-packaging.md#shared-modules)). With all mods together, the garage parts of DH, PT, CT and CRT and the CRT battle panel passed in game on 16 October 2026, and each of them passed alone on 25 October 2026. One part of the [in-game check](docs/testing.md#in-game-check-after-a-change-to-a-shared-module) is still open:
 
 - DH in a mode garage, when one is in rotation: the window comes from a child of that mode's root view, and the log names the root view.
-- Each of DH, PT, CT and CRT alone, which catches a hidden dependency on another of our mods.
 
-Delete this section when both pass, and move any finding into the reference.
+Delete this section when it passes, and move any finding into the reference.
 
 ## Crucible Tracker: Open Checks
 

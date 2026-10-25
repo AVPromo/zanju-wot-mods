@@ -9,11 +9,12 @@ import unittest
 
 from test_crucible import (DAMAGE_OR_KILLS, DEALT_BLOCKED_RECEIVED, EARLY_DAMAGE, FAR_DAMAGE_OR_KILLS,
                            FULL_HEALTH_KILLS, HIGH_CALIBER, TOP_FIVE, TWICE_HEALTH, TWO_SETS, _conditions)
-from zanju_crt import crucible, progress
+from zanju_crt import progress
 
-SHOT = crucible.ATTACK_REASON_SHOT
-FIRE = crucible.ATTACK_REASON_FIRE
-RAM = crucible.ATTACK_REASON_RAM
+# The index of each attack reason in the client's ATTACK_REASONS.
+SHOT = 0
+FIRE = 1
+RAM = 2
 AWARD_NAMES = {228: 'mainGun', 34: 'warrior'}.get
 
 

@@ -53,7 +53,7 @@ DEFAULTS = {
     'enabled': True,
     'garageEnabled': True,
     'battleEnabled': True,
-    'traySide': SIDE_RIGHT,
+    'traySide': SIDE_LEFT,
     'panelDetails': DETAILS_ALWAYS,
     'panelPosition': None,
 }

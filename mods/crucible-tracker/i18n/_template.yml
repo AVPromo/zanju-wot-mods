@@ -33,7 +33,7 @@ LABEL_IN_BATTLE: ""
 # en: "The result of a battle that is still in progress completes or fails the current mission if a Crucible is active when the battle ends."
 LABEL_IN_BATTLE_WARNING: ""
 # The last line of the hover card.
-# en: "Click to open the Crucible"
+# en: "Click to open the Crucible menu"
 LABEL_HINT_OPEN: ""
 
 # Settings, in Mod Menu

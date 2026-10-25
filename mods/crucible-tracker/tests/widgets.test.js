@@ -124,7 +124,7 @@ function addAnchor(rect) {
 // The labels the Python side ships in every snapshot. A fixture, not a copy of the client's
 // strings: assert against `LABELS.x` rather than against the text.
 const LABELS = {
-    noActive: 'No active series',
+    noActive: 'No active Crucible',
     mission: 'Mission {stage} of {total}',
     missionNumber: 'Mission {stage}',
     completions: 'Completions: {done} / {allowed}',
@@ -138,7 +138,7 @@ const LABELS = {
     minuteUnit: 'm',
     secondUnit: 's',
     failed: 'Failed',
-    hintOpen: 'Click to open the Crucible',
+    hintOpen: 'Click to open the Crucible menu',
     header: 'CRUCIBLE',
     completed: 'Completed',
     or: 'OR',

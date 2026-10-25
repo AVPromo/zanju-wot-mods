@@ -405,6 +405,8 @@ The *moment of measurement* is the second, and it fails intermittently, which ma
 
 Wait two animation frames after every render, not only after the first one, then measure. Measure once more a frame later and republish only if the number changed — that costs one comparison and catches a late settle such as a font arriving between the two passes.
 
+**A `ResizeObserver` catches what the wait misses.** Two frames are not always enough for the first layout of a new window. On 25 October 2026 the Crucible battle panel opened in its short form and measured 300 by 22: its padding, with its one row still at zero height. The layout was right a moment later, but nothing measured it again until the next payload, so the row stayed cut. The client's own views that follow their content attach a `ResizeObserver` to their root, and resize the view from its callback, which runs after each layout that changes the size. Gameface has it natively. `crucible-tracker` does the same in `battle_panel.js`, and the panel opened at its full size from then on. `card_host.js` still waits for frames, and no hover card has shown the fault yet.
+
 **A hidden window runs no frames, which turns that wait into a deadlock.** `requestAnimationFrame` does not fire in a Wulf window that is hidden, so a panel cannot measure itself while it is off screen. Python waiting for a size before showing the window, and JavaScript waiting for a frame before reporting one, is a stand-off that produces no error at all: eleven hovers produced no measurement until an unrelated route change happened to render the view.
 
 Order it the other way round. Show the window first, at whatever size and position it last had, and keep the panel's own root transparent until Python has moved it:

@@ -103,13 +103,6 @@ def _is_text(value):
         return isinstance(value, str)
 
 
-# The index of each attack reason in the client's ATTACK_REASONS. A damage or kill condition
-# with no `attackReason` counts every reason: in the game, damage by fire and by ramming counts,
-# and so does a kill by either. A condition with `attackReason` counts only that reason.
-ATTACK_REASON_SHOT = 0
-ATTACK_REASON_FIRE = 1
-ATTACK_REASON_RAM = 2
-
 # The awards that the panel can count, by the name of their dossier record. A mission names an
 # award by its record ID, and `DB_ID_TO_RECORD` of the client gives the name, which is the same in
 # every language: 228 is `mainGun`. Each rule gives the result keys that add up to the figure, and
@@ -190,6 +183,9 @@ def parse_condition(name, value, award_name=None):
 
 
 def _attack_reason(node):
+    # The index of the reason in the client's ATTACK_REASONS: 0 a shot, 1 fire, 2 ramming. A damage
+    # or kill condition with no `attackReason` counts every reason: in the game, damage by fire and
+    # by ramming counts, and so does a kill by either.
     reason = leaf(node.get('attackReason'), None)
     return None if reason is None else int(reason)
 

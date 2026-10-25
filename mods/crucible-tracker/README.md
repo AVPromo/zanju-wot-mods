@@ -2,6 +2,7 @@
 
 ![Mod showcase image, available Crucibles](./images/available.png)
 ![Mod showcase image, active Crucible](./images/active.png)
+![Mod showcase image, progress in battle](./images/battle.png)
 
 ### This mod shows the status of your Crucible missions in the garage, and their progress in battle.
 

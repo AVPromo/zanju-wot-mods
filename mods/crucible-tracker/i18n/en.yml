@@ -17,7 +17,7 @@ LABEL_IN_BATTLE: "Vehicles in battle:"
 # A vehicle that can play the Crucible is in a battle that has not ended yet. The same text shows with a Crucible active and with none active.
 LABEL_IN_BATTLE_WARNING: "The result of a battle that is still in progress completes or fails the current mission if a Crucible is active when the battle ends."
 # The last line of the hover card.
-LABEL_HINT_OPEN: "Click to open the Crucible"
+LABEL_HINT_OPEN: "Click to open the Crucible menu"
 
 # Settings, in Mod Menu
 SETTING_GARAGE: "Garage banner"

@@ -145,7 +145,6 @@ class _WindowDataModel(ViewModel):
     # Indices matching the declaration order in _initialize.
     _SNAPSHOT_INDEX = 0
     _VISIBLE_INDEX = 6
-    _SHOW_UNOWNED_INDEX = 8
     _BAR_INDEX = {'top': 9, 'bottom': 10}
 
     def setSnapshot(self, payload):
@@ -154,9 +153,6 @@ class _WindowDataModel(ViewModel):
 
     def setVisible(self, visible):
         self._setBool(self._VISIBLE_INDEX, bool(visible))
-
-    def setShowUnownedValue(self, value):
-        self._setBool(self._SHOW_UNOWNED_INDEX, bool(value))
 
     def setBar(self, edge, payload):
         self._setString(self._BAR_INDEX[edge], payload)

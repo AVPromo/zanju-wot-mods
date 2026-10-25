@@ -126,7 +126,7 @@ class ConditionShapeTest(unittest.TestCase):
         ramming = _conditions('[["vehicleDamage", [["attackReason", [["value", 2]]], '
                               '["greaterOrEqual", [["value", 500.0]]]]]]')
         [[(name, value)]] = crucible.condition_sets(ramming)
-        self.assertEqual(crucible.parse_condition(name, value)['attackReason'], crucible.ATTACK_REASON_RAM)
+        self.assertEqual(crucible.parse_condition(name, value)['attackReason'], 2)
 
     def test_an_award_with_a_rule_is_live_by_its_record_name(self):
         names = {228: 'mainGun', 34: 'warrior', 36: 'sniper'}.get

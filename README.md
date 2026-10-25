@@ -30,7 +30,7 @@ Source repository for World of Tanks mods, build tooling, and game-facing techni
   </tr>
   <tr>
     <td colspan="2">
-      Garage banner for your Crucible series and its missions, with live progress of the current mission in battle.
+      Garage banner for your Crucible and its missions, with live progress of the current mission in battle.
     </td>
   </tr>
   <tr>
