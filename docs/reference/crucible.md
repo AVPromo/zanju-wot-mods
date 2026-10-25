@@ -174,5 +174,6 @@ The mod logs the first 40 hits and kills of a battle when a condition has a dist
 ## Related Reading
 
 - [Choosing A UI Approach](choosing-a-ui-approach.md), for the battle panel
+- [Battle Mission Progress](battle-mission-progress.md), for the client's own tracker in battle, and why the panel does not reuse it
 - [Personal Missions](personal-missions.md)
 - [Gameface Mod Widgets](gameface-mod-widgets.md#sharing-the-row-beside-the-vehicle-name), for the garage banner
