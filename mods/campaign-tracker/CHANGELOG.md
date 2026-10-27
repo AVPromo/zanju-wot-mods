@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.3.1 (27 October 2026)
+
+- Updated Russian translation. Thank you [@AVPromo](https://github.com/AVPromo)!
+
 ## 1.3.0 (25 October 2026)
 
 - New setting: the banners can stand on the left or the right side of the vehicle name.

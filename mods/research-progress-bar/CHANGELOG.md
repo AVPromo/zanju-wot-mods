@@ -1,6 +1,10 @@
 Changelog
 =========
 
+## 1.4.8 (27 October 2026)
+
+- Updated Russian translation. Thank you [@AVPromo](https://github.com/AVPromo)!
+
 ## 1.4.7 (25 October 2026)
 
 - Settings moved to `%APPDATA%\Wargaming.net\WorldOfTanks\mods\Zanju\research-progress-bar\`. On its first start, the mod copies them from the old folder, `%APPDATA%\zanju_wot_mods_cache\research-progress-bar\`, so nothing is lost.
