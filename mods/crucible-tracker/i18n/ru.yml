@@ -1,29 +1,29 @@
-# Hover card
+# Всплывающая карточка
 LABEL_NO_ACTIVE: "Нет активного Вызова"
-# {stage} is the number of the current mission, {total} the number of missions in the Crucible.
+# {stage} — номер текущей задачи, {total} — общее количество задач в Вызове.
 LABEL_MISSION: "Задача {stage} из {total}"
-# Above the conditions of one mission in the list of the active Crucible. {stage} is the mission number.
+# Отображается над условиями задачи в списке активного Вызова. {stage} — это номер задачи.
 LABEL_MISSION_NUMBER: "Задача {stage}"
-# {done} is how many times the player completed the Crucible, {allowed} how many times the Crucible allows.
+# {done} — сколько раз игрок завершил Вызов, {allowed} — сколько раз Вызов позволяет это сделать.
 LABEL_COMPLETIONS: "Завершено: {done} / {allowed}"
-# The Crucible can be started.
+# Вызов можно запустить.
 LABEL_AVAILABLE: "Доступно"
-# The Crucible ran out of shields, and the next restart costs nothing.
+# У Вызова закончились щиты, и следующий перезапуск бесплатный.
 LABEL_FREE_RESTART: "Доступен бесплатный перезапуск"
-# The Crucible ran out of shields. The price and the currency icon follow this text.
+# У Вызова закончились щиты. Цена и иконка валюты отображаются после этого текста.
 LABEL_RESTART_FOR: "Доступен перезапуск за:"
-# Above a list of vehicle names, one per line.
+# Отображается над списком названий техники (по одной на строку).
 LABEL_IN_BATTLE: "Техника в бою:"
-# A vehicle that can play the Crucible is in a battle that has not ended yet. The same text shows with a Crucible active and with none active.
+# Техника, подходящая для Вызова, находится в бою, который ещё не завершился. Этот текст показывается как при активном Вызове, так и без него.
 LABEL_IN_BATTLE_WARNING: "Если во время завершения боя активен Вызов, результат этого текущего боя может завершить или провалить текущую задачу."
-# The last line of the hover card.
+# Последняя строка всплывающей карточки.
 LABEL_HINT_OPEN: "Нажмите, чтобы открыть меню Вызова"
 
-# Settings, in Mod Menu
+# Настройки в меню модов
 SETTING_GARAGE: "Баннер в Ангаре"
 TOOLTIP_GARAGE_BODY: "Показывать баннер Вызова рядом с названием техники в ангаре вместе со всплывающей подсказкой."
 SETTING_BATTLE: "Панель в бою"
 TOOLTIP_BATTLE_BODY: "Показывать прогресс текущей задачи Вызова прямо в бою. Зажмите Ctrl и перетащите панель, чтобы изменить её положение."
-# The three choices come from the client's own setting for the details of the damage log: "Display always", "Press Alt to display", "Do not display".
+# Три доступных варианта берутся из собственных настроек игрового клиента для панели повреждений: «Отображать всегда», «Показывать по Alt», «Не отображать».
 SETTING_PANEL_DETAILS: "Подробности боевой панели"
 TOOLTIP_PANEL_DETAILS_BODY: "Определяет, когда боевая панель отображает полную информацию вместо только самой необходимой."
